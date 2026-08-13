@@ -1,0 +1,106 @@
+#version 330 core
+
+#extension GL_ARB_shading_language_420pack : enable
+#extension GL_ARB_separate_shader_objects : enable
+
+//#include "BlinnPhong.h"
+
+layout(std140, binding = 0) uniform CameraDataBlock {
+    vec3 viewPos;
+    int isOrtho;
+    vec4 orthoBounds;
+    float zNear;
+    float zFar;
+    mat4 view;
+    mat4 proj;
+    mat4 proj_view;// proj * view
+} cameraData;
+
+layout(std140, binding = 1) uniform ObjectDataBlock {
+    float transparent;
+    mat4 model;
+    mat4 normal;// transpose(inverse(model))
+    vec4 sphereBounds;
+} objectData;
+
+layout(std140, binding = 2) uniform UniformBufferObjectBlock {
+    int useColor;
+    int useNormalSmooth;
+} ubo;
+
+//layout(binding = 3) uniform sampler2D texSampler;
+uniform sampler2D texSampler;
+uniform vec3 inputColor = vec3(1.0f, 1.0f, 1.0f);
+
+layout(location = 0) in vec3 in_MCPosition;
+layout(location = 1) in vec3 in_VCPosition;
+layout(location = 2) in vec3 in_Color;
+layout(location = 3) in vec3 in_Normal;
+layout(location = 4) in vec2 in_UV;
+
+layout(location = 0) out vec4 out_ScreenColor;
+
+vec3 ambient = vec3(0.4f, 0.4f, 0.4f);
+struct Light {
+    vec3 direction;
+    vec3 color;
+};
+Light light = Light(
+vec3(0.0f, 0.0f, -1.0f),
+vec3(1.0f, 1.0f, 1.0f)
+);
+
+vec3 BlinnPhong(vec3 normal, vec3 fragPos, Light light)
+{
+    // diffuse
+    vec3 lightDir = normalize(-light.direction);
+    float diff = max(dot(lightDir, normal), 0.0f);
+    vec3 diffuse = diff * light.color * 0.5f;
+    // specular
+    vec3 viewDir = normalize(cameraData.viewPos - fragPos);
+    float spec = 0.0f;
+    //    vec3 halfwayDir = normalize(lightDir + viewDir);
+    //    spec = pow(max(dot(normal, halfwayDir), 0.0), 32.0);
+    vec3 reflectDir = reflect(-lightDir, normal);
+    spec = pow(max(dot(viewDir, reflectDir), 0.0f), 32.0f);
+    vec3 specular = spec * light.color * 0.5f;
+
+    //return diffuse + specular;
+    return diffuse;
+}
+
+void main() {
+    //out_ScreenColor = texture(texSampler, in_UV);
+    vec3 color = vec3(0.0f, 0.0f, 0.0f);
+
+    vec3 normal = vec3(0.0f, 0.0f, 0.0f);
+    if (ubo.useNormalSmooth == 1) {
+        // continuous patch
+        normal = normalize(in_Normal);
+    } else {
+        // discrete patch
+        float scale = 1.0f / length(fwidth(in_VCPosition));
+        vec3 fdx = dFdx(in_VCPosition) * scale;
+        vec3 fdy = dFdy(in_VCPosition) * scale;
+        normal = normalize(cross(fdx, fdy));
+    }
+    // correct normal orientation
+    if (cameraData.isOrtho == 1 && normal.z < 0.0f) {
+        normal = -1.0f * normal;
+    }
+    if (cameraData.isOrtho == 0 && dot(normal, in_VCPosition) > 0.0f) {
+        normal = -1.0f * normal;
+    }
+
+    //use in_Color if exist, if not ,use default color
+    vec3 baseColor = (ubo.useColor == 1) ? in_Color : inputColor;
+
+    // ambient
+    color += ambient * baseColor;
+    // lighting
+    vec3 lighting = BlinnPhong(normal, in_MCPosition, light);
+    color += lighting * baseColor;
+
+    out_ScreenColor = vec4(color, 1.0f);
+    //out_ScreenColor = vec4(in_Color, 1.0);
+}

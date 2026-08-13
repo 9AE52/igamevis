@@ -1,0 +1,22 @@
+﻿{
+    "configurations": [
+        {
+            "name": "x64-Release",
+            "generator": "Ninja",
+            "configurationType": "Release",
+            "buildRoot": "${projectDir}\\..\\cmake-build-examples-vs",
+            "installRoot": "${projectDir}\\..\\cmake-build-examples-vs\\install",
+            "cmakeCommandArgs": "",
+            "buildCommandArgs": "",
+            "ctestCommandArgs": "",
+            "inheritEnvironments": [ "msvc_x64_x64" ],
+            "variables": [
+                {
+                    "name": "iGameCore_DIR",
+                    "value": "${projectDir}/../cmake-build-release/install/lib/cmake/iGameCore",
+                    "type": "PATH"
+                }
+            ]
+        }
+    ]
+}

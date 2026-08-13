@@ -1,0 +1,436 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>QualityDetection</class>
+ <widget class="QWidget" name="QualityDetection">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>327</width>
+    <height>408</height>
+   </rect>
+  </property>
+  <property name="sizePolicy">
+   <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+    <horstretch>0</horstretch>
+    <verstretch>0</verstretch>
+   </sizepolicy>
+  </property>
+  <property name="windowTitle">
+   <string>Form</string>
+  </property>
+  <layout class="QVBoxLayout" name="verticalLayout_2">
+   <property name="sizeConstraint">
+    <enum>QLayout::SetDefaultConstraint</enum>
+   </property>
+   <item>
+    <widget class="QScrollArea" name="scrollArea">
+     <property name="sizePolicy">
+      <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+       <horstretch>0</horstretch>
+       <verstretch>0</verstretch>
+      </sizepolicy>
+     </property>
+     <property name="layoutDirection">
+      <enum>Qt::LeftToRight</enum>
+     </property>
+     <property name="midLineWidth">
+      <number>0</number>
+     </property>
+     <property name="widgetResizable">
+      <bool>true</bool>
+     </property>
+     <property name="alignment">
+      <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+     </property>
+     <widget class="QWidget" name="scrollAreaWidgetContents">
+      <property name="geometry">
+       <rect>
+        <x>0</x>
+        <y>0</y>
+        <width>307</width>
+        <height>388</height>
+       </rect>
+      </property>
+      <layout class="QVBoxLayout" name="verticalLayout">
+       <item>
+        <widget class="QGroupBox" name="groupBox_16">
+         <property name="title">
+          <string>三角形网格质量</string>
+         </property>
+         <layout class="QVBoxLayout" name="verticalLayout_28">
+          <property name="leftMargin">
+           <number>5</number>
+          </property>
+          <property name="topMargin">
+           <number>5</number>
+          </property>
+          <property name="rightMargin">
+           <number>5</number>
+          </property>
+          <property name="bottomMargin">
+           <number>5</number>
+          </property>
+          <item>
+           <layout class="QHBoxLayout" name="horizontalLayout_3">
+            <item>
+             <widget class="QLabel" name="label_5">
+              <property name="text">
+               <string>质量指标</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QComboBox" name="triMeshComboBox">
+              <property name="currentText">
+               <string/>
+              </property>
+              <item>
+               <property name="text">
+                <string/>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>面积</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>最大内角</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>最小内角</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>雅克比</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>纵横比</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>长宽比</string>
+               </property>
+              </item>
+             </widget>
+            </item>
+           </layout>
+          </item>
+          <item>
+           <widget class="QLabel" name="labelTriMetric">
+            <property name="text">
+             <string/>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QGroupBox" name="groupBox_19">
+         <property name="title">
+          <string>四边形网格质量</string>
+         </property>
+         <layout class="QVBoxLayout" name="verticalLayout_32">
+          <property name="leftMargin">
+           <number>5</number>
+          </property>
+          <property name="topMargin">
+           <number>5</number>
+          </property>
+          <property name="rightMargin">
+           <number>5</number>
+          </property>
+          <property name="bottomMargin">
+           <number>5</number>
+          </property>
+          <item>
+           <layout class="QHBoxLayout" name="horizontalLayout_9">
+            <item>
+             <widget class="QLabel" name="label_8">
+              <property name="text">
+               <string>质量指标</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QComboBox" name="quadMeshComboBox">
+              <property name="currentText">
+               <string/>
+              </property>
+              <item>
+               <property name="text">
+                <string/>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>面积</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>最大内角</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>最小内角</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>雅克比</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>纵横比</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>长宽比</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>翘曲</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>锥度</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>歪斜度</string>
+               </property>
+              </item>
+             </widget>
+            </item>
+           </layout>
+          </item>
+          <item>
+           <widget class="QLabel" name="labelQuadMetric">
+            <property name="text">
+             <string/>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QGroupBox" name="groupBox_18">
+         <property name="title">
+          <string>四面体网格质量</string>
+         </property>
+         <layout class="QVBoxLayout" name="verticalLayout_31">
+          <property name="leftMargin">
+           <number>5</number>
+          </property>
+          <property name="topMargin">
+           <number>5</number>
+          </property>
+          <property name="rightMargin">
+           <number>5</number>
+          </property>
+          <property name="bottomMargin">
+           <number>5</number>
+          </property>
+          <item>
+           <layout class="QHBoxLayout" name="horizontalLayout_8">
+            <item>
+             <widget class="QLabel" name="label_7">
+              <property name="text">
+               <string>质量指标</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QComboBox" name="tetMeshComboBox">
+              <property name="currentText">
+               <string/>
+              </property>
+              <item>
+               <property name="text">
+                <string/>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>体积</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>纵横比</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>雅克比</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>塌陷率</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>歪斜度</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>内角</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>长宽比</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>等角斜率</string>
+               </property>
+              </item>
+             </widget>
+            </item>
+           </layout>
+          </item>
+          <item>
+           <widget class="QLabel" name="labelTetMetric">
+            <property name="text">
+             <string/>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QGroupBox" name="groupBox_17">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="title">
+          <string>六面体网格质量</string>
+         </property>
+         <layout class="QVBoxLayout" name="verticalLayout_30">
+          <property name="leftMargin">
+           <number>5</number>
+          </property>
+          <property name="topMargin">
+           <number>5</number>
+          </property>
+          <property name="rightMargin">
+           <number>5</number>
+          </property>
+          <property name="bottomMargin">
+           <number>5</number>
+          </property>
+          <item>
+           <layout class="QHBoxLayout" name="horizontalLayout_5">
+            <item>
+             <widget class="QLabel" name="label_6">
+              <property name="text">
+               <string>质量指标</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QComboBox" name="hexMeshComboBox">
+              <property name="currentText">
+               <string/>
+              </property>
+              <item>
+               <property name="text">
+                <string/>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>体积</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>锥度</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>雅克比</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>长宽比</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>最大长宽比</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>歪斜度</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>伸展度</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>对角线长度比值</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>相对大小平方</string>
+               </property>
+              </item>
+             </widget>
+            </item>
+           </layout>
+          </item>
+          <item>
+           <widget class="QLabel" name="labelHexMetric">
+            <property name="text">
+             <string/>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <resources>
+  <include location="../iGameQtMainWindow.qrc"/>
+ </resources>
+ <connections/>
+</ui>

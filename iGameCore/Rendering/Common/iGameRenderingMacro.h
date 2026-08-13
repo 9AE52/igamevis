@@ -1,0 +1,96 @@
+#pragma once
+
+#include "iGameRenderingLogger.h"
+
+#ifdef IGAME_PLATFORM_WINDOWS
+    #define GL_SUPPORT_MSAA
+#endif
+
+// #define ENABLE_CULLING_DEBUGINFO
+// #define GL_SUPPORTS_MESH_SHADER
+
+#define MAX_FRAMEBUFFER_WIDTH 8192
+#define MAX_FRAMEBUFFER_HEIGHT 8192
+#define VOLUME_RENDERING_FRAMEBUFFER_WIDTH 1024
+
+/*
+    GL_NO_ERROR: (0)
+    GL_INVALID_ENUM: (1280)
+    GL_INVALID_VALUE: (1281)
+    GL_INVALID_OPERATION: (1282)
+    GL_STACK_OVERFLOW: (1283)
+    GL_STACK_UNDERFLOW: (1284)
+    GL_OUT_OF_MEMORY: (1285)
+    GL_INVALID_FRAMEBUFFER_OPERATION: (1286)
+    GL_CONTEXT_LOST: (1287)
+    */
+
+#ifdef IGAME_OPENGL_VERSION_460
+    #define GLCheckError()                                                     \
+        {                                                                      \
+            GLenum err;                                                        \
+            while ((err = glGetError()) != GL_NO_ERROR) {                      \
+                std::string error;                                             \
+                switch (err) {                                                 \
+                    case GL_INVALID_ENUM:                                      \
+                        error = "INVALID_ENUM";                                \
+                        break;                                                 \
+                    case GL_INVALID_VALUE:                                     \
+                        error = "INVALID_VALUE";                               \
+                        break;                                                 \
+                    case GL_INVALID_OPERATION:                                 \
+                        error = "INVALID_OPERATION";                           \
+                        break;                                                 \
+                    case GL_STACK_OVERFLOW:                                    \
+                        error = "STACK_OVERFLOW";                              \
+                        break;                                                 \
+                    case GL_STACK_UNDERFLOW:                                   \
+                        error = "STACK_UNDERFLOW";                             \
+                        break;                                                 \
+                    case GL_OUT_OF_MEMORY:                                     \
+                        error = "OUT_OF_MEMORY";                               \
+                        break;                                                 \
+                    case GL_INVALID_FRAMEBUFFER_OPERATION:                     \
+                        error = "INVALID_FRAMEBUFFER_OPERATION";               \
+                        break;                                                 \
+                    default:                                                   \
+                        error = "UNKNOWN_ERROR";                               \
+                        break;                                                 \
+                }                                                              \
+                IGAME_RENDERING_ERROR("OpenGL error: {} ({}) in file {} at "   \
+                                      "line {}",                               \
+                                      error, err, __FILE__, __LINE__);         \
+            }                                                                  \
+        }
+#else
+    #define GLCheckError()                                                     \
+        {                                                                      \
+            GLenum err;                                                        \
+            while ((err = glGetError()) != GL_NO_ERROR) {                      \
+                std::string error;                                             \
+                switch (err) {                                                 \
+                    case GL_INVALID_ENUM:                                      \
+                        error = "INVALID_ENUM";                                \
+                        break;                                                 \
+                    case GL_INVALID_VALUE:                                     \
+                        error = "INVALID_VALUE";                               \
+                        break;                                                 \
+                    case GL_INVALID_OPERATION:                                 \
+                        error = "INVALID_OPERATION";                           \
+                        break;                                                 \
+                    case GL_OUT_OF_MEMORY:                                     \
+                        error = "OUT_OF_MEMORY";                               \
+                        break;                                                 \
+                    case GL_INVALID_FRAMEBUFFER_OPERATION:                     \
+                        error = "INVALID_FRAMEBUFFER_OPERATION";               \
+                        break;                                                 \
+                    default:                                                   \
+                        error = "UNKNOWN_ERROR";                               \
+                        break;                                                 \
+                }                                                              \
+                IGAME_RENDERING_ERROR("OpenGL error: {} ({}) in file {} at "   \
+                                      "line {}",                               \
+                                      error, err, __FILE__, __LINE__);         \
+            }                                                                  \
+        }
+#endif

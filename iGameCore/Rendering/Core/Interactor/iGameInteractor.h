@@ -1,0 +1,165 @@
+//
+// Created by Sumzeek on 9/9/2024.
+//
+
+#ifndef IGAMEVIS_INTERACTOR_H
+#define IGAMEVIS_INTERACTOR_H
+
+#include "iGameBasicStyle.h"
+#include "iGameDragCenterStyle.h"
+#include "iGameInteractorStyle.h"
+#include "iGameMultiSelectionStyle.h"
+#include "iGameSingleDragStyle.h"
+#include "iGameSingleSelectionStyle.h"
+#include "iGameSlicingStyle.h"
+#include "iGameStreamlineStyle.h"
+#include <map>
+#include <string>
+
+IGAME_NAMESPACE_BEGIN
+
+class Interactor : public Object {
+public:
+    I_OBJECT(Interactor);
+    static Pointer New() { return new Interactor; }
+
+    // 交互风格
+    enum Style {
+        BasicStyle = 0,            // 基础
+        SinglePointSelectionStyle, // 点选
+        SingleFaceSelectionStyle,  // 面选
+        MultiPointSelectionStyle,  // 多个点选
+        MultiFaceSelectionStyle,   // 多个面选
+        DragPointStyle,            // 点拖动
+        SlicingStyle,              // 切片
+        StreamLine,                // 流形的线
+        //PickCenterStyle,            // 点选中心点
+        DragCenterStyle, // 拖动中心点
+    };
+
+    /**
+     * @brief 初始化，需要绑定一个场景
+     * @param scene 渲染坐标轴的目标场景
+     */
+    void Initialize(SmartPointer<Scene> scene);
+
+    /**
+     * @brief 创建一个默认的交互风格
+     */
+    void CreateDefaultStyle();
+
+    /**
+     * @brief 响应事件，传入一个事件
+     * @param event 事件
+     */
+    void FilterEvent(IEvent event);
+
+    /**
+     * @brief 切换成基础风格类型交互器
+     */
+    void RequestBasicStyle();
+
+    /**
+     * @brief 切换成点拖选风格类型交互器
+     * @param Selection s 事件响应后将会通知的对象
+     */
+    void RequestDragPointStyle(SmartPointer<Selection> s);
+
+    /**
+     * @brief 切换成点选风格类型交互器
+     * @param Selection s 事件响应后将会通知的对象
+     */
+    void RequestPointSelectionStyle(SmartPointer<Selection> s);
+
+    /**
+     * @brief 切换成面选风格类型交互器
+     * @param Selection s 事件响应后将会通知的对象
+     */
+    void RequestFaceSelectionStyle(SmartPointer<Selection> s);
+
+
+    void RequestPickCenterStyle(SmartPointer<Selection> s);
+    // 添加新方法声明
+    void RequestDragCenterStyle(SmartPointer<Selection> s);
+
+    /**
+     * @brief 将s绑定到交互器上
+     * @param Selection s 事件响应后将会通知的对象
+     */
+    void LoadSelectionStyleRequired(SmartPointer<Selection> s);
+
+    /**
+     * @brief 切换成切片风格类型交互器
+     */
+    //void RequestSlicingStyle();
+    void RequestSlicingStyle(SmartPointer<Selection> s);
+
+    /**
+     * @brief 切换成流形的线类型交互器
+     * @param Selection s 事件响应后将会通知的对象
+     */
+    void RequestStreamLineStyle(SmartPointer<Selection> s);
+
+    /**
+     * @brief 设置特殊交互器
+     * @param string interactorName 交互器名
+     * @param SmartPointer<InteractorStyle> interactorStyle 特殊交互器
+     * @return 返回交互器名
+     */
+    std::string
+    _SetSpecialInteractor(const std::string& interactorName,
+                          SmartPointer<InteractorStyle> interactorStyle);
+
+    /**
+     * @brief 删除特殊交互器
+     * @param string interactorName 交互器名
+     */
+    void RemoveSepcialInteractor(const std::string& interactorName);
+
+    /**
+     * @brief 设置特殊交互器的define，自动生成交互器名
+     * @param SmartPointer<InteractorStyle> interactorStyle 特殊交互器
+     */
+#define SetSpecialInteractor(interactorStyle)                                  \
+    _SetSpecialInteractor(std::string(__FILE__) + std::to_string(__LINE__),    \
+                          interactorStyle)
+
+    SmartPointer<InteractorStyle>
+    GetSpecialInteractor(const std::string& interactorName);
+
+    bool HaveSpecialInteractor(const std::string& interactorName);
+
+    bool IsBasicStyle() const;
+
+    /**
+     * @brief 获取场景的一些信息
+     */
+    float GetWidth() const;
+    float GetHeight() const;
+    igm::mat4 GetMVP() const;
+
+    Scene* GetScene();
+    Camera* GetCamera();
+
+    void SetDataObject(SmartPointer<DataObject> obj);
+    SmartPointer<DataObject> GetDataObject();
+    void SetPainter3D(SmartPointer<Painter3D> p);
+    SmartPointer<Painter3D> GetPainter3D();
+    void Finalize();
+
+protected:
+    Interactor();
+    ~Interactor() override;
+
+    bool is_Base;
+    SmartPointer<InteractorStyle> m_Internal;
+    SmartPointer<Scene> m_Scene;
+    SmartPointer<Camera> m_Camera;
+    SmartPointer<Painter3D> m_Painter3D;
+    SmartPointer<DataObject> m_DataObject;
+    std::map<std::string, SmartPointer<InteractorStyle>> m_SpecialInternals;
+};
+
+IGAME_NAMESPACE_END
+
+#endif //IGAMEVIS_INTERACTOR_H

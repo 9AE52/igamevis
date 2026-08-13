@@ -1,0 +1,294 @@
+/* AI chat dock: matches the application's Visual Studio-like dark theme. */
+QWidget#aiChatWidget {
+    background-color: #1F1F1F;
+    color: #EAEAEA;
+}
+
+QGroupBox#chatGroupBox {
+    border: 1px solid #3A3A3A;
+    border-radius: 4px;
+    margin: 2px;
+    padding: 5px;
+    background-color: #252526;
+}
+
+QScrollArea#chatScrollArea {
+    border: 1px solid #3A3A3A;
+    border-radius: 3px;
+    background-color: #1F1F1F;
+}
+
+QScrollArea#chatScrollArea QWidget#chatContentWidget {
+    background-color: #1F1F1F;
+}
+
+QScrollBar:vertical {
+    background: #1F1F1F;
+    width: 10px;
+    margin: 0px;
+}
+
+QScrollBar::handle:vertical {
+    background: #4A4A4A;
+    min-height: 24px;
+    border-radius: 4px;
+}
+
+QScrollBar::handle:vertical:hover {
+    background: #5A5A5A;
+}
+
+QScrollBar::add-line:vertical,
+QScrollBar::sub-line:vertical,
+QScrollBar::add-page:vertical,
+QScrollBar::sub-page:vertical {
+    background: transparent;
+    height: 0px;
+}
+
+/* Typing Indicator */
+QLabel#typingLabel {
+    color: #A8A8A8;
+    font-style: italic;
+    padding: 5px;
+}
+
+/* Status Label */
+QLabel#statusLabel {
+    font-weight: bold;
+    padding: 5px 8px;
+    font-size: 12px;
+}
+
+QLabel#statusLabel[status="disconnected"] {
+    color: #E06C75;
+}
+
+QLabel#statusLabel[status="waiting"] {
+    color: #D19A66;
+}
+
+QLabel#statusLabel[status="connected"] {
+    color: #98C379;
+}
+
+/* MCP Path Label */
+QLabel#mcpPathLabel {
+    padding: 5px 8px;
+    font-size: 11px;
+}
+
+QLabel#mcpPathLabel[status="notset"] {
+    color: #A8A8A8;
+}
+
+QLabel#mcpPathLabel[status="found"] {
+    color: #98C379;
+}
+
+QLabel#mcpPathLabel[status="missing"] {
+    color: #E06C75;
+}
+
+/* Settings Button */
+QPushButton#settingsButton {
+    background-color: #2A2A2A;
+    color: #D8D8D8;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 3px;
+    font-weight: bold;
+    font-size: 11px;
+}
+
+QPushButton#settingsButton:hover {
+    background-color: #3A3A3A;
+}
+
+QPushButton#settingsButton:pressed {
+    background-color: #252526;
+}
+
+/* Connect Button */
+QPushButton#connectButton {
+    background-color: #5A6066;
+    color: #ECECEC;
+    border: 1px solid #747C84;
+    padding: 5px 10px;
+    border-radius: 3px;
+    font-weight: bold;
+    font-size: 12px;
+}
+
+QPushButton#connectButton:hover {
+    background-color: #666D74;
+}
+
+QPushButton#connectButton:pressed {
+    background-color: #4A5056;
+}
+
+QPushButton#connectButton[status="disconnect"] {
+    background-color: #A94442;
+    border-color: #C75B5B;
+}
+
+QPushButton#connectButton[status="disconnect"]:hover {
+    background-color: #BD514E;
+}
+
+QPushButton#connectButton[status="disconnect"]:pressed {
+    background-color: #883B39;
+}
+
+/* Cursor-style Integrated Input Frame */
+QFrame#inputFrame {
+    background-color: #252526;
+    border: 1px solid #3A3A3A;
+    border-radius: 4px;
+    padding: 0px;
+}
+
+/* Message Input */
+QTextEdit#messageInput {
+    border: none;
+    background-color: transparent;
+    padding: 8px;
+    font-size: 16px;
+    color: #EAEAEA;
+    font-family: 'Microsoft YaHei', 'Segoe UI', sans-serif;
+    line-height: 1.4;
+}
+
+QTextEdit#messageInput:focus {
+    background-color: transparent;
+}
+
+/* Settings Button  */
+QPushButton#settingsButton {
+    background-color: transparent;
+    color: #A8A8A8;
+    border: none;
+    border-radius: 3px;
+    font-size: 12px;
+    padding: 0px;
+}
+
+QPushButton#settingsButton:hover {
+    background-color: #3A3A3A;
+    color: #569CD6;
+}
+
+QPushButton#settingsButton:pressed {
+    background-color: #2A2A2A;
+}
+
+/* Send Button */
+QPushButton#sendButton {
+    background-color: #3E6F94;
+    color: #F2F2F2;
+    border: 1px solid #569CD6;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: 500;
+    padding: 4px 16px;
+}
+
+QPushButton#sendButton:hover {
+    background-color: #4A7FA8;
+}
+
+QPushButton#sendButton:pressed {
+    background-color: #315B7B;
+}
+
+QPushButton#sendButton:disabled {
+    background-color: #2A2A2A;
+    color: #707070;
+    border-color: #3A3A3A;
+}
+
+/* MCP Path Label */
+QLabel#mcpPathLabel {
+    font-size: 11px;
+    padding: 0px;
+    background-color: transparent;
+}
+
+QLabel#mcpPathLabel[status="notset"] {
+    color: #A8A8A8;
+}
+
+QLabel#mcpPathLabel[status="found"] {
+    color: #98C379;
+}
+
+QLabel#mcpPathLabel[status="missing"] {
+    color: #E06C75;
+}
+
+
+
+
+QFrame#userMessageFrame {
+    background-color: #263746;
+    border: 1px solid #3E5E74;
+    border-radius: 4px;
+    padding: 16px 20px;
+    margin: 0px;
+}
+
+
+QFrame#aiMessageFrame {
+    background-color: #252526;
+    border: 1px solid #3A3A3A;
+    border-radius: 4px;
+    padding: 8px 0px;
+    margin: 0px;
+}
+
+
+QLabel#userRoleLabel {
+    font-size: 12px;
+    font-weight: bold;
+    color: #79B8E8;
+    margin: 0px;
+    padding: 0px;
+}
+
+
+QLabel#aiRoleLabel {
+    font-size: 12px;
+    font-weight: bold;
+    color: #EAEAEA;
+    margin: 0px;
+    padding: 0px;
+}
+
+
+QLabel#userContentLabel {
+    font-size: 14px;
+    color: #EAEAEA;
+    line-height: 1.6;
+    background: transparent;
+    border: none;
+    font-family: 'Microsoft YaHei', 'Segoe UI', sans-serif;
+}
+
+
+QLabel#aiContentLabel {
+    font-size: 14px;
+    color: #D8D8D8;
+    line-height: 1.6;
+    background: transparent;
+    border: none;
+    font-family: 'Microsoft YaHei', 'Segoe UI', sans-serif;
+}
+
+
+QLabel#messageTimeLabel {
+    font-size: 11px;
+    color: #A8A8A8;
+    margin: 0px;
+    padding: 0px;
+}

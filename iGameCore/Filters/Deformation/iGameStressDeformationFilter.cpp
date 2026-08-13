@@ -1,0 +1,310 @@
+//
+// Created by m_ky on 2024/10/16.
+//
+
+/**
+ * @class   iGameStressDeformationFilter
+ * @brief   iGameStressDeformationFilter's brief
+ */
+
+#include "iGameStressDeformationFilter.h"
+#include "iGamePointSet.h"
+#include "iGameUnstructuredMesh.h"
+#include <iGameSceneManager.h>
+
+iGame::StressDeformationFilter::StressDeformationFilter() {
+    SetNumberOfInputs(1);
+    SetNumberOfOutputs(2);
+}
+
+bool iGame::StressDeformationFilter::Execute() {
+    auto dataObject = this->GetInput(0);
+    if(nullptr == dataObject) {
+        return false;
+    }
+//    if(!dataObject->GetDeformationData()->GetEnableStatus()) {
+//        IGAME_CORE_WARN("Deformation Filter : Disabled.");
+//        return false;
+//    }
+    if(dataObject->GetDeformationData()->GetAutoComputeStatus()) {
+        CalculateIdealDSF();
+    }
+    const std::string& deform_var = dataObject->GetDeformationData()->GetDeformationAttributeName();
+    float deform_x = dataObject->GetDeformationData()->GetScaleFactorX();
+    float deform_y = dataObject->GetDeformationData()->GetScaleFactorY();
+    float deform_z = dataObject->GetDeformationData()->GetScaleFactorZ();
+    std::cout << "deformation var : " << deform_var << ' ' << deform_x << ' ' << deform_y << ' '<< deform_z << ' ' << '\n';
+
+    /* Process SubDataObject's Deformation. */
+    if(dataObject->HasSubDataObject()){
+        int subObjIndex = 0;
+        for(auto it = dataObject->SubDataObjectIteratorBegin(); it != dataObject->SubDataObjectIteratorEnd(); ++ it, ++subObjIndex){
+            auto pointset = DynamicCast<iGame::PointSet>(it->second);
+            // Note: ConvertToDrawableData is already called by SyncGpuBuffers
+            // before this filter executes, so we skip it here
+            ArrayObject::Pointer attribute_set{nullptr};
+            if(pointset == nullptr || (attribute_set = pointset->GetAttributeSet()->GetAttribute(deform_var).pointer) ==
+                                              nullptr ){
+//                std::cout << "[DeformFilter DEBUG] SubObject #" << subObjIndex << " - SKIP: pointset or attribute not found" << std::endl;
+                continue;  // Changed from 'return false' to 'continue' to process remaining sub-objects
+            }
+            auto render_pos_set = pointset->GetRenderPoints();
+            auto pointMap = pointset->GetPointMap();
+            
+//            // ========== DEBUG INFO START ==========
+//            std::cout << "[DeformFilter DEBUG] Processing SubObject #" << subObjIndex << std::endl;
+//            std::cout << "  - pointset name: " << pointset->GetName() << std::endl;
+//            std::cout << "  - pointset->GetNumberOfPoints(): " << pointset->GetNumberOfPoints() << std::endl;
+//            std::cout << "  - render_pos_set size: " << render_pos_set->GetNumberOfValues() << std::endl;
+//            std::cout << "  - attribute_set size: " << attribute_set->GetNumberOfValues() << std::endl;
+//            std::cout << "  - pointMap: " << (pointMap != nullptr ? "exists" : "nullptr") << std::endl;
+//            if(pointMap != nullptr){
+//                std::cout << "  - pointMap->GetNumberOfValues(): " << pointMap->GetNumberOfValues() << std::endl;
+//            }
+//            // ========== DEBUG INFO END ==========
+            
+            /* Not process Model Geometry Surface Filter, means that the points rendered are raw points
+             * So we don't need to use pointMap.*/
+            if(pointMap == nullptr && render_pos_set->GetNumberOfValues() == attribute_set->GetNumberOfValues()){
+                std::cout << "[DeformFilter DEBUG] SubObject #" << subObjIndex << " - Branch: raw points (pointMap == nullptr)" << std::endl;
+                if(pointset->GetPoints()->ConvertToArray() == render_pos_set){
+                    FloatArray::Pointer newCopy = FloatArray::New();
+                    newCopy->DeepCopy(render_pos_set);
+                    render_pos_set = newCopy;
+                    pointset->SetRenderPoints(render_pos_set);
+                }
+//                int PointSize = pointset->GetNumberOfPoints();
+                for(int i = 0, j = 0; i < pointset->GetNumberOfPoints(); i ++, j += 3){
+//                    if(i % 100 == 0) UpdateProgress((double)i / PointSize);
+                    render_pos_set->SetValue(j + 0, pointset->GetPoint(i)[0] + deform_x * attribute_set->GetValue(j + 0));
+                    render_pos_set->SetValue(j + 1, pointset->GetPoint(i)[1] + deform_y * attribute_set->GetValue(j + 1));
+                    render_pos_set->SetValue(j + 2, pointset->GetPoint(i)[2] + deform_z * attribute_set->GetValue(j + 2));
+                }
+            }
+            /* Process the Model Geometry Surface Filter, means that the points renderer are not raw points
+             * So we need to use pointMap.*/
+            else if(pointMap != nullptr && render_pos_set->GetNumberOfValues() != attribute_set->GetNumberOfValues()){
+                std::cout << "[DeformFilter DEBUG] SubObject #" << subObjIndex << " - Branch: shell rendering (pointMap != nullptr)" << std::endl;
+                std::cout << "[DeformFilter DEBUG] render_pos_set->GetNumberOfValues() = " << render_pos_set->GetNumberOfValues() << std::endl;
+
+                if(render_pos_set->GetNumberOfValues() == 0){
+                    std::cout << "[DeformFilter DEBUG] SubObject #" << subObjIndex << " - render_pos_set is empty, using AddValue" << std::endl;
+                    for(int i = 0; i < pointMap->GetNumberOfValues(); i ++){
+                        int new_idx = pointMap->GetValue(i);
+                        if(new_idx == -1) continue;
+                        render_pos_set->AddValue(pointset->GetPoint(new_idx)[0] + deform_x * attribute_set->GetValue(new_idx * 3 + 0));
+                        render_pos_set->AddValue(pointset->GetPoint(new_idx)[1] + deform_y * attribute_set->GetValue(new_idx * 3 + 1));
+                        render_pos_set->AddValue(pointset->GetPoint(new_idx)[2] + deform_z * attribute_set->GetValue(new_idx * 3 + 2));
+                    }
+                } else {
+                    int originalPointCount = pointMap->GetNumberOfValues();
+                    for(int i = 0; i < originalPointCount; i ++){
+                        int shellIdx = pointMap->GetValue(i);
+                        if(shellIdx == -1) continue;
+                        
+                        int writeIdx = shellIdx * 3;
+                        int readIdx = i * 3;
+                        
+                        // Bounds check before SetValue
+                        if(writeIdx + 2 >= render_pos_set->GetNumberOfValues()){
+                            std::cout << "[DeformFilter DEBUG] SubObject #" << subObjIndex << " - ERROR: writeIdx out of bounds! writeIdx="
+                                      << writeIdx << ", render_pos_set size=" << render_pos_set->GetNumberOfValues() << std::endl;
+                            continue;
+                        }
+                        
+                        render_pos_set->SetValue(writeIdx + 0, pointset->GetPoint(i)[0] + deform_x * attribute_set->GetValue(readIdx + 0));
+                        render_pos_set->SetValue(writeIdx + 1, pointset->GetPoint(i)[1] + deform_y * attribute_set->GetValue(readIdx + 1));
+                        render_pos_set->SetValue(writeIdx + 2, pointset->GetPoint(i)[2] + deform_z * attribute_set->GetValue(readIdx + 2));
+                    }
+                }
+
+            }
+            else {
+                std::cout << "[DeformFilter DEBUG] SubObject #" << subObjIndex << " - No branch matched!" << std::endl;
+            }
+            render_pos_set->Modified();
+        }
+    }
+//    auto newMesh = UnstructuredMesh::New();
+//    auto newPoints = Points::New();
+//    if (dataObject->GetDataObjectType() == IG_UNSTRUCTURED_MESH) {
+//        auto temp = DynamicCast<UnstructuredMesh>(dataObject);
+//        newMesh->SetCells(temp->GetCells(), temp->GetCellTypes());
+//        newMesh->SetAttributeSet(temp->GetAttributeSet());
+//        newMesh->SetName(temp->GetName());
+//        newMesh->SetPoints(newPoints);
+//        newPoints->SetNumberOfPoints(temp->GetNumberOfPoints());
+//    }
+    /* Process DataObject itself 's Deformation. */
+    {
+        auto pointset = DynamicCast<iGame::PointSet>(dataObject);
+        if(nullptr != pointset){
+            // Note: ConvertToDrawableData is already called by SyncGpuBuffers
+            // before this filter executes, so we skip it here
+            auto render_pos_set = pointset->GetRenderPoints();
+            auto pointMap = pointset->GetPointMap();
+            ArrayObject::Pointer attribute_set{nullptr};
+            if(pointset == nullptr || (attribute_set = pointset->GetAttributeSet()->GetAttribute(deform_var).pointer) ==
+                                      nullptr ){
+//                UpdateProgress(1.0);
+                return false;
+            }
+            
+//            // ========== DEBUG INFO START ==========
+//            std::cout << "[DeformFilter DEBUG] Processing parent DataObject" << std::endl;
+//            std::cout << "  - pointset name: " << pointset->GetName() << std::endl;
+//            std::cout << "  - pointset->GetNumberOfPoints(): " << pointset->GetNumberOfPoints() << std::endl;
+//            std::cout << "  - render_pos_set size: " << render_pos_set->GetNumberOfValues() << std::endl;
+//            std::cout << "  - attribute_set size: " << attribute_set->GetNumberOfValues() << std::endl;
+//            std::cout << "  - pointMap: " << (pointMap != nullptr ? "exists" : "nullptr") << std::endl;
+//            if(pointMap != nullptr){
+//                std::cout << "  - pointMap->GetNumberOfValues(): " << pointMap->GetNumberOfValues() << std::endl;
+//            }
+//            std::cout << "  - deform_var: " << deform_var << std::endl;
+//            std::cout << "  - deform factors (x,y,z): " << deform_x << ", " << deform_y << ", " << deform_z << std::endl;
+//            // ========== DEBUG INFO END ==========
+            
+            /* Not process Model Geometry Surface Filter, means that the points rendered are raw points
+             * So we don't need to use pointMap.*/
+            if(pointMap == nullptr && render_pos_set->GetNumberOfValues() == attribute_set->GetNumberOfValues()){
+                std::cout << "[DeformFilter DEBUG] Entering branch: pointMap == nullptr (raw points)" << std::endl;
+                if(pointset->GetPoints()->ConvertToArray() == render_pos_set){
+                    FloatArray::Pointer newCopy = FloatArray::New();
+                    newCopy->DeepCopy(render_pos_set);
+                    render_pos_set = newCopy;
+                    pointset->SetRenderPoints(render_pos_set);
+                    std::cout << "[DeformFilter DEBUG] Created new copy of render_pos_set" << std::endl;
+                }
+                int PointSize = pointset->GetNumberOfPoints();
+                for(int i = 0, j = 0; i < pointset->GetNumberOfPoints(); i ++, j += 3){
+//                    if(i % 100 == 0) UpdateProgress((double)i / PointSize);
+                    render_pos_set->SetValue(j + 0, pointset->GetPoint(i)[0] + deform_x * attribute_set->GetValue(j + 0));
+                    render_pos_set->SetValue(j + 1, pointset->GetPoint(i)[1] + deform_y * attribute_set->GetValue(j + 1));
+                    render_pos_set->SetValue(j + 2, pointset->GetPoint(i)[2] + deform_z * attribute_set->GetValue(j + 2));
+//                    newPoints->SetPoint(j / 3, pointset->GetPoint(i)[0] + deform_x * attribute_set->GetValue(j + 0),
+//                                        pointset->GetPoint(i)[1] + deform_y * attribute_set->GetValue(j + 1),
+//                                        pointset->GetPoint(i)[2] + deform_z * attribute_set->GetValue(j + 2));
+                }
+            }
+            /* Process the Model Geometry Surface Filter, means that the points renderer are not raw points
+             * So we need to use pointMap.*/
+            else if(pointMap != nullptr && render_pos_set->GetNumberOfValues() != attribute_set->GetNumberOfValues()){
+                std::cout << "[DeformFilter DEBUG] Entering branch: pointMap != nullptr (shell rendering)" << std::endl;
+                std::cout << "[DeformFilter DEBUG] render_pos_set->GetNumberOfValues() = " << render_pos_set->GetNumberOfValues() << std::endl;
+                
+                // When render_pos_set is empty, RenderableMesh hasn't been created yet.
+                // We need to populate it using AddValue instead of SetValue.
+                if(render_pos_set->GetNumberOfValues() == 0){
+                    std::cout << "[DeformFilter DEBUG] render_pos_set is empty, using AddValue to populate" << std::endl;
+                    for(int i = 0; i < pointMap->GetNumberOfValues(); i ++){
+                        int new_idx = pointMap->GetValue(i);
+                        if(new_idx == -1) continue;
+                        render_pos_set->AddValue(pointset->GetPoint(new_idx)[0] + deform_x * attribute_set->GetValue(new_idx * 3 + 0));
+                        render_pos_set->AddValue(pointset->GetPoint(new_idx)[1] + deform_y * attribute_set->GetValue(new_idx * 3 + 1));
+                        render_pos_set->AddValue(pointset->GetPoint(new_idx)[2] + deform_z * attribute_set->GetValue(new_idx * 3 + 2));
+                    }
+                    std::cout << "[DeformFilter DEBUG] After AddValue, render_pos_set size = " << render_pos_set->GetNumberOfValues() << std::endl;
+                } else {
+                    int originalPointCount = pointMap->GetNumberOfValues();
+                    std::cout << "[DeformFilter DEBUG] originalPointCount = " << originalPointCount << std::endl;
+                    for(int i = 0; i < originalPointCount; i ++){
+                        int shellIdx = pointMap->GetValue(i);
+                        if(shellIdx == -1) continue;
+                        
+                        int writeIdx = shellIdx * 3;
+                        int readIdx = i * 3;
+                        
+                        // Bounds check before SetValue
+                        if(writeIdx + 2 >= render_pos_set->GetNumberOfValues()){
+                            std::cout << "[DeformFilter DEBUG] ERROR: writeIdx out of bounds! writeIdx=" << writeIdx
+                                      << ", render_pos_set size=" << render_pos_set->GetNumberOfValues() << std::endl;
+                            continue;
+                        }
+
+                        render_pos_set->SetValue(writeIdx + 0, pointset->GetPoint(i)[0] + deform_x * attribute_set->GetValue(readIdx + 0));
+                        render_pos_set->SetValue(writeIdx + 1, pointset->GetPoint(i)[1] + deform_y * attribute_set->GetValue(readIdx + 1));
+                        render_pos_set->SetValue(writeIdx + 2, pointset->GetPoint(i)[2] + deform_z * attribute_set->GetValue(readIdx + 2));
+                    }
+                }
+            }
+            else {
+                std::cout << "[DeformFilter DEBUG] No branch matched! Conditions:" << std::endl;
+                std::cout << "  - pointMap == nullptr: " << (pointMap == nullptr) << std::endl;
+                std::cout << "  - render_pos_set size == attribute_set size: "
+                          << (render_pos_set->GetNumberOfValues() == attribute_set->GetNumberOfValues()) << std::endl;
+            }
+            render_pos_set->Modified();
+        }
+
+    }
+//    UpdateProgress(1.0f);
+    this->SetOutput(0, dataObject);
+//    this->SetOutput(1, newMesh);
+    return true;
+}
+
+bool iGame::StressDeformationFilter::CalculateIdealDSF() {
+    auto dataObject = this->GetInput(0);
+    if(nullptr == dataObject) {
+        return false;
+    }
+    const std::string& deform_var = dataObject->GetDeformationData()->GetDeformationAttributeName();
+    dataObject->GetDeformationData()->SetAutoCompute(true);
+
+    float U_max = FLT_MIN;
+    if(dataObject->HasSubDataObject()){
+        for(auto it = dataObject->SubDataObjectIteratorBegin(); it != dataObject->SubDataObjectIteratorEnd(); ++ it){
+            auto uset = it->second->GetAttributeSet()->GetAttribute(deform_var).pointer;
+            if(uset == nullptr) return false;
+            for(int i = 0; i < uset->GetNumberOfValues(); i += 3){
+                float x = uset->GetValue(i), y = uset->GetValue(i + 1), z = uset->GetValue(i + 2);
+                U_max = std::max(U_max, std::sqrt(x * x + y * y + z * z));
+            }
+        }
+    }
+
+    auto attribute_set = dataObject->GetAttributeSet()->GetAttribute(deform_var).pointer;
+    if(attribute_set == nullptr) return false;
+    for(int i = 0; i < attribute_set->GetNumberOfValues(); i += 3){
+        float x = attribute_set->GetValue(i), y = attribute_set->GetValue(i + 1), z = attribute_set->GetValue(i + 2);
+        U_max = std::max(U_max, std::sqrt(x * x + y * y + z * z));
+    }
+    if(U_max == FLT_MIN || U_max == 0) return false;
+    auto Ds = dataObject->GetBoundingBox().max - dataObject->GetBoundingBox().min;
+    float D_max = std::cbrt(Ds[0] * Ds[1] * Ds[2]);
+//    std::cout << "max_offset : " << U_max << '\n';
+//    std::cout << "max_D : " << D_max << '\n';
+//    std::cout << "res : " << m_K_factor * D_max / U_max << '\n';
+    dataObject->GetDeformationData()->SetScaleFactors(m_K_factor * D_max / U_max);
+    return true;
+}
+
+void iGame::StressDeformationFilter::SetScaleFactorX(float sf_x) {
+    auto dataObject = this->GetInput(0);
+    dataObject->GetDeformationData()->SetScaleFactorX(sf_x);
+    if(dataObject->HasSubDataObject()){
+        for(auto it = dataObject->SubDataObjectIteratorBegin(); it != dataObject->SubDataObjectIteratorEnd(); ++ it){
+            it->second->GetDeformationData()->SetScaleFactorX(sf_x);
+        }
+    }
+}
+void iGame::StressDeformationFilter::SetScaleFactorY(float sf_y) {
+    auto dataObject = this->GetInput(0);
+    dataObject->GetDeformationData()->SetScaleFactorY(sf_y);
+    if(dataObject->HasSubDataObject()){
+        for(auto it = dataObject->SubDataObjectIteratorBegin(); it != dataObject->SubDataObjectIteratorEnd(); ++ it){
+            it->second->GetDeformationData()->SetScaleFactorY(sf_y);
+        }
+    }
+
+}
+
+void iGame::StressDeformationFilter::SetScaleFactorZ(float sf_z) {
+    auto dataObject = this->GetInput(0);
+    dataObject->GetDeformationData()->SetScaleFactorZ(sf_z);
+    if(dataObject->HasSubDataObject()){
+        for(auto it = dataObject->SubDataObjectIteratorBegin(); it != dataObject->SubDataObjectIteratorEnd(); ++ it){
+            it->second->GetDeformationData()->SetScaleFactorZ(sf_z);
+        }
+    }
+}

@@ -1,0 +1,387 @@
+﻿#include "iGameAxes.h"
+#include "iGameScene.h"
+
+#include <iostream>
+
+IGAME_NAMESPACE_BEGIN
+
+Axes::Axes() {
+    m_Viewport[0] = 0;
+    m_Viewport[1] = 0;
+    m_Viewport[2] = 200;
+    m_Viewport[3] = 200;
+
+    m_Mvp = igm::mat4{1.0f};
+    m_MvpInv = igm::mat4{1.0f};
+
+    m_ShaftLength = 1.0f;
+    m_ShaftSize = 0.03f;
+    m_ArrowSize = 0.06f;
+    m_OriginSize = 0.05f;
+#ifdef __EMSCRIPTEN__
+    // The corner widget is only about 100 px wide in the web viewer.
+    // Slightly thicker geometry remains legible after canvas scaling.
+    m_ShaftSize = 0.045f;
+    m_ArrowSize = 0.09f;
+    m_OriginSize = 0.065f;
+#endif
+}
+
+Axes::~Axes() {}
+
+void Axes::SetScene(SmartPointer<Scene> scene) { m_Scene = scene; }
+
+SmartPointer<Scene> Axes::GetScene() const { return m_Scene; }
+
+void Axes::Initialize() {
+    m_TriangleVAO = GLVertexArray::New();
+    m_TriangleVAO->Create();
+
+    m_PositionVBO = GLBuffer::New();
+    m_PositionVBO->Create();
+    m_PositionVBO->Target(GL_ARRAY_BUFFER);
+
+    m_ColorVBO = GLBuffer::New();
+    m_ColorVBO->Create();
+    m_ColorVBO->Target(GL_ARRAY_BUFFER);
+
+    m_TriangleEBO = GLBuffer::New();
+    m_TriangleEBO->Create();
+    m_TriangleEBO->Target(GL_ELEMENT_ARRAY_BUFFER);
+
+    m_FontVAO = GLVertexArray::New();
+    m_FontVAO->Create();
+
+    m_TextureCoordVBO = GLBuffer::New();
+    m_TextureCoordVBO->Create();
+    m_TextureCoordVBO->Target(GL_ARRAY_BUFFER);
+
+    m_WorldCoordVBO = GLBuffer::New();
+    m_WorldCoordVBO->Create();
+    m_WorldCoordVBO->Target(GL_ARRAY_BUFFER);
+
+    m_FontTextureEBO = GLBuffer::New();
+    m_FontTextureEBO->Create();
+    m_FontTextureEBO->Target(GL_ELEMENT_ARRAY_BUFFER);
+
+    // generate axis VBO data
+    std::vector<igm::vec3> vertices;
+    std::vector<igm::vec3> colors;
+    std::vector<uint32_t> triangleIndices{
+            8,  9,  12, 9,  10, 12, 10, 11, 12, 11, 8,  12, 21, 22, 25, 22, 23,
+            25, 23, 24, 25, 24, 21, 25, 34, 35, 38, 35, 36, 38, 36, 37, 38, 37,
+            34, 38, 0,  1,  5,  0,  5,  4,  1,  2,  6,  1,  6,  5,  2,  3,  7,
+            2,  7,  6,  3,  0,  4,  3,  4,  7,  8,  9,  10, 8,  10, 11, 13, 14,
+            18, 13, 18, 17, 14, 15, 19, 14, 19, 18, 15, 16, 20, 15, 20, 19, 16,
+            13, 17, 16, 17, 20, 21, 22, 23, 21, 23, 24, 26, 27, 31, 26, 31, 30,
+            27, 28, 32, 27, 32, 31, 28, 29, 33, 28, 33, 32, 29, 26, 30, 29, 30,
+            33, 34, 35, 36, 34, 36, 37, 39, 40, 41, 39, 41, 42, 41, 42, 46, 41,
+            46, 45, 45, 46, 43, 45, 43, 44, 43, 44, 40, 43, 40, 39, 39, 42, 46,
+            39, 46, 43, 40, 41, 45, 40, 45, 44,
+    };
+    RequestData(vertices, colors);
+
+    m_PositionVBO->Allocate(vertices.size() * sizeof(igm::vec3),
+                            vertices.data(), GL_STATIC_DRAW);
+    m_ColorVBO->Allocate(colors.size() * sizeof(igm::vec3), colors.data(),
+                         GL_STATIC_DRAW);
+    m_TriangleIndexCount = static_cast<int>(triangleIndices.size());
+    m_TriangleEBO->Allocate(triangleIndices.size() * sizeof(uint32_t),
+                            triangleIndices.data(), GL_STATIC_DRAW);
+
+    // bind vertex attribute pointer to VAO
+    m_TriangleVAO->VertexBuffer(GL_VBO_IDX_0, m_PositionVBO, 0,
+                                3 * sizeof(float));
+    GLSetVertexAttrib(m_TriangleVAO, GL_LOCATION_IDX_0, GL_VBO_IDX_0, 3,
+                      GL_FLOAT, GL_FALSE, 0);
+    m_TriangleVAO->VertexBuffer(GL_VBO_IDX_1, m_ColorVBO, 0, 3 * sizeof(float));
+    GLSetVertexAttrib(m_TriangleVAO, GL_LOCATION_IDX_1, GL_VBO_IDX_1, 3,
+                      GL_FLOAT, GL_FALSE, 0);
+    m_TriangleVAO->ElementBuffer(m_TriangleEBO);
+
+    // billboard
+    m_Viewport[0] = 0;
+    m_Viewport[1] = 0;
+    m_Viewport[2] = 200;
+    m_Viewport[3] = 200;
+
+    std::vector<float> fontVertices{0, 0,    0, 0.24, 0,    0,
+                                    0, 0.24, 0, 0.24, 0.24, 0};
+    std::vector<float> textureCoords{
+            0, 1, 1, 1, 0, 0, 1, 0, 0, 1, 1, 1,
+            0, 0, 1, 0, 0, 1, 1, 1, 0, 0, 1, 0,
+    };
+    std::vector<uint32_t> fontIndices{0, 1, 2, 2, 1, 3,  4,  5, 6,
+                                      6, 5, 7, 8, 9, 10, 10, 9, 11};
+
+    // Bind Axes font texture VAO, VBO, EBO
+    m_WorldCoordVBO->Allocate(fontVertices.size() * sizeof(float),
+                              fontVertices.data(), GL_STATIC_DRAW);
+    m_TextureCoordVBO->Allocate(textureCoords.size() * sizeof(float),
+                                textureCoords.data(), GL_STATIC_DRAW);
+    m_FontTextureEBO->Allocate(fontIndices.size() * sizeof(uint32_t),
+                               fontIndices.data(), GL_STATIC_DRAW);
+
+    m_FontVAO->VertexBuffer(GL_VBO_IDX_0, m_WorldCoordVBO, 0,
+                            3 * sizeof(float));
+    GLSetVertexAttrib(m_FontVAO, GL_LOCATION_IDX_0, GL_VBO_IDX_0, 3, GL_FLOAT,
+                      GL_FALSE, 0);
+    m_FontVAO->VertexBuffer(GL_VBO_IDX_1, m_TextureCoordVBO, 0,
+                            2 * sizeof(float));
+    GLSetVertexAttrib(m_FontVAO, GL_LOCATION_IDX_3, GL_VBO_IDX_1, 2, GL_FLOAT,
+                      GL_FALSE, 0);
+    m_FontVAO->ElementBuffer(m_FontTextureEBO);
+}
+
+void Axes::Draw() {
+    /*1.准备阶段：设置深度测试和视口
+    2.矩阵设置：计算固定的视图和投影矩阵，结合场景旋转
+    3.几何体渲染：绑定着色器和参数，绘制三个轴的几何体(包括箭头和原点立方体)
+    4.文字渲染：，切换到文字模式，分别渲染X YZ三个字符标签
+    5.清理：恢复渲染状态*/
+
+    // Axes is a viewport overlay and must not inherit restrictive scene state.
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    glDisable(GL_SCISSOR_TEST);
+    glDisable(GL_CULL_FACE);
+
+    // Use reversed-z buffer
+    glEnable(GL_DEPTH_TEST);
+    glDepthMask(GL_TRUE);
+    glDepthFunc(GL_GREATER);
+    glClearDepth(0.0f);
+    glClear(GL_DEPTH_BUFFER_BIT);
+
+    // Enable blend
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    // fixed position固定视图矩阵，相机位置固定在Z轴3.5单位处，观察原点(0, 0, 0)，上方向为Y轴正方向，右手坐标系RH
+    static igm::vec3 viewPos = igm::vec3{0.0f, 0.0f, 3.5f};
+    static igm::mat4 view = igm::lookAtRH(viewPos, igm::vec3{0.0f, 0.0f, 0.0f},
+                                          igm::vec3{0.0f, 1.0f, 0.0f});
+    static igm::mat4 proj = igm::perspectiveRH_OZ(
+            45.0f, 1.0f,
+            0.01f); //固定投影矩阵，fov45°，宽高比1.0，近裁剪面0.01单位
+
+    igm::mat4 model =
+            m_Scene->m_ModelRotate; //使用场景的旋转矩阵，坐标轴与场景同步旋转
+    igm::mat4 mvp = proj * view * model;
+    //着色和字体管理器
+    auto shaderManager = m_Scene->m_ShaderManager;
+    auto fontManager = m_Scene->m_FontManager;
+
+    // update uniform buffer
+    auto axesShader = shaderManager->GetShader(ShaderType::AXES);
+    axesShader->Use();
+    axesShader->SetUniform3f("viewPos", viewPos);
+    axesShader->SetUniformMatrix4x4("model", model);
+    axesShader->SetUniformMatrix4x4("view", view);
+    axesShader->SetUniformMatrix4x4("proj", proj);
+
+    // get texture
+    auto textureX = fontManager->GetTexture(L'X');
+    auto textureY = fontManager->GetTexture(L'Y');
+    auto textureZ = fontManager->GetTexture(L'Z');
+
+    //draw axes 绘制坐标轴
+    {
+        axesShader->SetUniformi("isDrawFont", 0);
+        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+        m_TriangleVAO->DrawElements(GL_TRIANGLES, m_TriangleIndexCount,
+                                    GL_UNSIGNED_INT);
+#ifdef __EMSCRIPTEN__
+        GLenum drawErr = GL_NO_ERROR;
+        while ((drawErr = glGetError()) != GL_NO_ERROR) {
+            std::clog << "[Axes] Geometry GL error=" << drawErr
+                      << " indexCount=" << m_TriangleIndexCount << std::endl;
+        }
+#endif
+    }
+
+    // draw axes font
+    {
+        int vp[4];
+        glGetIntegerv(GL_VIEWPORT, vp);
+        this->Update(mvp, igm::ivec4{vp[0], vp[1], vp[2], vp[3]});
+
+        // draw xyz
+        axesShader->SetUniformi("isDrawFont", 1);
+        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+
+        igm::vec3 red = igm::vec3{1.0f, 0.0f, 0.0f};
+        igm::vec3 green = igm::vec3{0.0f, 1.0f, 0.0f};
+        igm::vec3 blue = igm::vec3{0.0f, 0.0f, 1.0f};
+
+        if (textureX == nullptr || textureY == nullptr || textureZ == nullptr) {
+            return;
+        }
+
+        textureX->Active(GL_TEXTURE1);
+        textureY->Active(GL_TEXTURE2);
+        textureZ->Active(GL_TEXTURE3);
+
+        axesShader->SetUniformi("fontSampler", 1);
+        axesShader->SetUniform3f("textColor", red);
+        m_FontVAO->DrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT);
+
+        axesShader->SetUniformi("fontSampler", 2);
+        axesShader->SetUniform3f("textColor", green);
+        m_FontVAO->DrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT,
+                                (void*) (6 * sizeof(GLuint)));
+
+        axesShader->SetUniformi("fontSampler", 3);
+        axesShader->SetUniform3f("textColor", blue);
+        m_FontVAO->DrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT,
+                                (void*) (12 * sizeof(GLuint)));
+    }
+}
+
+void Axes::Update(const igm::mat4& mvp, const igm::ivec4& viewport) {
+    m_Mvp = mvp;
+    m_MvpInv = mvp.invert();
+
+    m_Viewport[0] = viewport.x;
+    m_Viewport[1] = viewport.y;
+    m_Viewport[2] = viewport.z;
+    m_Viewport[3] = viewport.w;
+
+    /*  Vertices sequence.
+             *  2---3
+             *  |\  |
+             *  | \ |
+             *  |  \|
+             *  0---1
+             * */
+    std::vector<float> fontVertices;
+
+    std::vector<igm::vec4> texts = {igm::vec4{1.1, 0.1, -0.1, 1},
+                                    igm::vec4{0.0, 1.3, 0.0, 1},
+                                    igm::vec4{0.1, 0.0, 1.1, 1}};
+#ifdef __EMSCRIPTEN__
+    const float fontPixelSize = 12.0f;
+#else
+    const float fontPixelSize = 20.0f;
+#endif
+
+    fontVertices.reserve(36);
+    for (auto& text: texts) {
+        igm::vec4 dc;
+        WorldCoordToDisplayCoord(text, dc);
+
+        igm::vec4 tmpWc;
+
+        //  first point
+        DisplayCoordToWorldCoord(dc, tmpWc);
+        fontVertices.push_back(tmpWc.x), fontVertices.push_back(tmpWc.y),
+                fontVertices.push_back(tmpWc.z);
+
+        // second point
+        dc.x = dc.x + fontPixelSize;
+        DisplayCoordToWorldCoord(dc, tmpWc);
+        fontVertices.push_back(tmpWc.x), fontVertices.push_back(tmpWc.y),
+                fontVertices.push_back(tmpWc.z);
+
+        // third point
+        dc.x = dc.x - fontPixelSize;
+        dc.y = dc.y + fontPixelSize;
+        DisplayCoordToWorldCoord(dc, tmpWc);
+        fontVertices.push_back(tmpWc.x), fontVertices.push_back(tmpWc.y),
+                fontVertices.push_back(tmpWc.z);
+
+        // fourth point
+        dc.x = dc.x + fontPixelSize;
+        DisplayCoordToWorldCoord(dc, tmpWc);
+        fontVertices.push_back(tmpWc.x), fontVertices.push_back(tmpWc.y),
+                fontVertices.push_back(tmpWc.z);
+    }
+
+    m_WorldCoordVBO->Allocate(fontVertices.size() * sizeof(float),
+                              fontVertices.data(), GL_STATIC_DRAW);
+    m_FontVAO->VertexBuffer(0, m_WorldCoordVBO, 0, 3 * sizeof(float));
+    GLSetVertexAttrib(m_FontVAO, GL_LOCATION_IDX_0, 0, 3, GL_FLOAT, GL_FALSE,
+                      0);
+}
+
+void Axes::RequestData(std::vector<igm::vec3>& vertices,
+                       std::vector<igm::vec3>& colors) {
+    vertices.resize(47);
+    colors.resize(47);
+    // x-axis
+    vertices[0] = igm::vec3{0.0f, -m_ShaftSize, m_ShaftSize};
+    vertices[1] = igm::vec3{0.0f, -m_ShaftSize, -m_ShaftSize};
+    vertices[2] = igm::vec3{0.0f, m_ShaftSize, -m_ShaftSize};
+    vertices[3] = igm::vec3{0.0f, m_ShaftSize, m_ShaftSize};
+    vertices[4] = igm::vec3{m_ShaftLength, -m_ShaftSize, m_ShaftSize};
+    vertices[5] = igm::vec3{m_ShaftLength, -m_ShaftSize, -m_ShaftSize};
+    vertices[6] = igm::vec3{m_ShaftLength, m_ShaftSize, -m_ShaftSize};
+    vertices[7] = igm::vec3{m_ShaftLength, m_ShaftSize, m_ShaftSize};
+    vertices[8] = igm::vec3{m_ShaftLength, -m_ArrowSize, m_ArrowSize};
+    vertices[9] = igm::vec3{m_ShaftLength, -m_ArrowSize, -m_ArrowSize};
+    vertices[10] = igm::vec3{m_ShaftLength, m_ArrowSize, -m_ArrowSize};
+    vertices[11] = igm::vec3{m_ShaftLength, m_ArrowSize, m_ArrowSize};
+    vertices[12] = igm::vec3{m_ShaftLength + m_ArrowSize * 2, 0.0f, 0.0f};
+    for (int i = 0; i <= 12; ++i) { colors[i] = igm::vec3{1.0f, 0.0f, 0.0f}; }
+    // y-axis
+    vertices[13] = igm::vec3{-m_ShaftSize, 0.0f, m_ShaftSize};
+    vertices[14] = igm::vec3{m_ShaftSize, 0.0f, m_ShaftSize};
+    vertices[15] = igm::vec3{m_ShaftSize, 0.0f, -m_ShaftSize};
+    vertices[16] = igm::vec3{-m_ShaftSize, 0.0f, -m_ShaftSize};
+    vertices[17] = igm::vec3{-m_ShaftSize, m_ShaftLength, m_ShaftSize};
+    vertices[18] = igm::vec3{m_ShaftSize, m_ShaftLength, m_ShaftSize};
+    vertices[19] = igm::vec3{m_ShaftSize, m_ShaftLength, -m_ShaftSize};
+    vertices[20] = igm::vec3{-m_ShaftSize, m_ShaftLength, -m_ShaftSize};
+    vertices[21] = igm::vec3{-m_ArrowSize, m_ShaftLength, m_ArrowSize};
+    vertices[22] = igm::vec3{m_ArrowSize, m_ShaftLength, m_ArrowSize};
+    vertices[23] = igm::vec3{m_ArrowSize, m_ShaftLength, -m_ArrowSize};
+    vertices[24] = igm::vec3{-m_ArrowSize, m_ShaftLength, -m_ArrowSize};
+    vertices[25] = igm::vec3{0.0f, m_ShaftLength + m_ArrowSize * 2, 0.0f};
+    for (int i = 13; i <= 25; ++i) { colors[i] = igm::vec3{0.0f, 1.0f, 0.0f}; }
+    // z-axis
+    vertices[26] = igm::vec3{-m_ShaftSize, m_ShaftSize, 0.0f};
+    vertices[27] = igm::vec3{m_ShaftSize, m_ShaftSize, 0.0f};
+    vertices[28] = igm::vec3{m_ShaftSize, -m_ShaftSize, 0.0f};
+    vertices[29] = igm::vec3{-m_ShaftSize, -m_ShaftSize, 0.0f};
+    vertices[30] = igm::vec3{-m_ShaftSize, m_ShaftSize, m_ShaftLength};
+    vertices[31] = igm::vec3{m_ShaftSize, m_ShaftSize, m_ShaftLength};
+    vertices[32] = igm::vec3{m_ShaftSize, -m_ShaftSize, m_ShaftLength};
+    vertices[33] = igm::vec3{-m_ShaftSize, -m_ShaftSize, m_ShaftLength};
+    vertices[34] = igm::vec3{-m_ArrowSize, m_ArrowSize, m_ShaftLength};
+    vertices[35] = igm::vec3{m_ArrowSize, m_ArrowSize, m_ShaftLength};
+    vertices[36] = igm::vec3{m_ArrowSize, -m_ArrowSize, m_ShaftLength};
+    vertices[37] = igm::vec3{-m_ArrowSize, -m_ArrowSize, m_ShaftLength};
+    vertices[38] = igm::vec3{0.0f, 0.0f, m_ShaftLength + m_ArrowSize * 2};
+    for (int i = 26; i <= 38; ++i) { colors[i] = igm::vec3{0.0f, 0.0f, 1.0f}; }
+    // origin
+    vertices[39] = igm::vec3{-m_OriginSize, -m_OriginSize, m_OriginSize};
+    vertices[40] = igm::vec3{m_OriginSize, -m_OriginSize, m_OriginSize};
+    vertices[41] = igm::vec3{m_OriginSize, m_OriginSize, m_OriginSize};
+    vertices[42] = igm::vec3{-m_OriginSize, m_OriginSize, m_OriginSize};
+    vertices[43] = igm::vec3{-m_OriginSize, -m_OriginSize, -m_OriginSize};
+    vertices[44] = igm::vec3{m_OriginSize, -m_OriginSize, -m_OriginSize};
+    vertices[45] = igm::vec3{m_OriginSize, m_OriginSize, -m_OriginSize};
+    vertices[46] = igm::vec3{-m_OriginSize, m_OriginSize, -m_OriginSize};
+    for (int i = 39; i <= 46; ++i) { colors[i] = igm::vec3{1.0f, 1.0f, 1.0f}; }
+}
+
+void Axes::DisplayCoordToWorldCoord(igm::vec4& dc, igm::vec4& wc) {
+    float t[4] = {dc.x, dc.y, dc.z, 1};
+
+    //  reverse of viewPort transport
+    t[0] = (t[0] - m_Viewport[0]) / (0.5 * m_Viewport[2]) - 1;
+    t[1] = 1.f - (t[1] - m_Viewport[1]) / (0.5 * m_Viewport[3]);
+    wc = m_MvpInv * igm::vec4{t[0], t[1], t[2], t[3]};
+    wc /= wc.w;
+}
+
+void Axes::WorldCoordToDisplayCoord(igm::vec4& wc, igm::vec4& dc) {
+    dc = m_Mvp * wc;
+    dc /= dc.w;
+
+    //  x = (x + 1) / 2 * width + bottom_left_x
+    dc.x = (dc.x + 1) * 0.5 * m_Viewport[2] + m_Viewport[0];
+    //  y = (1 - (y + 1) / 2) * height + bottom_left_y
+    dc.y = (1 - (dc.y + 1) * 0.5) * m_Viewport[3] + m_Viewport[1];
+}
+
+IGAME_NAMESPACE_END

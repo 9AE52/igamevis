@@ -1,0 +1,78 @@
+/**
+ * @class   igQtModelClipWidget
+ * @brief   igQtModelClipWidget's brief
+ */
+
+#pragma once
+#include "Clip/iGameClipFilter.h"
+#include "Contour/iGameContourFilter.h"
+#include "Slice/iGameSliceFilter.h"
+#include "Core/Interactor/iGameSlicingStyle.h"
+#include "iGameSurfaceMesh.h"
+#include "iGameSelection.h"
+
+#include <ui_ModelClip.h>
+class igQtModelClipWidget : public QWidget {
+
+    Q_OBJECT
+
+public:
+    igQtModelClipWidget(QWidget* parent = nullptr);
+
+    enum ViewMode {
+        IG_CLIP_MODE,
+        IG_SLICE_MODE,
+        IG_VIEW_MODE_NUM
+    };
+    void SetViewMode(ViewMode);
+public slots:
+
+    //交互传过来
+    void SetPlane(float o[3], float normal[3]);
+    void SetPlane(iGame::Vector3d p, iGame::Vector3d normal);
+    //Widget 输入
+    void UpdatePlane();
+
+    void ClipModel();
+
+    void SetOriginDataObject(iGame::DataObject::Pointer m_d);
+
+    void UpdateOriginDataObject(iGame::DataObject::Pointer _origin_ptr);
+    //void FilterSignal(iGame::InteractorStyle::Signal signal, void* callData) {
+    //    switch (signal) {
+    //        case iGame::InteractorStyle::Signal::Slicing: {
+    //            iGame::SlicingStyle::SlicingPlane* plane =
+    //                    reinterpret_cast<iGame::SlicingStyle::SlicingPlane*>(
+    //                            callData);
+    //            if (plane) { this->SetPlane(plane->point, plane->normal); }
+    //            break;
+    //        }
+    //        default:
+    //            break;
+    //    }
+    //}
+
+    iGame::ClipSelection::Pointer GetSelection();
+
+signals:
+    void DrawClipModel(iGame::DrawObject::Pointer);
+    void UpdateClipModel(iGame::DrawObject::Pointer);
+//    void UpdateClipModel();
+    void ResetInteractor();
+protected:
+private:
+    Ui::ModelClipWidget* ui;
+
+    iGame::ClipSelection::Pointer m_Selection;
+    double m_Normal[3]={1,0,0};
+    double m_Origin[3]={0,0,0};
+	iGame::DataObject::Pointer m_OriginDataObject{nullptr};
+    iGame::UnstructuredMesh::Pointer m_ResultMesh{nullptr};
+    ViewMode m_ViewMode{IG_CLIP_MODE};
+    bool m_Invert = true;
+    bool m_Crinkle = false;
+    
+    // Observer tags for cleanup
+    unsigned long m_OriginObserverTag{0};
+    unsigned long m_ResultObserverTag{0};
+};
