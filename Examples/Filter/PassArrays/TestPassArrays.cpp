@@ -20,13 +20,13 @@ int main() {
         std::cin.get();
         return 1;
     }
-    std::cout << "修改前的属性数组：" << std::endl;
+    std::cout << "Before modified:" << std::endl;
     auto attrSet = obj->GetAttributeSet();
     if (attrSet) {
         // 输出点属性名称
         auto pointAttrs = attrSet->GetAllPointAttributes();
         if (pointAttrs) {
-            std::cout << "\n点属性列表：\n";
+            std::cout << "\nPoint AttributSet:\n";
             for (IGsize i = 0; i < pointAttrs->GetNumberOfElements(); ++i) {
                 auto& attr = pointAttrs->GetElement(i);
                 if (attr.IsNone()) continue;
@@ -39,7 +39,7 @@ int main() {
         // 输出单元属性名称
         auto cellAttrs = attrSet->GetAllCellAttributes();
         if (cellAttrs) {
-            std::cout << "\n单元属性列表：\n";
+            std::cout << "\nCell AttributeSet:\n";
             for (IGsize i = 0; i < cellAttrs->GetNumberOfElements(); ++i) {
                 auto& attr = cellAttrs->GetElement(i);
                 if (attr.IsNone()) continue;
@@ -62,13 +62,13 @@ int main() {
     }
     obj = filter->GetOutput();
     scene->AddModel(obj);
-    std::cout << "修改后的属性数组：" << std::endl;
+    std::cout << "After modified:" << std::endl;
     attrSet = obj->GetAttributeSet();
     if (attrSet) {
         // 输出点属性名称
         auto pointAttrs = attrSet->GetAllPointAttributes();
         if (pointAttrs) {
-            std::cout << "\n点属性列表：\n";
+            std::cout << "\nPoint AttributSet:\n";
             for (IGsize i = 0; i < pointAttrs->GetNumberOfElements(); ++i) {
                 auto& attr = pointAttrs->GetElement(i);
                 if (attr.IsNone()) continue;
@@ -81,7 +81,7 @@ int main() {
         // 输出单元属性名称
         auto cellAttrs = attrSet->GetAllCellAttributes();
         if (cellAttrs) {
-            std::cout << "\n单元属性列表：\n";
+            std::cout << "\nCell AttributeSet\n";
             for (IGsize i = 0; i < cellAttrs->GetNumberOfElements(); ++i) {
                 auto& attr = cellAttrs->GetElement(i);
                 if (attr.IsNone()) continue;

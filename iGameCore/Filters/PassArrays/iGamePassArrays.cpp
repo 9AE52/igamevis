@@ -35,7 +35,6 @@ static ArrayObject::Pointer DeepCopyArray(ArrayObject::Pointer src) {
         copy->SetName(src->GetName());
         return copy;
     }
-    // 可继续添加其他类型，如 IntArray, CharArray 等
 
     // 如果都不匹配，退回浅拷贝
     return src;
@@ -46,102 +45,6 @@ bool iGamePassArrays::Execute() {
     if (!input) return false;
 
     IGenum type = input->GetDataObjectType();
-    DataObject::Pointer output = DataObject::CreateDataObject(type);
-    if (!output) return false;
-
-
-    if (type == IG_UNSTRUCTURED_MESH) {
-        auto inMesh = DynamicCast<UnstructuredMesh>(input);
-        auto outMesh = DynamicCast<UnstructuredMesh>(output);
-        if (!inMesh || !outMesh) return false;
-
-        auto inPoints = inMesh->GetPoints();
-        if (inPoints) {
-            auto newPoints = Points::New();
-            newPoints->DeepCopy(inPoints);
-            outMesh->SetPoints(newPoints);
-        }
-        auto inCells = inMesh->GetCells();
-        auto inTypes = inMesh->GetCellTypes();
-        if (inCells && inTypes) {
-            auto newCells = CellArray::New();
-            newCells->DeepCopy(inCells);
-            auto newTypes = UnsignedIntArray::New();
-            newTypes->DeepCopy(inTypes);
-            outMesh->SetCells(newCells, newTypes);
-        }
-    } else if (type == IG_SURFACE_MESH) {
-        auto inMesh = DynamicCast<SurfaceMesh>(input);
-        auto outMesh = DynamicCast<SurfaceMesh>(output);
-        if (!inMesh || !outMesh) return false;
-
-        auto inPoints = inMesh->GetPoints();
-        if (inPoints) {
-            auto newPoints = Points::New();
-            newPoints->DeepCopy(inPoints);
-            outMesh->SetPoints(newPoints);
-        }
-        auto inFaces = inMesh->GetFaces();
-        if (inFaces) {
-            auto newFaces = CellArray::New();
-            newFaces->DeepCopy(inFaces);
-            outMesh->SetFaces(newFaces);
-        }
-    } else if (type == IG_VOLUME_MESH) {
-        auto inMesh = DynamicCast<VolumeMesh>(input);
-        auto outMesh = DynamicCast<VolumeMesh>(output);
-        if (!inMesh || !outMesh) return false;
-
-        auto inPoints = inMesh->GetPoints();
-        if (inPoints) {
-            auto newPoints = Points::New();
-            newPoints->DeepCopy(inPoints);
-            outMesh->SetPoints(newPoints);
-        }
-        auto inVolumes = inMesh->GetVolumes();
-        if (inVolumes) {
-            auto newVolumes = CellArray::New();
-            newVolumes->DeepCopy(inVolumes);
-            outMesh->SetVolumes(newVolumes);
-        }
-    } else if (type == IG_POINT_SET) {
-        auto inMesh = DynamicCast<PointSet>(input);
-        auto outMesh = DynamicCast<PointSet>(output);
-        if (!inMesh || !outMesh) return false;
-
-        auto inPoints = inMesh->GetPoints();
-        if (inPoints) {
-            auto newPoints = Points::New();
-            newPoints->DeepCopy(inPoints);
-            outMesh->SetPoints(newPoints);
-        }
-
-    } else if (type == IG_STRUCTURED_MESH) {
-        auto inMesh = DynamicCast<StructuredMesh>(input);
-        auto outMesh = DynamicCast<StructuredMesh>(output);
-        if (!inMesh || !outMesh) return false;
-
-        //复制维度
-        igIndex* dims = inMesh->GetDimensionSize();
-        if (dims) {
-            igIndex newDims[3] = {dims[0], dims[1], dims[2]};
-            outMesh->SetDimensionSize(newDims);
-        }
-
-        //复制点坐标
-        auto inPoints = inMesh->GetPoints();
-        if (inPoints) {
-            auto newPoints = Points::New();
-            newPoints->DeepCopy(inPoints);
-            outMesh->SetPoints(newPoints);
-        }
-
-    } else {
-        igError("iGamePassArrays does not support this data type.");
-        return false;
-    }
-
-
     // 属性深拷贝过滤
     auto inAttrSet = input->GetAttributeSet();
     auto outAttrSet = AttributeSet::New();
@@ -189,10 +92,10 @@ bool iGamePassArrays::Execute() {
             }
         }
     }
-    output->SetAttributeSet(outAttrSet);
+    input->SetAttributeSet(outAttrSet);
 
 
-    SetOutput(0, output);
+    SetOutput(0, input);
     return true;
 }
 
