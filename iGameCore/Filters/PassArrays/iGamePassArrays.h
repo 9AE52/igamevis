@@ -1,10 +1,10 @@
 #ifndef iGamePassArrays_h
 #define iGamePassArrays_h
 
-#include "iGameFilter.h"
 #include "iGameDataObject.h"
-#include <vector>
+#include "iGameFilter.h"
 #include <string>
+#include <vector>
 
 IGAME_NAMESPACE_BEGIN
 
@@ -13,7 +13,7 @@ public:
     I_OBJECT(iGamePassArrays);
     static Pointer New() { return new iGamePassArrays; }
 
-    // 设置需要保留的属性名称列表（点/单元共用）
+    // 设置需要过滤掉的属性名称列表（点/单元共用）
     void SetArrayNames(const std::vector<std::string>& names) { m_ArrayNames = names; }
 
     bool Execute() override;

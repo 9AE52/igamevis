@@ -4,8 +4,8 @@
 #include "iGameCellArray.h"
 
 #include "iGamePoints.h"
-#include "iGameSurfaceMesh.h"
 #include "iGameStructuredMesh.h"
+#include "iGameSurfaceMesh.h"
 #include "iGameUnstructuredMesh.h"
 #include "iGameVolumeMesh.h"
 #include <algorithm>
@@ -16,7 +16,7 @@ IGAME_NAMESPACE_BEGIN
 static ArrayObject::Pointer DeepCopyArray(ArrayObject::Pointer src) {
     if (!src) return nullptr;
 
-    // 尝试转换为具体类型并调用 DeepCopy
+    // 转换为具体类型并调用 DeepCopy
     if (auto farr = DynamicCast<FloatArray>(src)) {
         auto copy = FloatArray::New();
         copy->DeepCopy(farr);
@@ -37,7 +37,7 @@ static ArrayObject::Pointer DeepCopyArray(ArrayObject::Pointer src) {
     }
     // 可继续添加其他类型，如 IntArray, CharArray 等
 
-    // 如果都不匹配，退回浅拷贝（但这里应保证所有属性都是已知类型）
+    // 如果都不匹配，退回浅拷贝
     return src;
 }
 
@@ -49,7 +49,7 @@ bool iGamePassArrays::Execute() {
     DataObject::Pointer output = DataObject::CreateDataObject(type);
     if (!output) return false;
 
-    // 仅处理 UnstructuredMesh（可扩展）
+
     if (type == IG_UNSTRUCTURED_MESH) {
         auto inMesh = DynamicCast<UnstructuredMesh>(input);
         auto outMesh = DynamicCast<UnstructuredMesh>(output);
@@ -115,27 +115,27 @@ bool iGamePassArrays::Execute() {
             newPoints->DeepCopy(inPoints);
             outMesh->SetPoints(newPoints);
         }
-        // PointSet 无单元，跳过
+
     } else if (type == IG_STRUCTURED_MESH) {
         auto inMesh = DynamicCast<StructuredMesh>(input);
         auto outMesh = DynamicCast<StructuredMesh>(output);
         if (!inMesh || !outMesh) return false;
 
-        // 1. 复制维度（通过 GetDimensionSize 获取数组）
+        //复制维度
         igIndex* dims = inMesh->GetDimensionSize();
         if (dims) {
             igIndex newDims[3] = {dims[0], dims[1], dims[2]};
             outMesh->SetDimensionSize(newDims);
         }
 
-        // 2. 复制点坐标（从父类 PointSet 继承的方法）
+        //复制点坐标
         auto inPoints = inMesh->GetPoints();
         if (inPoints) {
             auto newPoints = Points::New();
             newPoints->DeepCopy(inPoints);
             outMesh->SetPoints(newPoints);
         }
-        // 结构化网格没有显式的 CELLS 数组，无需复制单元
+
     } else {
         igError("iGamePassArrays does not support this data type.");
         return false;
@@ -157,7 +157,7 @@ bool iGamePassArrays::Execute() {
                     // 深拷贝属性数组
                     auto copiedArray = DeepCopyArray(attr.pointer);
                     if (copiedArray) {
-                        
+
                         DoubleArray::Pointer copiedRange = nullptr;
                         if (attr.dataRange) {
                             copiedRange = DoubleArray::New();
@@ -190,7 +190,7 @@ bool iGamePassArrays::Execute() {
         }
     }
     output->SetAttributeSet(outAttrSet);
-    //input->SetAttributeSet(outAttrSet);
+
 
     SetOutput(0, output);
     return true;
