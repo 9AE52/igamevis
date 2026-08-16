@@ -16,6 +16,7 @@
 #include "DataProcessing/iGameMeshTriangulationFilter.h"
 #include "DataProcessing/Simplification/iGameMeshSaliency.h"
 #include "DataProcessing/Simplification/iGameMeshSimplificationWithAttributes.h"
+#include "DataProcessing/iGameVolumeMeshSimplification.h"
 
 #include "Convert/iGameConvertPolyhedralCellsFilter.h"
 #include "Convert/iGameConvertToCellDataFilter.h"
@@ -1559,6 +1560,137 @@ void igQtMainWindow::initAllFilters() {
         modelTreeWidget->addDataObjectToModelTree(surface, Algorithm);
         rendererWidget->update();
     });
+
+    connect(mesh_processing->addAction(QStringLiteral("体网格简化 (Volume Mesh Simplification)")), &QAction::triggered,
+            this, [&](bool checked) { 
+            
+            if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
+            
+            auto dialog = new igQtFilterDialogDockWidget(this, true);
+            dialog->setFilterTitle(QStringLiteral("体网格简化"));
+            int TargetReductionId = dialog->addParameter(
+                igQtFilterDialogDockWidget::QT_LINE_EDIT, 
+                QStringLiteral("目标减少比例(0..1)"), 
+                "0.5"
+            );
+            int TargetTetraCountId = dialog->addParameter(
+                igQtFilterDialogDockWidget::QT_LINE_EDIT, 
+                QStringLiteral("目标顶点数量（0表示不指定）"), 
+                "0"
+            );
+            int BoundaryPenaltyId = dialog->addParameter(
+                igQtFilterDialogDockWidget::QT_LINE_EDIT, 
+                QStringLiteral("边界惩罚系数"), 
+                "300.0"
+            );
+            int LambdaId = dialog->addParameter(
+                igQtFilterDialogDockWidget::QT_LINE_EDIT, 
+                QStringLiteral("属性误差权重"), 
+                "0.1"
+            );
+            int PreserveBoundaryId = dialog->addParameter(
+                igQtFilterDialogDockWidget::QT_CHECK_BOX, 
+                QStringLiteral("是否强制保护边界"), 
+                "true"
+            );
+            int UseAllPointAttributesId = dialog->addParameter(
+                igQtFilterDialogDockWidget::QT_CHECK_BOX, 
+                QStringLiteral("是否使用所有点属性参与简化误差计算"), 
+                "true"
+            );
+            int StretchFactorId = dialog->addParameter(
+                igQtFilterDialogDockWidget::QT_LINE_EDIT, 
+                QStringLiteral("拉伸检查阈值"), 
+                "10.0"
+            );
+            int MaxAspectRatioId = dialog->addParameter(
+                igQtFilterDialogDockWidget::QT_LINE_EDIT, 
+                QStringLiteral("最大长宽比限制"), 
+                "30.0"
+            );
+
+            dialog->show();
+
+            dialog->setApplyFunctor([=, this]() {
+                    bool ok = false;
+                    float TargetReduction = dialog->getDouble(TargetReductionId, ok);
+                    if (!ok) {
+                        showDarkFramelessMessage(QStringLiteral("参数错误"),
+                                                 QStringLiteral("请输入有效的数字或勾选项。"));
+                        return;
+                    }
+                    int TargetTetraCount = dialog->getInt(TargetTetraCountId, ok);
+                    if (!ok) {
+                        showDarkFramelessMessage(QStringLiteral("参数错误"),
+                                                 QStringLiteral("请输入有效的数字或勾选项。"));
+                        return;
+                    }
+                    double BoundaryPenalty = dialog->getDouble(BoundaryPenaltyId, ok);
+                    if (!ok) {
+                        showDarkFramelessMessage(QStringLiteral("参数错误"),
+                                                 QStringLiteral("请输入有效的数字或勾选项。"));
+                        return;
+                    }
+                    double Lambda = dialog->getDouble(LambdaId, ok);
+                    if (!ok) {
+                        showDarkFramelessMessage(QStringLiteral("参数错误"),
+                                                 QStringLiteral("请输入有效的数字或勾选项。"));
+                        return;
+                    }
+                    bool PreserveBoundary = dialog->getChecked(PreserveBoundaryId, ok);
+                    if (!ok) {
+                        showDarkFramelessMessage(QStringLiteral("参数错误"),
+                                                 QStringLiteral("请输入有效的数字或勾选项。"));
+                        return;
+                    }
+                    bool UseAllPointAttributes = dialog->getChecked(UseAllPointAttributesId, ok);
+                    if (!ok) {
+                        showDarkFramelessMessage(QStringLiteral("参数错误"),
+                                                 QStringLiteral("请输入有效的数字或勾选项。"));
+                        return;
+                    }
+                    double StretchFactor = dialog->getDouble(StretchFactorId, ok);
+                    if (!ok) {
+                        showDarkFramelessMessage(QStringLiteral("参数错误"),
+                                                 QStringLiteral("请输入有效的数字或勾选项。"));
+                        return;
+                    }
+                    double MaxAspectRatio = dialog->getDouble(MaxAspectRatioId, ok);
+                    if (!ok) {
+                        showDarkFramelessMessage(QStringLiteral("参数错误"),
+                                                 QStringLiteral("请输入有效的数字或勾选项。"));
+                        return;
+                    }
+
+                    auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+                    if (!obj) return;
+
+                    auto filter = TetraSimplification::New();
+                    filter->SetInput(obj);
+                    filter->SetTargetReduction(TargetReduction);
+                    filter->SetTargetTetraCount(TargetTetraCount);
+                    filter->SetBoundaryPenalty(BoundaryPenalty);
+                    filter->SetLambda(Lambda);
+                    filter->SetPreserveBoundary(PreserveBoundary);
+                    filter->SetUseAllPointAttributes(UseAllPointAttributes);
+                    filter->SetStretchFactor(StretchFactor);
+                    filter->SetMaxAspectRatio(MaxAspectRatio);
+
+                    filter->SetInput(obj);
+                    if (!filter->Execute()) {
+                        showDarkFramelessMessage(QStringLiteral("执行失败"), QStringLiteral("当前数据不支持该算法。"));
+                        dialog->close();
+                        return;
+                    }
+
+                    auto output = filter->GetOutput();
+
+                    modelTreeWidget->addDataObjectToModelTree(output, Algorithm);
+                    rendererWidget->update();
+
+                    dialog->close();
+                });
+        });
 
     //connect(mesh_processing->addAction("Test"), &QAction::triggered, this, [&](bool checked) {
     //    auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
