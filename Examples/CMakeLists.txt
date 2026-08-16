@@ -271,6 +271,8 @@ igame_add_example(testAnsysRSTReader IO/AnsysRSTReader.cpp)
 igame_add_example(testAnsysRTHReader IO/AnsysRTHReader.cpp)
 
 # Animation / Filters
+igame_add_example(testPassArray Filter/PassArrays/TestPassArrays.cpp)
+
 igame_add_example(testAnimation Animation/TestAnimation.cpp)
 
 if (FFMPEG_FOUND)
