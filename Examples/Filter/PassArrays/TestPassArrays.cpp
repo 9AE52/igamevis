@@ -12,7 +12,7 @@ int main() {
     auto scene = iGame::Scene::New();
 
     // Read the file and add it to the scene
-    const std::string fileName = "E:/cv/igamevis/cmake-build-examples-vs/Models/kit.vtk";
+    const std::string fileName = "./Models/kit.vtk";
 
     iGame::DataObject::Pointer obj = iGame::FileIO::ReadFile(fileName);
     if (!obj) {
