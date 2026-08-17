@@ -17,6 +17,7 @@
 #include "DataProcessing/Simplification/iGameMeshSaliency.h"
 #include "DataProcessing/Simplification/iGameMeshSimplificationWithAttributes.h"
 #include "DataProcessing/iGameVolumeMeshSimplification.h"
+#include "DataProcessing/iGameMeshTetrahedralize.h"
 
 #include "Convert/iGameConvertPolyhedralCellsFilter.h"
 #include "Convert/iGameConvertToCellDataFilter.h"
@@ -1691,6 +1692,23 @@ void igQtMainWindow::initAllFilters() {
                     dialog->close();
                 });
         });
+
+    connect(mesh_processing->addAction(QStringLiteral("多面体四面体化")), &QAction::triggered, 
+            this, [&](bool checked) {
+            if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
+            auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+            if (!obj) return;
+            auto filter = MeshTetrahedralize::New();
+            filter->SetInput(obj);
+            if (!filter->Execute()) {
+                showDarkFramelessMessage(QStringLiteral("执行失败"), QStringLiteral("当前数据不支持该算法。"));
+                return;
+            }
+            auto output = filter->GetOutput();
+            modelTreeWidget->addDataObjectToModelTree(output, Algorithm);
+            rendererWidget->update();
+
+    });
 
     //connect(mesh_processing->addAction("Test"), &QAction::triggered, this, [&](bool checked) {
     //    auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
