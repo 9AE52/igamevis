@@ -55,7 +55,7 @@ bool iGamePassArrays::Execute() {
             for (IGsize i = 0; i < pointAttrs->GetNumberOfElements(); ++i) {
                 auto& attr = pointAttrs->GetElement(i);
                 if (attr.IsNone()) continue;
-                if (std::find(m_ArrayNames.begin(), m_ArrayNames.end(), attr.pointer->GetName()) ==
+                if (std::find(m_ArrayNames.begin(), m_ArrayNames.end(), attr.pointer->GetName()) !=
                     m_ArrayNames.end()) {
                     // 深拷贝属性数组
                     auto copiedArray = DeepCopyArray(attr.pointer);
@@ -77,7 +77,7 @@ bool iGamePassArrays::Execute() {
             for (IGsize i = 0; i < cellAttrs->GetNumberOfElements(); ++i) {
                 auto& attr = cellAttrs->GetElement(i);
                 if (attr.IsNone()) continue;
-                if (std::find(m_ArrayNames.begin(), m_ArrayNames.end(), attr.pointer->GetName()) ==
+                if (std::find(m_ArrayNames.begin(), m_ArrayNames.end(), attr.pointer->GetName()) !=
                     m_ArrayNames.end()) {
                     auto copiedArray = DeepCopyArray(attr.pointer);
                     if (copiedArray) {
