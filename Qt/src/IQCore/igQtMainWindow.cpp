@@ -1634,7 +1634,7 @@ void igQtMainWindow::initAllFilters() {
 
     QMenu* view = ui->menu_filters->addMenu("特征提取");
 
-    QAction* LocationAttribute = view->addAction(QStringLiteral("附加点属性到模型树(AppendLocaitonAttribute)"));
+    QAction* LocationAttribute = view->addAction(QStringLiteral("附加点坐标到属性(AppendLocaitonAttribute)"));
     connect(LocationAttribute, &QAction::triggered, this, [this](bool checked) {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
         AppendLocationAttribute::Pointer filter = AppendLocationAttribute::New();
