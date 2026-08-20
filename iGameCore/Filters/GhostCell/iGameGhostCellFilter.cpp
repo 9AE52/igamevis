@@ -45,6 +45,7 @@ bool GhostCellFilter::LoadPointGhostArray(DataObject::Pointer input, std::vector
     return n > 0;
 }
 
+// 一个单元只要包含任意一个 ghost 点，就标记为 ghost 单元。
 bool GhostCellFilter::ComputeCellGhosts(DataObject::Pointer input, const std::vector<char>& pointGhosts,
                                         bool hasPointGhosts, std::vector<char>& cellGhosts) {
 
@@ -69,14 +70,17 @@ bool GhostCellFilter::ComputeCellGhosts(DataObject::Pointer input, const std::ve
         return true;
     };
 
+    // 表面网格
     if (auto mesh = DynamicCast<SurfaceMesh>(input)) {
         return markRange(mesh->GetNumberOfFaces(),
                          [mesh](IGsize c, igIndex* ids) { return mesh->GetFacePointIds(c, ids); });
     }
+    // 体网格
     if (auto mesh = DynamicCast<VolumeMesh>(input)) {
         return markRange(mesh->GetNumberOfVolumes(),
                          [mesh](IGsize c, igIndex* ids) { return mesh->GetVolumePointIds(c, ids); });
     }
+    // 非结构化网格
     if (auto mesh = DynamicCast<UnstructuredMesh>(input)) {
         return markRange(mesh->GetNumberOfCells(),
                          [mesh](IGsize c, igIndex* ids) { return mesh->GetCellPointIds(c, ids); });
@@ -97,6 +101,7 @@ bool GhostCellFilter::AttachCellGhostArray(DataObject::Pointer input, const std:
         attrs->AddScalar(IG_CELL, marker);
     }
 
+    // 0 = 正常单元，1 = ghost 单元
     marker->Resize((IGsize) cellGhosts.size());
     for (IGsize i = 0; i < (IGsize) cellGhosts.size(); i++) { marker->SetValue(i, cellGhosts[i] ? 1.0 : 0.0); }
     return true;
