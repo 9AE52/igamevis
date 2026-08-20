@@ -1,4 +1,4 @@
-#include <PassArrays/iGamePassArrays.h>
+#include <PassArrays/iGamePassArraysFilter.h>
 #include <iGameFileIO.h>
 #include <iGameInteractor.h>
 #include <iGameRenderWindow.h>
@@ -52,7 +52,7 @@ int main() {
     }
     std::vector<std::string> stdNames = {"v1", "u1", "w1"};
 
-    auto filter = iGame::iGamePassArrays::New();
+    auto filter = iGame::PassArrays::New();
     filter->SetArrayNames(stdNames);
     filter->SetInput(obj);
     if (!filter->Execute()) {

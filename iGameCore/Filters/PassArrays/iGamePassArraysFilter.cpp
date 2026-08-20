@@ -1,4 +1,4 @@
-#include "iGamePassArrays.h"
+#include "iGamePassArraysFilter.h"
 #include "iGameArrayObject.h"
 #include "iGameAttributeSet.h"
 #include "iGameCellArray.h"
@@ -40,7 +40,7 @@ static ArrayObject::Pointer DeepCopyArray(ArrayObject::Pointer src) {
     return src;
 }
 
-bool iGamePassArrays::Execute() {
+bool PassArrays::Execute() {
     DataObject::Pointer input = GetInput(0);
     if (!input) return false;
 

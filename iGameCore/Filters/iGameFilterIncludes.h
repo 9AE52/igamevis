@@ -34,4 +34,4 @@
 #include "FeatureExtraction/iGameLaplacianFilter.h"
 #include "FeatureExtraction/iGameVortexDetectionFilter.h"
 #include "FeatureExtraction/iGameVortexFilter.h"
-#include "PassArrays/iGamePassArrays.h"
+#include "PassArrays/iGamePassArraysFilter.h"
