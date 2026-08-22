@@ -1666,6 +1666,13 @@ void igQtMainWindow::initAllFilters() {
                         if (child && child->data(0, Qt::UserRole).toInt() == coordinatesIndex) {
                             item->setCurrentChild(child);
                             item->setSelected(false);
+                            if (auto attributeItem = dynamic_cast<AttribTreeWidgetItem*>(child)) {
+                                attributeItem->get()->setCurrentIndex(0);
+                            }
+                            // Clear the active attribute first so selecting Coordinates
+                            // again cannot be skipped by the rendering cache.
+                            item->viewAttribute(-1, -1);
+                            item->viewAttribute(coordinatesIndex, -1);
                             child->setSelected(true);
                             modelTreeWidget->setCurrentItem(child);
                             break;
@@ -1673,6 +1680,12 @@ void igQtMainWindow::initAllFilters() {
                     }
                 }
 
+                if (ui->dockWidget_SearchInfo && ui->widget_SearchInfo) {
+                    ui->dockWidget_SearchInfo->show();
+                    ui->dockWidget_SearchInfo->raise();
+                    ui->widget_SearchInfo->showPointAttributeDetails(
+                            scene->GetCurrentModel(), QString::fromStdString(filter->GetArrayName()));
+                }
                 rendererWidget->update();
             });
 

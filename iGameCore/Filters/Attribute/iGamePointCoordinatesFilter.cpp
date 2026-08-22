@@ -51,17 +51,27 @@ bool PointCoordinatesFilter::Execute() {
             return false;
         }
 
+        // Point coordinates and the generated attribute share the same storage.
+        // Re-advertise that storage as modified and rebuild its cached ranges so
+        // repeated execution reflects edits made to the currently selected model.
+        coordinates->Modified();
+        existing.UpdateAllDataRange();
+        input->Modified();
         m_CoordinatesArray = coordinates;
         SetOutput(input);
         return true;
     }
 
     coordinates->SetName(m_ArrayName);
-    if (attributes->AddAttribute(IG_VECTOR, IG_POINT, coordinates) < 0) {
+    coordinates->Modified();
+    const auto coordinatesIndex = attributes->AddAttribute(IG_VECTOR, IG_POINT, coordinates);
+    if (coordinatesIndex < 0) {
         igDebug("PointCoordinatesFilter failed to add array '{}'.", m_ArrayName);
         return false;
     }
 
+    attributes->GetAttribute(coordinatesIndex).UpdateAllDataRange();
+    input->Modified();
     m_CoordinatesArray = coordinates;
     SetOutput(input);
     return true;

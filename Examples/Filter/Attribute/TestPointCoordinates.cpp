@@ -76,16 +76,25 @@ bool TestCoordinatesArray() {
     }
 
     const auto attributeCount = attributes->GetNumberOfAttributes();
-    if (!Check(filter->Execute(), "repeated execution must succeed")) { return false; }
+    mesh->GetPoints()->SetPoint(0, 10.0f, 20.0f, 30.0f);
+    if (!Check(filter->Execute(), "repeated execution after point edits must succeed")) { return false; }
     if (!Check(attributes->GetNumberOfAttributes() == attributeCount,
                "repeated execution must not create duplicate attributes")) {
         return false;
     }
+    if (!Check(NearlyEqual(coordinates->GetValue(0), 10.0f) && NearlyEqual(coordinates->GetValue(1), 20.0f) &&
+                       NearlyEqual(coordinates->GetValue(2), 30.0f),
+               "coordinate array must stay synchronized with point edits")) {
+        return false;
+    }
 
-    mesh->GetPoints()->SetPoint(0, 10.0f, 20.0f, 30.0f);
-    return Check(NearlyEqual(coordinates->GetValue(0), 10.0f) && NearlyEqual(coordinates->GetValue(1), 20.0f) &&
-                         NearlyEqual(coordinates->GetValue(2), 30.0f),
-                 "coordinate array must stay synchronized with point edits");
+    auto refreshedRange = attribute.GetDataRange();
+    const float expectedMagnitude = std::sqrt(10.0f * 10.0f + 20.0f * 20.0f + 30.0f * 30.0f);
+    return Check(refreshedRange && NearlyEqual(refreshedRange->GetValue(1), expectedMagnitude) &&
+                         NearlyEqual(refreshedRange->GetValue(3), 10.0f) &&
+                         NearlyEqual(refreshedRange->GetValue(5), 20.0f) &&
+                         NearlyEqual(refreshedRange->GetValue(7), 30.0f),
+                 "repeated execution must refresh magnitude and component ranges");
 }
 
 bool TestNameCollision() {
