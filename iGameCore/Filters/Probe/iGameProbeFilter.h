@@ -1,19 +1,21 @@
 // ============================================================================
-// ProbeFilter  — 在指定位置探测数据（点定位 + 插值）
-// 由 Script/igame_new_filter.py 生成骨架后完成实现
+// ProbeFilter — 单点探测（单元定位 + 线性插值；未命中回退 K 近邻 IDW）
 //
-// 数据流: data_object -> point_set（探测结果）   输入端口 1 / 输出端口 0
+// 数据流: data_object -> point_set（探测结果，1 个点） 输入端口 1 / 输出端口 0
 //
 // 用法:
 //   auto f = ProbeFilter::New();
-//   f->SetInput(obj);                  // 任意带点坐标/点属性的数据对象
-//   f->SetProbePoints(probePoints);    // 探测点（最通用的 PointSet）
-//   f->SetNeighborCount(8);            // 可选，K 近邻插值近邻数
+//   f->SetInput(obj);                  // 带点坐标/点属性（可选带单元）的数据对象
+//   f->SetProbePoint(x, y, z);         // 探测点（每次只探测一个点）
+//   f->SetNeighborCount(8);            // IDW 回退的近邻数，默认 8
 //   f->Execute();
 //   auto result = f->GetResult();      // 结果 PointSet：探测点 + 插值属性
 //
-// 与 Selection 系列（GetClosestPointsInLineFilter 等）保持一致：
-// 算法在 Execute() 中执行，结果通过 GetResult() 等查询函数读取。
+// 算法:
+//   1. 遍历所有单元：面单元只接受三角形、体单元只接受四面体（见
+//      iGameProbeLocator），命中后按重心坐标对全部点属性做线性插值。
+//   2. 全部未命中（或输入无单元）时，遍历全部数据点用最大堆取最近 k 个点
+//      做反距离加权插值（IDW）。
 // ============================================================================
 #pragma once
 #include <iGameDataObject.h>
@@ -29,17 +31,13 @@ public:
 
     bool Execute() override;
 
-    // ---- 探测点输入（最通用的点集数据结构）----
-    void SetProbePoints(PointSet::Pointer points);
-    void SetProbePoints(Points::Pointer points);
-    IGsize AddProbePoint(const Point& point);
-    IGsize AddProbePoint(float x, float y, float z);
-    IGsize GetNumberOfProbePoints() const;
+    // ---- 探测点输入（单点）----
+    void SetProbePoint(const Point& point);
+    void SetProbePoint(float x, float y, float z);
 
     // ---- 结果查询（Execute() 成功之后调用）----
     PointSet::Pointer GetResult();
-    DoubleArray::Pointer GetProbeDistances();
-    IntArray::Pointer GetLocatedPointIds();
+    IntArray::Pointer GetProbeMethods();
 
     // ---- 算法参数 ----
     void SetNeighborCount(int value) { m_NeighborCount = value; }
@@ -51,12 +49,12 @@ protected:
 
 private:
     /* Input */
-    PointSet::Pointer m_ProbePoints{};
+    Point m_ProbePoint{};
+    bool m_HasProbePoint{false};
 
     /* Output */
     PointSet::Pointer m_Result{};
-    DoubleArray::Pointer m_ProbeDistances{};
-    IntArray::Pointer m_LocatedPointIds{};
+    IntArray::Pointer m_ProbeMethods{};
 
     /* Algorithm parameters */
     int m_NeighborCount{8};

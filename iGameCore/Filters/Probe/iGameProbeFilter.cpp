@@ -1,136 +1,51 @@
 // ============================================================================
-// ProbeFilter  — 在指定位置探测数据（点定位 + 插值）
-// 由 Script/igame_new_filter.py 生成骨架后完成实现
+// ProbeFilter — 见 iGameProbeFilter.h
 //
-// 算法说明（第一版）：
-//   1. 点定位：用 nanoflann KD-tree 对输入数据点建索引，为每个探测点查找
-//      K 个最近的数据点（K 由 SetNeighborCount 指定，默认 8）。
-//   2. 插值：K 个近邻按反距离加权（IDW）插值输入的全部点属性（标量/矢量等）；
-//      K=1 或探测点恰好落在数据点上时退化为最近点采样（不插值）。
-//   3. 输出：结果 PointSet 与探测点一一对应，携带插值后的属性，另附
-//      probe_distance（到最近数据点的距离）与 probe_located_point_id。
-//
-// 说明：该实现与输入类型无关（点云/面网格/体网格均可）；
-//       后续如需更精确的"单元内重心插值"，可替换 Interpolate 相关逻辑。
+// 算法说明（第二版）：
+//   1. 单元定位：遍历所有单元。面单元走 ProbeLocateInFace（只认三角形）、
+//      体单元走 ProbeLocateInVolume（只认四面体）；命中后按重心坐标对全部
+//      点属性（标量/矢量等）做线性插值，probe_method = 0。
+//   2. IDW 回退：所有单元都未命中（或输入没有单元）时，遍历全部数据点，
+//      用最大堆维护距离最近的 k 个点（O(n log k)），按 1/(d^2 + eps) 加权
+//      插值，probe_method = 1。
 // ============================================================================
 #include "iGameProbeFilter.h"
 
-#include <nanoflann.hpp>
+#include "iGameProbeLocator.h"
+
+#include <iGameSurfaceMesh.h>
+#include <iGameUnstructuredMesh.h>
+#include <iGameVolumeMesh.h>
 
 #include <algorithm>
-#include <array>
-#include <cmath>
 #include <cstdint>
-#include <memory>
-#include <type_traits>
+#include <queue>
+#include <utility>
 #include <vector>
 
 IGAME_NAMESPACE_BEGIN
-
-namespace {
-
-// 与 iGameVortexDetectionFilter.cpp 中同款 KD-tree 封装：K 近邻查询（L2 距离）
-template <typename Scalar = float, typename Index = int32_t, int Dim = 3>
-struct ProbeKDTree {
-    static_assert(Dim > 0, "Dim must be positive");
-    static_assert(std::is_floating_point<Scalar>::value, "Scalar must be floating point");
-    static_assert(std::is_integral<Index>::value, "Index must be integral");
-
-    struct PointCloud {
-        std::vector<std::array<Scalar, Dim>> pts;
-
-        inline size_t kdtree_get_point_count() const { return pts.size(); }
-
-        inline Scalar kdtree_get_pt(const size_t idx, const size_t dim) const { return pts[idx][dim]; }
-
-        template <class BBOX>
-        bool kdtree_get_bbox(BBOX& bb) const {
-            if (pts.empty()) return false;
-            std::array<Scalar, Dim> lo = pts[0];
-            std::array<Scalar, Dim> hi = pts[0];
-            for (const auto& p : pts) {
-                for (int d = 0; d < Dim; ++d) {
-                    lo[d] = std::min(lo[d], p[d]);
-                    hi[d] = std::max(hi[d], p[d]);
-                }
-            }
-            for (int d = 0; d < Dim; ++d) {
-                bb[d].low = lo[d];
-                bb[d].high = hi[d];
-            }
-            return true;
-        }
-    };
-
-    using Adaptor = nanoflann::KDTreeSingleIndexAdaptor<
-        nanoflann::L2_Simple_Adaptor<Scalar, PointCloud>, PointCloud, Dim, Index>;
-
-    PointCloud cloud;
-    std::unique_ptr<Adaptor> index;
-
-    void Build(size_t leafMaxSize = 32) {
-        index = std::make_unique<Adaptor>(Dim, cloud,
-                                          nanoflann::KDTreeSingleIndexAdaptorParams(static_cast<int>(leafMaxSize)));
-        index->buildIndex();
-    }
-
-    void Query(const Scalar q[Dim], int k, std::vector<Index>& result, std::vector<Scalar>& distances) const {
-        result.clear();
-        distances.clear();
-        if (!index || cloud.pts.empty() || k <= 0) return;
-        result.resize(k);
-        distances.resize(k);
-        nanoflann::KNNResultSet<Scalar, Index> rs(static_cast<size_t>(k));
-        rs.init(result.data(), distances.data());
-        nanoflann::SearchParameters sp;
-        sp.sorted = true;
-        index->findNeighbors(rs, q, sp);
-        const size_t n = rs.size();
-        result.resize(n);
-        distances.resize(n);
-    }
-};
-
-}  // namespace
 
 ProbeFilter::ProbeFilter() {
     SetNumberOfInputs(1);
     SetNumberOfOutputs(0);  // 结果通过 GetResult() 查询，与 Selection 系列一致
 }
 
-void ProbeFilter::SetProbePoints(PointSet::Pointer points) {
-    m_ProbePoints = points;
+void ProbeFilter::SetProbePoint(const Point& point) {
+    m_ProbePoint = point;
+    m_HasProbePoint = true;
 }
 
-void ProbeFilter::SetProbePoints(Points::Pointer points) {
-    if (m_ProbePoints.IsNull()) m_ProbePoints = PointSet::New();
-    m_ProbePoints->SetPoints(points);
-}
-
-IGsize ProbeFilter::AddProbePoint(const Point& point) {
-    if (m_ProbePoints.IsNull()) m_ProbePoints = PointSet::New();
-    return m_ProbePoints->AddPoint(point);
-}
-
-IGsize ProbeFilter::AddProbePoint(float x, float y, float z) {
-    if (m_ProbePoints.IsNull()) m_ProbePoints = PointSet::New();
-    return m_ProbePoints->AddPoint(Point(x, y, z));
-}
-
-IGsize ProbeFilter::GetNumberOfProbePoints() const {
-    return m_ProbePoints.IsNull() ? 0 : m_ProbePoints->GetNumberOfPoints();
+void ProbeFilter::SetProbePoint(float x, float y, float z) {
+    m_ProbePoint = Point(x, y, z);
+    m_HasProbePoint = true;
 }
 
 PointSet::Pointer ProbeFilter::GetResult() {
     return m_Result;
 }
 
-DoubleArray::Pointer ProbeFilter::GetProbeDistances() {
-    return m_ProbeDistances;
-}
-
-IntArray::Pointer ProbeFilter::GetLocatedPointIds() {
-    return m_LocatedPointIds;
+IntArray::Pointer ProbeFilter::GetProbeMethods() {
+    return m_ProbeMethods;
 }
 
 bool ProbeFilter::Execute() {
@@ -139,39 +54,26 @@ bool ProbeFilter::Execute() {
     if (in.IsNull()) return false;
     auto srcPoints = in->GetPoints();
     if (srcPoints.IsNull() || srcPoints->GetNumberOfPoints() == 0) return false;
-    if (m_ProbePoints.IsNull() || m_ProbePoints->GetNumberOfPoints() == 0) return false;
+    if (!m_HasProbePoint) return false;
 
     // 清空上一次结果，避免失败后返回旧数据
     m_Result = nullptr;
-    m_ProbeDistances = nullptr;
-    m_LocatedPointIds = nullptr;
+    m_ProbeMethods = nullptr;
 
     const IGsize numSrc = srcPoints->GetNumberOfPoints();
-    const IGsize numProbes = m_ProbePoints->GetNumberOfPoints();
     const int k = std::max(1, m_NeighborCount);
+    const Point q = m_ProbePoint;
 
-    // ================= 1. 点定位：对输入数据点构建 KD-tree =================
-    ProbeKDTree<> tree;
-    tree.cloud.pts.resize(static_cast<size_t>(numSrc));
-    for (IGsize i = 0; i < numSrc; ++i) {
-        const Point& p = srcPoints->GetPoint(i);
-        tree.cloud.pts[i] = {p[0], p[1], p[2]};
-    }
-    tree.Build(32);
-
-    // ================= 2. 准备输出对象 =================
+    // ================= 输出对象（1 个探测点）=================
     m_Result = PointSet::New();
-    m_Result->SetPoints(m_ProbePoints->GetPoints());
+    auto outPoints = Points::New();
+    outPoints->AddPoint(q);
+    m_Result->SetPoints(outPoints);
 
-    m_ProbeDistances = DoubleArray::New();
-    m_ProbeDistances->SetName("probe_distance");
-    m_ProbeDistances->SetDimension(1);
-    m_ProbeDistances->Resize(numProbes);
-
-    m_LocatedPointIds = IntArray::New();
-    m_LocatedPointIds->SetName("probe_located_point_id");
-    m_LocatedPointIds->SetDimension(1);
-    m_LocatedPointIds->Resize(numProbes);
+    m_ProbeMethods = IntArray::New();
+    m_ProbeMethods->SetName("probe_method");
+    m_ProbeMethods->SetDimension(1);
+    m_ProbeMethods->Resize(1);
 
     // 输入的全部点属性（标量/矢量等）按插值拷贝到结果点集
     struct OutAttribute {
@@ -180,8 +82,7 @@ bool ProbeFilter::Execute() {
         int dimension;
     };
     std::vector<OutAttribute> outAttributes;
-    AttributeSet* inAttributes = in->GetAttributeSet();
-    if (inAttributes) {
+    if (AttributeSet* inAttributes = in->GetAttributeSet()) {
         auto allAttributes = inAttributes->GetAllPointAttributes();
         for (IGsize i = 0; i < allAttributes->GetNumberOfElements(); ++i) {
             auto& attr = allAttributes->GetElement(i);
@@ -190,65 +91,134 @@ bool ProbeFilter::Execute() {
             auto outArray = FloatArray::New();
             outArray->SetName(attr.pointer->GetName());
             outArray->SetDimension(dimension);
-            outArray->Resize(numProbes);
-            m_Result->GetAttributeSet()->AddAttribute(attr.type, attr.attachmentType, outArray, attr.GetDataRange());
+            outArray->Resize(1);
+            m_Result->GetAttributeSet()->AddAttribute(attr.type, attr.attachmentType,
+                                                      outArray, attr.GetDataRange());
             outAttributes.push_back({attr.pointer, outArray, dimension});
         }
     }
 
-    // ================= 3. 逐探测点：定位 + 插值 =================
-    constexpr double kEpsDist2 = 1e-12;  // 距离平方接近 0 视为命中数据点
-    std::vector<int32_t> neighborIds;
-    std::vector<float> neighborDist2;
-    double rawValues[IGAME_CELL_MAX_SIZE] = {};
-    double interpolated[IGAME_CELL_MAX_SIZE] = {};
+    // 对全部点属性做一次带权组合：value(q) = Σ w_i * value(pointId_i)
+    const auto interpolateWith =
+        [&outAttributes](const std::vector<std::pair<igIndex, double>>& weightedPoints) {
+            double rawValues[IGAME_CELL_MAX_SIZE] = {};
+            double interpolated[IGAME_CELL_MAX_SIZE] = {};
+            for (auto& out : outAttributes) {
+                const int dimension = out.dimension;
+                for (int c = 0; c < dimension; ++c) interpolated[c] = 0.0;
+                for (const auto& wp : weightedPoints) {
+                    out.inArray->GetElement(wp.first, rawValues);
+                    for (int c = 0; c < dimension; ++c) {
+                        interpolated[c] += wp.second * rawValues[c];
+                    }
+                }
+                out.outArray->SetElement(0, interpolated);
+            }
+        };
 
-    for (IGsize probeId = 0; probeId < numProbes; ++probeId) {
-        const Point& q = m_ProbePoints->GetPoint(probeId);
-        const float query[3] = {q[0], q[1], q[2]};
+    // ================= 1. 单元定位 =================
+    Cell* hitCell = nullptr;
+    ProbeSimplexHit hit;
 
-        tree.Query(query, k, neighborIds, neighborDist2);
-        if (neighborIds.empty()) {
+    auto cellArray = in->GetCellArray();
+    if (cellArray && cellArray->GetNumberOfCells() > 0) {
+        auto um = DynamicCast<UnstructuredMesh>(in);
+        auto vm = DynamicCast<VolumeMesh>(in);
+        auto sm = DynamicCast<SurfaceMesh>(in);
+
+        const IGsize numCells = cellArray->GetNumberOfCells();
+        for (IGsize cellId = 0; cellId < numCells; ++cellId) {
+            Cell* cell = nullptr;
+            if (um) {
+                cell = um->GetCell(cellId);
+            } else if (vm) {
+                cell = vm->GetVolume(cellId);
+            } else if (sm) {
+                cell = sm->GetFace(cellId);
+            }
+            if (cell == nullptr) continue;
+
+            const auto cellType = static_cast<IGCellType>(cell->GetCellType());
+            const igIndex dim = Cell::GetCellDimension(cellType);
+            const bool found = (dim == 2) ? ProbeLocateInFace(cell, q, hit)
+                                          : (dim == 3) ? ProbeLocateInVolume(cell, q, hit)
+                                                       : false;
+            if (found) {
+                hitCell = cell;
+                break;
+            }
+        }
+    }
+
+    // ================= 2. 插值 =================
+    if (hitCell != nullptr && hit.found) {
+        // ---- 单元线性插值 ----
+        m_ProbeMethods->SetValue(0, 0);
+
+        std::vector<std::pair<igIndex, double>> weightedPoints;
+        weightedPoints.reserve(hit.numVertices);
+        for (int v = 0; v < hit.numVertices; ++v) {
+            weightedPoints.emplace_back(hitCell->GetPointId(hit.localVertIds[v]),
+                                        hit.barycentric[v]);
+        }
+        interpolateWith(weightedPoints);
+    } else {
+        // ---- IDW 回退：最大堆维护最近 k 个点 ----
+        m_ProbeMethods->SetValue(0, 1);
+
+        struct Neighbor {
+            double dist2;
+            int32_t id;
+            bool operator<(const Neighbor& o) const {
+                if (dist2 != o.dist2) return dist2 < o.dist2;
+                return id < o.id;
+            }
+        };
+
+        std::priority_queue<Neighbor> heap;
+        for (IGsize i = 0; i < numSrc; ++i) {
+            const Point& p = srcPoints->GetPoint(i);
+            const double dx = static_cast<double>(q[0]) - p[0];
+            const double dy = static_cast<double>(q[1]) - p[1];
+            const double dz = static_cast<double>(q[2]) - p[2];
+            Neighbor nb{dx * dx + dy * dy + dz * dz, static_cast<int32_t>(i)};
+            if (static_cast<int>(heap.size()) < k) {
+                heap.push(nb);
+            } else if (nb < heap.top()) {
+                heap.pop();
+                heap.push(nb);
+            }
+        }
+
+        std::vector<Neighbor> knn;
+        knn.reserve(heap.size());
+        while (!heap.empty()) {
+            knn.push_back(heap.top());
+            heap.pop();
+        }
+        std::sort(knn.begin(), knn.end());  // 按 (距离², id) 升序，保证确定性
+
+        if (knn.empty()) {
             m_Result = nullptr;
-            m_ProbeDistances = nullptr;
-            m_LocatedPointIds = nullptr;
+            m_ProbeMethods = nullptr;
             return false;
         }
 
-        // 记录定位信息：最近数据点 id 与距离
-        m_LocatedPointIds->SetValue(probeId, neighborIds[0]);
-        const double nearestDist2 = std::max(0.0, static_cast<double>(neighborDist2[0]));
-        m_ProbeDistances->SetValue(probeId, std::sqrt(nearestDist2));
-
+        constexpr double kEpsDist2 = 1e-12;
+        std::vector<std::pair<igIndex, double>> weightedPoints;
         // 恰好命中数据点（或 K=1）时退化为最近点采样，不做加权
-        const bool exactHit = neighborDist2[0] <= kEpsDist2 || static_cast<int>(neighborIds.size()) == 1;
-
-        for (auto& out : outAttributes) {
-            const int dimension = out.dimension;
-            for (int c = 0; c < dimension; ++c) interpolated[c] = 0.0;
-
-            if (exactHit) {
-                out.inArray->GetElement(neighborIds[0], rawValues);
-                out.outArray->SetElement(probeId, rawValues);
-                continue;
-            }
-
+        if (knn[0].dist2 <= kEpsDist2 || knn.size() == 1) {
+            weightedPoints.emplace_back(knn[0].id, 1.0);
+        } else {
             double sumWeight = 0.0;
-            for (size_t j = 0; j < neighborIds.size(); ++j) {
-                const double d2 = std::max(0.0, static_cast<double>(neighborDist2[j]));
-                sumWeight += 1.0 / (d2 + kEpsDist2);
+            for (const auto& nb : knn) {
+                sumWeight += 1.0 / (nb.dist2 + kEpsDist2);
             }
-            for (size_t j = 0; j < neighborIds.size(); ++j) {
-                const double d2 = std::max(0.0, static_cast<double>(neighborDist2[j]));
-                const double weight = 1.0 / (d2 + kEpsDist2);
-                out.inArray->GetElement(neighborIds[j], rawValues);
-                for (int c = 0; c < dimension; ++c) interpolated[c] += weight * rawValues[c];
+            for (const auto& nb : knn) {
+                weightedPoints.emplace_back(nb.id, 1.0 / (nb.dist2 + kEpsDist2) / sumWeight);
             }
-            for (int c = 0; c < dimension; ++c) interpolated[c] /= sumWeight;
-            out.outArray->SetElement(probeId, interpolated);
         }
-
-        UpdateProgress(static_cast<double>(probeId + 1) / static_cast<double>(numProbes));
+        interpolateWith(weightedPoints);
     }
 
     m_Result->Modified();
