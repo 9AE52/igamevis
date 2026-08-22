@@ -1630,7 +1630,7 @@ void igQtMainWindow::initAllFilters() {
             rendererWidget->update();
         }
     });
-    connect(convert->addAction(QStringLiteral("提取点坐标 (Extract Point Coordinates)")), &QAction::triggered, this,
+    connect(ui->menu_filters->addAction(QStringLiteral("提取点坐标 (Extract Point Coordinates)")), &QAction::triggered, this,
             [this](bool checked) {
                 auto scene = rendererWidget->GetScene();
                 if (!scene || !scene->GetCurrentModel()) {
