@@ -1,5 +1,6 @@
 #include "iGameCellCenterFilter.h"
 #include "iGameCellArray.h"
+#include "iGameStructuredMesh.h"
 
 IGAME_NAMESPACE_BEGIN
 
@@ -15,7 +16,22 @@ bool CellCenterFilter::Execute() {
     if (!input) return false;
 
     auto inPoints = input->GetPoints();
-    auto inCells  = input->GetCellArray();
+    CellArray::Pointer inCells;
+    if (input->GetDataObjectType() == IG_STRUCTURED_MESH) {
+        // 结构化网格：GetCellArray() 返回空（隐式拓扑），
+        // 先调用 GenStructuredCellConnectivities() 生成连接表，
+        // 3D 取体单元，2D 取面单元。
+        auto structured = DynamicCast<StructuredMesh>(input);
+        if (!structured) return false;
+        structured->GenStructuredCellConnectivities();
+        if (structured->GetDimension() >= 3) {
+            inCells = structured->GetVolumes();
+        } else {
+            inCells = structured->GetFaces();
+        }
+    } else {
+        inCells = input->GetCellArray();
+    }
     if (!inPoints || !inCells) return false;
 
     const IGsize inCellNum = inCells->GetNumberOfCells();
@@ -42,9 +58,8 @@ bool CellCenterFilter::Execute() {
         outPoints->AddPoint(center);
     }
 
-    //属性复制：
-    //点属性 → 输出点是单元中心，取该单元所有顶点的属性均值，作为该中心点的属性值
-    //单元属性 → 第 i 个中心点对应第 i 个单元，按单元索引逐项拷贝。
+    //点属性：输出点是单元中心，取该单元所有顶点的属性均值，作为该中心点的属性值
+    //单元属性：第i个中心点对应第i个单元，按单元索引逐项拷贝。
     auto inAttr = input->GetAttributeSet();
     if (inAttr) {
         auto outAttr = AttributeSet::New();
