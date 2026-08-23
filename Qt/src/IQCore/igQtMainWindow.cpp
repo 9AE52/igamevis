@@ -1913,6 +1913,7 @@ void igQtMainWindow::initAllFilters() {
     });
     QAction* passArrays = ui->menu_filters->addAction(QStringLiteral("传递过滤数据数组 (Pass Arrays)"));
     connect(passArrays, &QAction::triggered, this, [&](bool checked) {
+        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
         auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
 
         igQtFilterDialogDockWidget* dialog = new igQtFilterDialogDockWidget(this, true);
