@@ -48,7 +48,6 @@ bool PassArrays::Execute() {
     DataObject::Pointer output = DataObject::CreateDataObject(type);
     if (!output) return false;
 
-    // 仅处理 UnstructuredMesh（可扩展）
     if (type == IG_UNSTRUCTURED_MESH) {
         auto inMesh = DynamicCast<UnstructuredMesh>(input);
         auto outMesh = DynamicCast<UnstructuredMesh>(output);
@@ -120,21 +119,20 @@ bool PassArrays::Execute() {
         auto outMesh = DynamicCast<StructuredMesh>(output);
         if (!inMesh || !outMesh) return false;
 
-        // 1. 复制维度（通过 GetDimensionSize 获取数组）
+        // 复制维度
         igIndex* dims = inMesh->GetDimensionSize();
         if (dims) {
             igIndex newDims[3] = {dims[0], dims[1], dims[2]};
             outMesh->SetDimensionSize(newDims);
         }
 
-        // 2. 复制点坐标（从父类 PointSet 继承的方法）
+        // 复制点坐标
         auto inPoints = inMesh->GetPoints();
         if (inPoints) {
             auto newPoints = Points::New();
             newPoints->DeepCopy(inPoints);
             outMesh->SetPoints(newPoints);
         }
-        // 结构化网格没有显式的 CELLS 数组，无需复制单元
     } else {
         igError("iGamePassArrays does not support this data type.");
         return false;

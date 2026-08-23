@@ -1532,57 +1532,7 @@ void igQtMainWindow::initAllFilters() {
                 modelTreeWidget->addDataObjectToModelTree(surface, Algorithm);
                 rendererWidget->update();
             });
-    connect(mesh_processing->addAction(QStringLiteral("传递过滤数据数组 (Pass Arrays)")), &QAction::triggered, this,
-            [&](bool checked) {
-                auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
 
-                igQtFilterDialogDockWidget* dialog = new igQtFilterDialogDockWidget(this, true);
-                dialog->setFilterTitle(QStringLiteral("传递属性过滤"));
-                dialog->setFilterDescription(QStringLiteral("输入要保留的属性名称（多个用逗号分隔）"));
-                int nameId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT,
-                                                  QStringLiteral("属性名称列表"), QStringLiteral(""));
-                dialog->show();
-
-                dialog->setApplyFunctor([this, obj, nameId, dialog]() {
-                    bool ok = true;
-                    // 获取 QLineEdit 控件并读取文本
-                    QLineEdit* lineEdit = qobject_cast<QLineEdit*>(dialog->getWidget(nameId));
-                    if (!lineEdit) {
-                        showDarkFramelessMessage(QStringLiteral("错误"), QStringLiteral("无法获取输入框。"));
-                        return;
-                    }
-                    QString namesStr = lineEdit->text();
-                    if (namesStr.isEmpty()) {
-                        showDarkFramelessMessage(QStringLiteral("错误"), QStringLiteral("请输入有效的属性名称。"));
-                        return;
-                    }
-                    // 解析为字符串列表
-                    QStringList nameList = namesStr.split(',', Qt::SkipEmptyParts);
-                    std::vector<std::string> stdNames;
-                    for (const QString& s: nameList) { stdNames.push_back(s.trimmed().toStdString()); }
-
-
-                    // 创建并执行 Filter
-                    auto filter = PassArrays::New();
-                    filter->SetArrayNames(stdNames);
-                    filter->SetInput(obj);
-                    if (!filter->Execute()) {
-                        showDarkFramelessMessage(QStringLiteral("执行失败"),
-                                                 QStringLiteral("Filter 执行出错，请检查输入。"));
-                        return;
-                    }
-                    auto output = filter->GetOutput();
-                    if (output) {
-                        output->SetName(obj->GetName() + QStringLiteral("_filtered").toStdString());
-                        modelTreeWidget->addDataObjectToModelTree(output, Algorithm);
-
-                        rendererWidget->GetScene()->Modified();
-                        rendererWidget->GetScene()->Update();
-                        rendererWidget->update();
-                        dialog->close();
-                    }
-                });
-            });
 
     //connect(mesh_processing->addAction("Test"), &QAction::triggered, this, [&](bool checked) {
     //    auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
@@ -1960,6 +1910,53 @@ void igQtMainWindow::initAllFilters() {
             res->SetName(data->GetName());
             modelTreeWidget->addDataObjectToModelTree(res, Algorithm);
         }
+    });
+    QAction* passArrays = ui->menu_filters->addAction(QStringLiteral("传递过滤数据数组 (Pass Arrays)"));
+    connect(passArrays, &QAction::triggered, this, [&](bool checked) {
+        auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+
+        igQtFilterDialogDockWidget* dialog = new igQtFilterDialogDockWidget(this, true);
+        dialog->setFilterTitle(QStringLiteral("传递属性过滤"));
+        dialog->setFilterDescription(QStringLiteral("输入要保留的属性名称（多个用逗号分隔）"));
+        int nameId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, QStringLiteral("属性名称列表"),
+                                          QStringLiteral(""));
+        dialog->show();
+
+        dialog->setApplyFunctor([this, obj, nameId, dialog]() {
+            bool ok = true;
+            // 获取 QLineEdit 控件并读取文本
+            QLineEdit* lineEdit = qobject_cast<QLineEdit*>(dialog->getWidget(nameId));
+            if (!lineEdit) {
+                showDarkFramelessMessage(QStringLiteral("错误"), QStringLiteral("无法获取输入框。"));
+                return;
+            }
+            QString namesStr = lineEdit->text();
+            if (namesStr.isEmpty()) {
+                showDarkFramelessMessage(QStringLiteral("错误"), QStringLiteral("请输入有效的属性名称。"));
+                return;
+            }
+            // 解析为字符串列表
+            QStringList nameList = namesStr.split(',', Qt::SkipEmptyParts);
+            std::vector<std::string> stdNames;
+            for (const QString& s: nameList) { stdNames.push_back(s.trimmed().toStdString()); }
+            // 创建并执行 Filter
+            auto filter = PassArrays::New();
+            filter->SetArrayNames(stdNames);
+            filter->SetInput(obj);
+            if (!filter->Execute()) {
+                showDarkFramelessMessage(QStringLiteral("执行失败"), QStringLiteral("Filter 执行出错，请检查输入。"));
+                return;
+            }
+            auto output = filter->GetOutput();
+            if (output) {
+                output->SetName(obj->GetName() + QStringLiteral("_filtered").toStdString());
+                modelTreeWidget->addDataObjectToModelTree(output, Algorithm);
+                rendererWidget->GetScene()->Modified();
+                rendererWidget->GetScene()->Update();
+                rendererWidget->update();
+                dialog->close();
+            }
+        });
     });
 }
 
