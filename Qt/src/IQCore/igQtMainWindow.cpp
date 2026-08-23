@@ -1634,6 +1634,46 @@ void igQtMainWindow::initAllFilters() {
 
     QMenu* view = ui->menu_filters->addMenu("特征提取");
 
+    QAction* outlineCorners = view->addAction(
+            QStringLiteral("提取包围盒角点 (Outline Corners)"));
+    connect(outlineCorners, &QAction::triggered, this, [this](bool) {
+        auto scene = rendererWidget->GetScene();
+        if (scene == nullptr || scene->GetCurrentModel() == nullptr) {
+            igDebug("[OutlineCorner UI] No imported or selected model; Execute was not called.");
+            showDarkFramelessMessage(QStringLiteral("无可用模型"),
+                                     QStringLiteral("请先加载并在模型树中选择一个模型。"));
+            return;
+        }
+
+        auto input = scene->GetCurrentModel()->GetDataObject();
+        if (input.IsNull()) {
+            igDebug("[OutlineCorner UI] Current model has no data object; Execute was not called.");
+            showDarkFramelessMessage(QStringLiteral("无可用模型"),
+                                     QStringLiteral("当前模型没有可用数据。"));
+            return;
+        }
+
+        OutlineCornerFilter::Pointer filter = OutlineCornerFilter::New();
+        filter->SetInput(input);
+        if (!filter->Execute()) {
+            showDarkFramelessMessage(QStringLiteral("执行失败"),
+                                     QString::fromStdString(filter->GetMessage()));
+            return;
+        }
+
+        auto result = filter->GetResult();
+        if (result.IsNull()) {
+            showDarkFramelessMessage(QStringLiteral("执行失败"),
+                                     QStringLiteral("包围盒角点输出为空。"));
+            return;
+        }
+
+        result->SetViewStyle(IG_WIREFRAME);
+        result->SetLineWidth(2.0f);
+        modelTreeWidget->addDataObjectToModelTree(result, Algorithm);
+        rendererWidget->update();
+    });
+
     QAction* gradient = view->addAction(QStringLiteral("计算梯度 (ComputeGradient)"));
     connect(gradient, &QAction::triggered, this, [this](bool checked) {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
