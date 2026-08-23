@@ -30,6 +30,7 @@
 #include "VolumeMeshAlgorithm/iGameTetraDecimation.h"
 
 #include "FeatureExtraction/iGameCurvatureFilter.h"
+#include "FeatureExtraction/iGameCountCellFacesFilter.h"
 #include "FeatureExtraction/iGameGradientFilter.h"
 #include "FeatureExtraction/iGameLaplacianFilter.h"
 #include "FeatureExtraction/iGameVortexDetectionFilter.h"

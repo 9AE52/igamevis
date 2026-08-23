@@ -1634,6 +1634,45 @@ void igQtMainWindow::initAllFilters() {
 
     QMenu* view = ui->menu_filters->addMenu("特征提取");
 
+    QAction* countCellFaces = view->addAction(
+            QStringLiteral("统计单元面数 (Count Cell Faces)"));
+    connect(countCellFaces, &QAction::triggered, this, [this](bool) {
+        auto scene = rendererWidget->GetScene();
+        if (scene == nullptr || scene->GetCurrentModel() == nullptr) {
+            igDebug("[CountCellFaces UI] No imported or selected model; Execute was not called.");
+            showDarkFramelessMessage(QStringLiteral("无可用模型"),
+                                     QStringLiteral("请先加载并在模型树中选择一个模型。"));
+            return;
+        }
+
+        auto input = scene->GetCurrentModel()->GetDataObject();
+        if (input.IsNull()) {
+            igDebug("[CountCellFaces UI] Current model has no data object; Execute was not called.");
+            showDarkFramelessMessage(QStringLiteral("无可用模型"),
+                                     QStringLiteral("当前模型没有可用数据。"));
+            return;
+        }
+
+        const int previousAttributeIndex = input->GetAttributeIndex();
+        CountCellFacesFilter::Pointer filter = CountCellFacesFilter::New();
+        filter->SetInput(input);
+        if (!filter->Execute()) {
+            showDarkFramelessMessage(QStringLiteral("执行失败"),
+                                     QString::fromStdString(filter->GetMessage()));
+            return;
+        }
+
+        modelTreeWidget->updateAllAttriubute(input);
+        if (auto* item = modelTreeWidget->getItemFromObject(input)) {
+            item->setExpanded(true);
+            if (previousAttributeIndex >= 0 && previousAttributeIndex < item->childCount()) {
+                item->viewAttribute(previousAttributeIndex, -1);
+            }
+        }
+        ui->widget_SearchInfo->setCurrentModel(scene->GetCurrentModel());
+        rendererWidget->update();
+    });
+
     QAction* gradient = view->addAction(QStringLiteral("计算梯度 (ComputeGradient)"));
     connect(gradient, &QAction::triggered, this, [this](bool checked) {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
