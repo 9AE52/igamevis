@@ -307,6 +307,89 @@ igQtMainWindow::igQtMainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui
     UpdateIcons();
     initAllComponents();
     initAllFilters();
+    // ===== IsoVolume 等值面体提取（算法处理下的一级菜单）=====
+    connect(ui->menu_filters->addAction(QStringLiteral("等值面体提取 (IsoVolume)")), &QAction::triggered, this,
+            [&](bool checked) {
+                if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) {
+                    showDarkFramelessMessage(QStringLiteral("提示"),
+                                             QStringLiteral("请先加载一个模型"));
+                    return;
+                }
+                auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+                if (!obj) return;
+                auto attrs = obj->GetAttributeSet()->GetAllPointAttributes();
+                if (!attrs || attrs->GetNumberOfElements() == 0) {
+                    showDarkFramelessMessage(QStringLiteral("提示"),
+                                             QStringLiteral("当前模型没有点标量数据，无法进行等值面体提取"));
+                    return;
+                }
+                auto& attr = attrs->GetElement(0);
+                auto array = attr.pointer;
+                int dim = array->GetDimension();
+                auto range = attr.GetDataRange();
+
+                igQtFilterDialogDockWidget* dialog = new igQtFilterDialogDockWidget(this, true);
+                dialog->setFilterTitle(QStringLiteral("等值面体提取 (IsoVolume)"));
+                dialog->setFilterDescription(QStringLiteral("提取标量值落在 [lower, upper] 区间内的体数据"));
+
+                std::vector<QString> comps;
+                for (int i = 0; i < (dim > 0 ? dim : 1); ++i) {
+                    comps.push_back(QStringLiteral("分量 %1").arg(i));
+                }
+                int compId = dialog->addParameter(igQtFilterDialogDockWidget::QT_COMBO_BOX,
+                                                  QStringLiteral("标量分量"), comps);
+
+                double smin = 0.0, smax = 1.0;
+                if (range && range->GetNumberOfElements() >= 4) {
+                    smin = range->GetValue(2);
+                    smax = range->GetValue(3);
+                }
+                if (smax <= smin) { smax = smin + 1.0; }
+                int lowerId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT,
+                                                   QStringLiteral("lower"),
+                                                   QString::number(smin + (smax - smin) / 3.0));
+                int upperId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT,
+                                                   QStringLiteral("upper"),
+                                                   QString::number(smin + (smax - smin) * 2.0 / 3.0));
+                dialog->show();
+
+                dialog->setApplyFunctor([=, this]() {
+                    bool okLower = false, okUpper = false, okCombo = false;
+                    int comp = dialog->getComboIndex(compId, okCombo);
+                    double lower = dialog->getDouble(lowerId, okLower);
+                    double upper = dialog->getDouble(upperId, okUpper);
+                    if (!okLower || !okUpper) {
+                        showDarkFramelessMessage(QStringLiteral("提示"),
+                                                 QStringLiteral("lower / upper 请输入有效数字"));
+                        return;
+                    }
+                    if (lower > upper) {
+                        double tmp = lower; lower = upper; upper = tmp;
+                    }
+                    auto filter = IsoVolumeFilter::New();
+                    filter->SetInput(obj);
+                    filter->SetIsoScalarData(array, lower, upper, comp);
+                    if (!filter->Execute()) {
+                        showDarkFramelessMessage(QStringLiteral("警告"),
+                                                 QStringLiteral("等值面体提取执行失败，请检查数据与区间"));
+                        return;
+                    }
+                    auto out = filter->GetOutput();
+                    if (!out) return;
+                    out->SetName(obj->GetName() + "_isovolume");
+                    auto outMesh = DynamicCast<UnstructuredMesh>(out);
+                    if (outMesh) {
+                        showDarkFramelessMessage(QStringLiteral("等值面体提取结果"),
+                                QStringLiteral("输出 %1 点 / %2 单元\n(区间 [%3, %4]，含点合并)")
+                                        .arg(outMesh->GetNumberOfPoints())
+                                        .arg(outMesh->GetNumberOfCells())
+                                        .arg(lower).arg(upper));
+                    }
+                    modelTreeWidget->addDataObjectToModelTree(out, Algorithm);
+                    rendererWidget->update();
+                    dialog->close();
+                });
+            });
     initAllSources();
     initAllInteractor();
     updateRecentFilePaths();

@@ -1,7 +1,33 @@
 #include "iGameIsoVolumeFilter.h"
 #include "iGameThreadPool.h"
 
+#include <map>
+#include <tuple>
+
 IGAME_NAMESPACE_BEGIN
+
+namespace {
+// 按输入数组类型创建同类型数组，避免统一转成 FloatArray 造成类型/精度丢失
+ArrayObject::Pointer CreateSameTypeArray(ArrayObject::Pointer in) {
+    ArrayObject::Pointer out;
+    switch (in->GetArrayType()) {
+        case IG_DoubleArray:           out = DoubleArray::New();           break;
+        case IG_IntArray:              out = IntArray::New();              break;
+        case IG_UnsignedIntArray:      out = UnsignedIntArray::New();      break;
+        case IG_CharArray:             out = CharArray::New();             break;
+        case IG_UnsignedCharArray:     out = UnsignedCharArray::New();     break;
+        case IG_ShortArray:            out = ShortArray::New();            break;
+        case IG_UnsignedShortArray:    out = UnsignedShortArray::New();    break;
+        case IG_LongLongArray:         out = LongLongArray::New();         break;
+        case IG_UnsignedLongLongArray: out = UnsignedLongLongArray::New(); break;
+        case IG_FloatArray:
+        default:                       out = FloatArray::New();            break;
+    }
+    out->SetName(in->GetName());
+    out->SetDimension(in->GetDimension());
+    return out;
+}
+}  // namespace
 
 IsoVolumeFilter::IsoVolumeFilter() {
     this->SetNumberOfInputs(1);
@@ -184,17 +210,113 @@ bool IsoVolumeFilter::ClipMeshByScalar(UnstructuredMesh::Pointer input, ArrayObj
                 CellClip::Clip(DynamicCast<Polyhedron>(cell), CellIsoValue, OutPoints, OutConn, OutType, nullptr,
                                nullptr, CellId, OriginEdge, OriginCell);
                 break;
-            default:
+            default: {
                 if (Cell::GetCellDimension(cell->GetCellType()) == 3) {
-                    CellClip::Clip(DynamicCast<Volume>(cell), CellIsoValue, OutPoints, OutConn, OutType, nullptr,
-                                   nullptr, CellId, OriginEdge, OriginCell, PointIsoValue);
+                    auto vol = DynamicCast<Volume>(cell);
+                    // Quadratic / Lagrange 体单元并不是 Volume 子类，DynamicCast 可能为 nullptr，
+                    // 此时无法裁剪且会崩溃，选择跳过该相交单元以保证健壮性。
+                    if (vol) {
+                        CellClip::Clip(vol, CellIsoValue, OutPoints, OutConn, OutType, nullptr,
+                                       nullptr, CellId, OriginEdge, OriginCell, PointIsoValue);
+                    }
                 }
                 break;
+            }
         }
     }
 
     this->CopyAttributeSetData(OutPoints->GetNumberOfPoints(), OutConn->GetNumberOfCells(), inData, outData,
                                OriginEdge, OriginCell);
+
+    // ===== 点合并 + 紧凑化：消除裁剪边界的重复点（对齐 vtkIsoVolume）=====
+    {
+        igIndex outP = OutPoints->GetNumberOfPoints();
+        igIndex outC = OutConn->GetNumberOfCells();
+
+        // 1) 按坐标去重（重复点坐标精确相等）
+        std::map<std::tuple<float, float, float>, igIndex> coordMap;
+        std::vector<igIndex> oldToNew(outP);
+        igIndex preCnt = 0;
+        float* rawPts = OutPoints->RawPointer();
+        for (igIndex old = 0; old < outP; ++old) {
+            auto key = std::make_tuple(rawPts[old * 3], rawPts[old * 3 + 1], rawPts[old * 3 + 2]);
+            auto it = coordMap.find(key);
+            if (it == coordMap.end()) {
+                coordMap[key] = old;
+                oldToNew[old] = preCnt++;
+            } else {
+                oldToNew[old] = oldToNew[it->second];
+            }
+        }
+
+        // 2) 重映射连接关系，并仅保留被单元引用的新点（紧凑化）
+        std::vector<igIndex> preToCompact(preCnt, -1);
+        std::vector<igIndex> repOfPre(preCnt, -1);   // 每个新点对应的代表输出点索引
+        igIndex compactCnt = 0;
+        std::vector<std::vector<igIndex>> remappedCells(outC);
+        igIndex vhs[IGAME_CELL_MAX_SIZE] = {0};
+        for (igIndex c = 0; c < outC; ++c) {
+            igIndex vcnt = OutConn->GetCellIds(c, vhs);
+            remappedCells[c].resize(vcnt);
+            for (igIndex k = 0; k < vcnt; ++k) {
+                igIndex pre = oldToNew[vhs[k]];
+                if (preToCompact[pre] == -1) {
+                    preToCompact[pre] = compactCnt++;
+                    repOfPre[pre] = vhs[k];
+                }
+                remappedCells[c][k] = preToCompact[pre];
+            }
+        }
+
+        // 3) 重建紧凑点集
+        Points::Pointer newPts = Points::New();
+        newPts->Resize(compactCnt);
+        float* np = newPts->RawPointer();
+        for (igIndex p = 0; p < preCnt; ++p) {
+            igIndex rep = repOfPre[p];
+            if (rep < 0) { continue; }
+            igIndex ci = preToCompact[p];
+            np[ci * 3]     = rawPts[rep * 3];
+            np[ci * 3 + 1] = rawPts[rep * 3 + 1];
+            np[ci * 3 + 2] = rawPts[rep * 3 + 2];
+        }
+
+        // 4) 重建紧凑连接关系
+        CellArray::Pointer finalConn = CellArray::New();
+        for (igIndex c = 0; c < outC; ++c) {
+            finalConn->AddCellIds(remappedCells[c].data(), static_cast<igIndex>(remappedCells[c].size()));
+        }
+
+        // 5) 重建点属性（取代表点的属性）；单元属性不变
+        AttributeSet::Pointer newOutData = AttributeSet::New();
+        auto outAllAttr = outData->GetAllAttributes();
+        if (outAllAttr) {
+            for (igIndex i = 0; i < outAllAttr->GetNumberOfElements(); ++i) {
+                auto attr = outAllAttr->GetElement(i);
+                auto inArray = attr.pointer;
+                if (!inArray) { continue; }
+                if (attr.attachmentType == IG_POINT) {
+                    auto newArr = CreateSameTypeArray(inArray);
+                    newArr->Resize(compactCnt);
+                    double vals[IGAME_CELL_MAX_SIZE] = {0};
+                    for (igIndex p = 0; p < preCnt; ++p) {
+                        igIndex rep = repOfPre[p];
+                        if (rep < 0) { continue; }
+                        igIndex ci = preToCompact[p];
+                        inArray->GetElement(rep, vals);
+                        newArr->SetElement(ci, vals);
+                    }
+                    newOutData->AddAttribute(attr.type, attr.attachmentType, newArr, attr.GetDataRange());
+                } else if (attr.attachmentType == IG_CELL) {
+                    newOutData->AddAttribute(attr.type, attr.attachmentType, inArray, attr.GetDataRange());
+                }
+            }
+        }
+
+        OutPoints = newPts;
+        OutConn = finalConn;
+        outData = newOutData;
+    }
 
     output->SetCells(OutConn, OutType);
     output->SetPoints(OutPoints);
@@ -281,9 +403,7 @@ void IsoVolumeFilter::CopyAttributeSetData(igIndex outPointNum, igIndex outCellN
         auto attr = inAllAttr->GetElement(i);
         auto inArray = attr.pointer;
         if (!inArray) continue;
-        auto outArray = FloatArray::New();
-        outArray->SetName(inArray->GetName());
-        outArray->SetDimension(inArray->GetDimension());
+        auto outArray = CreateSameTypeArray(inArray);
         if (attr.attachmentType == IG_CELL) {
             outArray->Resize(outCellNum);
             for (j = 0; j < outCellNum; j++) {
