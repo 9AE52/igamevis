@@ -1945,7 +1945,7 @@ void igQtMainWindow::initAllFilters() {
         }
     });
 
-    QAction* featureRegion = view->addAction(QStringLiteral("特征区域Id (FeatureEdgeRegion id)"));
+    QAction* featureRegion = ui->menu_filters->addAction(QStringLiteral("特征区域Id (FeatureEdgeRegion id)"));
     connect(featureRegion, &QAction::triggered, this, [&](bool checked){
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
         igQtFilterDialogDockWidget* dialog = new igQtFilterDialogDockWidget(this, true);
