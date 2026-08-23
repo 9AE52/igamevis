@@ -32,22 +32,15 @@ namespace{
 } // namespace
 
 
-bool FeatureEdgeRegionFilter::Execute() { 
+bool FeatureEdgeRegionFilter::Execute() {
 	auto obj = GetInput(0);//Get the original mesh
     if (obj == nullptr) {
-        std::cerr << "Failed to get input obj" << std::endl;
+        std::cerr << "Failed to get input mesh" << std::endl;
         return false;
     }
-    SurfaceMesh::Pointer mesh;
-    auto surfaceInput = DynamicCast<SurfaceMesh>(obj);//transform to SurfaceMesh
-    if (surfaceInput == nullptr) {
-        auto unstructuredInput = DynamicCast<UnstructuredMesh>(obj);
-        mesh = unstructuredInput->TransferToSurfaceMesh();
-    } else
-        mesh = surfaceInput;
-
+    auto mesh = DynamicCast<SurfaceMesh>(obj);
     if (mesh == nullptr) {
-        std::cerr << "Failed to get input mesh" << std::endl;
+        std::cerr << "Failed to get input surface mesh" << std::endl;
         return false;
     }
 
@@ -117,13 +110,9 @@ bool FeatureEdgeRegionFilter::Execute() {
     //realign the region IDs
     std::map<IGint,IGint> regionIDs;
     auto regionArray = IntArray::New(); //save region ids
-    auto colorArray = IntArray::New();//save color ids for different region
-    regionArray->SetName("RegionId");
+    regionArray->SetName("Region Id");
     regionArray->SetDimension(1);
     regionArray->Reserve(numFaces);
-    colorArray->SetName("Region Color Id");
-    colorArray->SetDimension(1);
-    colorArray->Reserve(numFaces);
     int p = 0;
     for (int i = 0; i < numFaces; i++) { 
         int regionID = myUnion.FindParent(i);
@@ -137,10 +126,8 @@ bool FeatureEdgeRegionFilter::Execute() {
             }
         }
         regionArray->AddValue(regionIDs[regionID]);
-        colorArray->AddValue(regionID*7 % 10);
     }
     mesh->GetAttributeSet()->AddScalar(IG_CELL, regionArray);
-    mesh->GetAttributeSet()->AddScalar(IG_CELL, colorArray);
     mesh->GetAttributeSet()->ForceReConvertToDrawableData();
 
     std::map<int, int> regionFaceCount;

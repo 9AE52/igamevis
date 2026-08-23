@@ -13,7 +13,7 @@
 
 
 int main() { 
-	const std::string fileName = "./Models/FeatureEdgesCube.vtk"; 
+	const std::string fileName = "./Models/Quad_Bicycle.vtk"; 
 	auto scene = iGame::Scene::New();
     auto input = iGame::FileIO::ReadFile(fileName);
 
@@ -66,7 +66,6 @@ int main() {
     featureEdgeFilter->SetInput(surfaceMesh);
     featureEdgeFilter->SetFeatureAngle(30.0);
     featureEdgeFilter->SetBoundaryEdges(true);
-    featureEdgeFilter->SetBoundaryEdges(true);
     featureEdgeFilter->SetFeatureEdges(true);
     featureEdgeFilter->SetNonManifoldEdges(true);
     featureEdgeFilter->SetManifoldEdges(false);
@@ -104,7 +103,7 @@ int main() {
         return 1;
     }
 
-    auto faceIdAttribute = output->GetAttributeSet()->GetAttribute("RegionId");
+    auto faceIdAttribute = output->GetAttributeSet()->GetAttribute("Region Id");
     if (faceIdAttribute.IsNone()) {
         std::cerr << "Region id cell attribute is missing" << std::endl;
         return 1;
@@ -126,7 +125,7 @@ int main() {
     edgeDrawObject->ViewCloudPicture(scene, 0, 0);
 
     outputDrawObject->SetViewStyle(IG_SURFACE);
-    outputDrawObject->ViewCloudPicture(scene, outputDrawObject->GetAttributeSet()->GetAttributeIndex("Region Color Id"), 0);
+    outputDrawObject->ViewCloudPicture(scene, outputDrawObject->GetAttributeSet()->GetAttributeIndex("Region Id"), 0);
 
     auto window = iGame::RenderWindow::New();
     window->SetSize(1280, 720);
