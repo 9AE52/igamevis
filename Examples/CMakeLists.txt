@@ -20,7 +20,7 @@ else ()
     set(_IGAME_EXAMPLE_CORE_LIBS ${IGAMEVIS_CORE_LIB_TARGETS})
 endif ()
 
-find_package(HDF5 REQUIRED)
+find_package(HDF5 QUIET)
 find_package(FFMPEG QUIET)
 find_package(AbqSDK QUIET)
 find_package(OpenMP QUIET)
@@ -49,8 +49,8 @@ if (WIN32)
             "-DIGAME_ABQ_RUNTIME_DIR=${AbqSDK_DLL_DIR}"
             "-DIGAME_ABQ_RUNTIME_LIBRARY_NAMES=${_IGAME_EXAMPLE_ABQ_RUNTIME_NAMES}"
             "-DIGAME_HDF5_RUNTIME_FILE=${_IGAME_EXAMPLE_HDF5_RUNTIME}"
-            "-DIGAME_GPS_RUNTIME_DIR=${CMAKE_SOURCE_DIR}/CMakeGPS/CMakeGPS/ReferenceDLL"
-            -P "${CMAKE_SOURCE_DIR}/Cmake/DeployExampleRuntime.cmake"
+            "-DIGAME_GPS_RUNTIME_DIR=${CMAKE_CURRENT_SOURCE_DIR}/../CMakeGPS/CMakeGPS/ReferenceDLL"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/../Cmake/DeployExampleRuntime.cmake"
         COMMENT "Deploying runtime DLLs for Examples"
         VERBATIM)
 else ()
@@ -154,7 +154,8 @@ function(igame_add_example EXAMPLE_TARGET SOURCE)
 endfunction()
 
 function(igame_link_standard_example EXAMPLE_TARGET)
-    target_link_libraries(${EXAMPLE_TARGET} PUBLIC ${_IGAME_EXAMPLE_CORE_LIBS} HDF5::HDF5)
+    target_link_libraries(${EXAMPLE_TARGET} PUBLIC ${_IGAME_EXAMPLE_CORE_LIBS}
+            $<$<BOOL:${HDF5_FOUND}>:HDF5::HDF5>)
 endfunction()
 
 function(igame_register_example_test EXAMPLE_TARGET)
