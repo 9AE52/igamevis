@@ -6,14 +6,14 @@
 #include "iGameVolumeMesh.h"
 #include "iGameUnstructuredMesh.h"
 
+#include <vector>
+
 IGAME_NAMESPACE_BEGIN
 class ShrinkFilter : public Filter {
 public:
 	I_OBJECT(ShrinkFilter);
 	static Pointer New() { return new ShrinkFilter; }
 
-	// 收缩比例：0~1 之间。
-	// 1.0 = 原地不动；0.5 = 每个顶点缩到“原位置和质心正中间”（默认）；0.0 = 全部缩成质心一点。
 	void SetShrinkFactor(double factor);
 	double GetShrinkFactor() const;
 
@@ -24,6 +24,10 @@ protected:
 	~ShrinkFilter() override = default;
 
 private:
+	bool CopyPointAttributes(PointSet* pointSet, const std::vector<IGsize>& srcOfNew);
+	static ArrayObject::Pointer CloneArray(ArrayObject::Pointer src,
+	                                       const std::vector<IGsize>& srcOfNew);
+
 	double m_ShrinkFactor{0.5};
 };
 IGAME_NAMESPACE_END

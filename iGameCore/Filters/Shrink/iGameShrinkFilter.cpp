@@ -1,6 +1,6 @@
 #include "iGameShrinkFilter.h"
 
-#include "iGameCell.h" // 提供 IGAME_CELL_MAX_SIZE（单元最多顶点数）
+#include "iGameCell.h" 
 #include "iGamePoints.h"
 
 #include <algorithm>
@@ -18,14 +18,69 @@ void ShrinkFilter::SetShrinkFactor(double factor) {
 
 double ShrinkFilter::GetShrinkFactor() const { return m_ShrinkFactor; }
 
+bool ShrinkFilter::CopyPointAttributes(PointSet* pointSet, const std::vector<IGsize>& srcOfNew) {
+	auto attrs = pointSet->GetAttributeSet();
+	if (attrs == nullptr || srcOfNew.empty()) return true;
+
+	std::vector<int> pointAttrIndices;
+	IGsize nAttrs = attrs->GetNumberOfAttributes();
+	for (IGsize i = 0; i < nAttrs; i++) {
+		auto& a = attrs->GetAttribute(i);
+		if (!a.isDeleted && a.attachmentType == IG_POINT && !a.pointer.IsNull()) {
+			pointAttrIndices.push_back(static_cast<int>(i));
+		}
+	}
+
+	for (auto it = pointAttrIndices.rbegin(); it != pointAttrIndices.rend(); ++it) {
+		auto& a = attrs->GetAttribute(*it);
+		auto newArr = CloneArray(a.pointer, srcOfNew);
+		if (newArr.IsNull()) continue;
+		IGenum attrType = a.type;
+		attrs->DeleteAttribute(*it);
+		IGsize newIdx = attrs->AddAttribute(attrType, IG_POINT, newArr);
+		if (newIdx >= 0 && newIdx < attrs->GetNumberOfAttributes()) {
+			attrs->GetAttribute(newIdx).UpdateAllDataRange();
+		}
+	}
+	return true;
+}
+
+ArrayObject::Pointer ShrinkFilter::CloneArray(ArrayObject::Pointer src,
+                                              const std::vector<IGsize>& srcOfNew) {
+	ArrayObject::Pointer dst;
+	switch (src->GetArrayType()) {
+		case IG_CharArray: dst = CharArray::New(); break;
+		case IG_UnsignedCharArray: dst = UnsignedCharArray::New(); break;
+		case IG_ShortArray: dst = ShortArray::New(); break;
+		case IG_UnsignedShortArray: dst = UnsignedShortArray::New(); break;
+		case IG_IntArray: dst = IntArray::New(); break;
+		case IG_UnsignedIntArray: dst = UnsignedIntArray::New(); break;
+		case IG_LongLongArray: dst = LongLongArray::New(); break;
+		case IG_UnsignedLongLongArray: dst = UnsignedLongLongArray::New(); break;
+		case IG_FloatArray: dst = FloatArray::New(); break;
+		case IG_DoubleArray: dst = DoubleArray::New(); break;
+		default: return nullptr;
+	}
+
+	IGsize dim = src->GetDimension();
+	if (dim < 1) dim = 1;
+	dst->SetName(src->GetName());
+	dst->SetDimension(static_cast<int>(dim));
+	IGsize newCount = srcOfNew.size();
+	dst->Resize(newCount * dim);
+	for (IGsize i = 0; i < newCount; i++) {
+		IGsize s = srcOfNew[i];
+		for (IGsize c = 0; c < dim; c++) {
+			dst->SetValue(i * dim + c, src->GetValue(s * dim + c));
+		}
+	}
+	return dst;
+}
+
 bool ShrinkFilter::Execute() {
 	auto input = GetInput(0);
 	if (input.IsNull()) return false;
 
-	// 核心逻辑：每个单元算出自己的质心，把它的顶点复制一份并向质心收缩，
-	// 然后用新点替换单元的点编号。这样相邻单元会各自裂开，形成“爆炸图”效果。
-	// pointSet：要被修改的网格；count：单元数量；cells：单元数组；
-	// getCellPointIds：读取某个单元的顶点编号（每个网格类型实现不同）
 	auto shrinkCells = [&](PointSet* pointSet, IGsize count, CellArray* cells,
 	                       auto getCellPointIds) -> bool {
 		if (pointSet == nullptr || cells == nullptr || count == 0) return false;
@@ -33,15 +88,14 @@ bool ShrinkFilter::Execute() {
 		auto oldPoints = pointSet->GetPoints();
 		if (oldPoints.IsNull()) return false;
 
-		// 1. 新建点容器，用来装每个单元“自己的”收缩后顶点
 		auto newPoints = Points::New();
+		std::vector<IGsize> srcOfNew; 
 
 		igIndex ids[IGAME_CELL_MAX_SIZE];
 		for (IGsize c = 0; c < count; c++) {
 			int n = getCellPointIds(c, ids);
 			if (n <= 0 || n > IGAME_CELL_MAX_SIZE) return false;
 
-			// 2. 计算质心 = 单元所有顶点坐标的平均值
 			double cx = 0.0, cy = 0.0, cz = 0.0;
 			for (int k = 0; k < n; k++) {
 				const auto& p = oldPoints->GetPoint(ids[k]);
@@ -53,7 +107,6 @@ bool ShrinkFilter::Execute() {
 			cy /= n;
 			cz /= n;
 
-			// 3. 每个顶点朝质心方向收缩，作为新点加入 newPoints
 			igIndex newIds[IGAME_CELL_MAX_SIZE];
 			for (int k = 0; k < n; k++) {
 				const auto& p = oldPoints->GetPoint(ids[k]);
@@ -61,9 +114,9 @@ bool ShrinkFilter::Execute() {
 				float ny = static_cast<float>(cy + (p[1] - cy) * m_ShrinkFactor);
 				float nz = static_cast<float>(cz + (p[2] - cz) * m_ShrinkFactor);
 				newIds[k] = static_cast<igIndex>(newPoints->AddPoint(nx, ny, nz));
+				srcOfNew.push_back(ids[k]);
 			}
 
-			// 4. 把单元的顶点编号改成新点编号（单元数量、类型都不变）
 			cells->SetCellIds(c, newIds, n);
 
 			if ((c & 0x3FF) == 0) {
@@ -71,25 +124,37 @@ bool ShrinkFilter::Execute() {
 			}
 		}
 
-		// 5. 用新点容器替换网格原来的点
 		pointSet->SetPoints(newPoints);
+		CopyPointAttributes(pointSet, srcOfNew);
 		return true;
 	};
 
-	// 表面网格：单元 = 面
+	// 表面网格
 	if (auto mesh = DynamicCast<SurfaceMesh>(input)) {
-		return shrinkCells(mesh, mesh->GetNumberOfFaces(), mesh->GetFaces(),
-		                   [mesh](IGsize c, igIndex* ids) { return mesh->GetFacePointIds(c, ids); });
+		if (!shrinkCells(mesh, mesh->GetNumberOfFaces(), mesh->GetFaces(),
+		                 [mesh](IGsize c, igIndex* ids) { return mesh->GetFacePointIds(c, ids); })) {
+			return false;
+		}
+		UpdateProgress(1.0);
+		return true;
 	}
-	// 体网格：单元 = 体
+	// 体网格
 	if (auto mesh = DynamicCast<VolumeMesh>(input)) {
-		return shrinkCells(mesh, mesh->GetNumberOfVolumes(), mesh->GetVolumes(),
-		                   [mesh](IGsize c, igIndex* ids) { return mesh->GetVolumePointIds(c, ids); });
+		if (!shrinkCells(mesh, mesh->GetNumberOfVolumes(), mesh->GetVolumes(),
+		                 [mesh](IGsize c, igIndex* ids) { return mesh->GetVolumePointIds(c, ids); })) {
+			return false;
+		}
+		UpdateProgress(1.0);
+		return true;
 	}
-	// 非结构化网格（通用）
+	// 非结构化网格
 	if (auto mesh = DynamicCast<UnstructuredMesh>(input)) {
-		return shrinkCells(mesh, mesh->GetNumberOfCells(), mesh->GetCellArray(),
-		                   [mesh](IGsize c, igIndex* ids) { return mesh->GetCellPointIds(c, ids); });
+		if (!shrinkCells(mesh, mesh->GetNumberOfCells(), mesh->GetCellArray(),
+		                 [mesh](IGsize c, igIndex* ids) { return mesh->GetCellPointIds(c, ids); })) {
+			return false;
+		}
+		UpdateProgress(1.0);
+		return true;
 	}
 	return false;
 }
