@@ -150,9 +150,12 @@ bool MeshTetrahedralize::Execute()
     auto obj = GetInput(0);
     if (!obj) return false;
 
-    UnstructuredMesh::Pointer input;
+    UnstructuredMesh::Pointer input = UnstructuredMesh::New();
     if (obj->GetDataObjectType() == IG_UNSTRUCTURED_MESH) { 
         input = DynamicCast<UnstructuredMesh>(obj);
+    } else if (obj->GetDataObjectType() == IG_VOLUME_MESH) {
+        auto vinput = DynamicCast<VolumeMesh>(obj);
+        input->UnstructuredMesh::GenerateFromVolumeMesh(vinput);
     }
     if (!input) return false;
 
