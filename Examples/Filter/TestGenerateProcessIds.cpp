@@ -3,8 +3,26 @@
 #include <iGameUnstructuredMesh.h>
 #include <ProcessGet/iGameGenerateProcessIdsFilter.h>
 
-static bool Verify(iGame::UnstructuredMesh::Pointer mesh, bool pointData, const std::string& arrayName,
-                   IGsize expectCount, int expectValue) {
+IGAME_NAMESPACE_BEGIN
+// 模拟多进程分区场景：第 i 个点/单元属于进程 (i % 2)。
+// 未来接入真实并行/分区机制时，子类以同样方式重写这两个方法即可，Execute 无需改动。
+class MockPartitionedProcessIdsFilter : public GenerateProcessIdsFilter {
+    I_OBJECT(MockPartitionedProcessIdsFilter)
+
+public:
+    static Pointer New() { return new MockPartitionedProcessIdsFilter; }
+    MockPartitionedProcessIdsFilter() = default;
+
+protected:
+    long long GetPointProcessId(IGsize index) override { return index % 2; }
+    long long GetCellProcessId(IGsize index) override { return index % 2; }
+};
+IGAME_NAMESPACE_END
+
+namespace {
+
+bool VerifyConstant(iGame::UnstructuredMesh::Pointer mesh, bool pointData, const std::string& arrayName,
+                    IGsize expectCount, int expectValue) {
     auto filter = iGame::GenerateProcessIdsFilter::New();
     filter->SetInput(mesh);
     filter->SetGeneratePointData(pointData);
@@ -21,36 +39,154 @@ static bool Verify(iGame::UnstructuredMesh::Pointer mesh, bool pointData, const 
     return ok;
 }
 
+bool VerifyPartitioned(iGame::UnstructuredMesh::Pointer mesh, bool pointData, const std::string& arrayName,
+                       IGsize expectCount) {
+    auto filter = iGame::MockPartitionedProcessIdsFilter::New();
+    filter->SetInput(mesh);
+    filter->SetGeneratePointData(pointData);
+    filter->SetGenerateCellData(!pointData);
+    if (!filter->Execute()) {
+        std::cout << "FAIL: Execute (partitioned)\n";
+        return false;
+    }
+    auto& attr = mesh->GetAttributeSet()->GetScalar(arrayName);
+    auto arr = attr.pointer;
+    bool ok = (arr != nullptr) && (arr->GetNumberOfElements() == expectCount);
+    for (IGsize i = 0; ok && i < expectCount; ++i) ok = (arr->GetValue(i) == static_cast<long long>(i % 2));
+    return ok;
+}
+
+bool VerifyIdempotent(iGame::UnstructuredMesh::Pointer mesh, bool pointData, const std::string& arrayName,
+                      IGsize expectCount, int expectValue) {
+    for (int run = 0; run < 2; ++run) {
+        auto filter = iGame::GenerateProcessIdsFilter::New();
+        filter->SetInput(mesh);
+        filter->SetGeneratePointData(pointData);
+        filter->SetGenerateCellData(!pointData);
+        filter->SetProcessId(expectValue);
+        if (!filter->Execute()) {
+            std::cout << "FAIL: Execute (idempotent run " << run << ")\n";
+            return false;
+        }
+    }
+    auto attrs = pointData ? mesh->GetAttributeSet()->GetAllPointAttributes()
+                           : mesh->GetAttributeSet()->GetAllCellAttributes();
+    int count = 0;
+    if (attrs != nullptr) {
+        for (int i = 0; i < attrs->GetNumberOfElements(); ++i) {
+            auto arr = attrs->GetElement(i).pointer;
+            if (arr != nullptr && arr->GetName() == arrayName) ++count;
+        }
+    }
+    if (count != 1) {
+        std::cout << "FAIL: idempotent array count=" << count << " (expect 1)\n";
+        return false;
+    }
+    auto& attr = mesh->GetAttributeSet()->GetScalar(arrayName);
+    auto arr = attr.pointer;
+    bool ok = (arr != nullptr) && (arr->GetNumberOfElements() == expectCount);
+    for (IGsize i = 0; ok && i < expectCount; ++i) ok = (arr->GetValue(i) == expectValue);
+    return ok;
+}
+
+bool VerifyExternalProcessId(iGame::UnstructuredMesh::Pointer mesh, bool pointData, const std::string& arrayName,
+                             IGsize expectCount) {
+    auto pidArray = iGame::LongLongArray::New();
+    pidArray->SetName("process_id");
+    pidArray->Resize(expectCount);
+    for (IGsize i = 0; i < expectCount; ++i) pidArray->SetValue(i, static_cast<long long>(i % 3));
+    if (pointData) {
+        mesh->GetAttributeSet()->AddScalar(IG_POINT, pidArray);
+    } else {
+        mesh->GetAttributeSet()->AddScalar(IG_CELL, pidArray);
+    }
+
+    auto filter = iGame::GenerateProcessIdsFilter::New();
+    filter->SetInput(mesh);
+    filter->SetGeneratePointData(pointData);
+    filter->SetGenerateCellData(!pointData);
+    if (!filter->Execute()) {
+        std::cout << "FAIL: Execute (external process_id)\n";
+        return false;
+    }
+    auto& attr = mesh->GetAttributeSet()->GetScalar(arrayName);
+    auto arr = attr.pointer;
+    bool ok = (arr != nullptr) && (arr->GetNumberOfElements() == expectCount);
+    for (IGsize i = 0; ok && i < expectCount; ++i) ok = (arr->GetValue(i) == static_cast<long long>(i % 3));
+    return ok;
+}
+}  // namespace
+
+iGame::UnstructuredMesh::Pointer CreateMesh(int argc, char* argv[]) {
+    if (argc > 1) {
+        auto obj = iGame::FileIO::ReadFile(argv[1]);
+        auto mesh = iGame::DynamicCast<iGame::UnstructuredMesh>(obj);
+        if (mesh == nullptr) {
+            std::cout << "FAIL: read model " << argv[1] << "\n";
+            return nullptr;
+        }
+        return mesh;
+    }
+    auto mesh = iGame::UnstructuredMesh::New();
+    mesh->AddPoint(iGame::Point(0.f, 0.f, 0.f));
+    mesh->AddPoint(iGame::Point(1.f, 0.f, 0.f));
+    mesh->AddPoint(iGame::Point(0.f, 1.f, 0.f));
+    mesh->AddPoint(iGame::Point(0.f, 0.f, 1.f));
+    igIndex cell[4] = {0, 1, 2, 3};
+    mesh->AddCell(cell, 4, iGame::IG_TETRA);
+    return mesh;
+}
+
 int main(int argc, char* argv[]) {
     bool allOk = true;
 
-    iGame::UnstructuredMesh::Pointer mesh;
-    if (argc > 1) {
-        auto obj = iGame::FileIO::ReadFile(argv[1]);
-        mesh = iGame::DynamicCast<iGame::UnstructuredMesh>(obj);
-        if (mesh == nullptr) {
-            std::cout << "FAIL: read model " << argv[1] << "\n";
-            return 1;
-        }
-    } else {
-        mesh = iGame::UnstructuredMesh::New();
-        mesh->AddPoint(iGame::Point(0.f, 0.f, 0.f));
-        mesh->AddPoint(iGame::Point(1.f, 0.f, 0.f));
-        mesh->AddPoint(iGame::Point(0.f, 1.f, 0.f));
-        mesh->AddPoint(iGame::Point(0.f, 0.f, 1.f));
-        igIndex cell[4] = {0, 1, 2, 3};
-        mesh->AddCell(cell, 4, iGame::IG_TETRA);
-    }
+    auto mesh = CreateMesh(argc, argv);
+    if (mesh == nullptr) return 1;
 
     IGsize pointNum = mesh->GetNumberOfPoints();
-    bool pointOk = Verify(mesh, true, "PointProcessIds", pointNum, 7);
+    bool pointOk = VerifyConstant(mesh, true, "PointProcessIds", pointNum, 7);
     std::cout << (pointOk ? "PASS" : "FAIL") << ": point PointProcessIds count=" << pointNum << " value=7\n";
     allOk = allOk && pointOk;
 
     IGsize cellNum = mesh->GetNumberOfCells();
-    bool cellOk = Verify(mesh, false, "CellProcessIds", cellNum, 7);
+    bool cellOk = VerifyConstant(mesh, false, "CellProcessIds", cellNum, 7);
     std::cout << (cellOk ? "PASS" : "FAIL") << ": cell CellProcessIds count=" << cellNum << " value=7\n";
     allOk = allOk && cellOk;
+
+    auto partMesh = CreateMesh(argc, argv);
+    if (partMesh == nullptr) return 1;
+
+    IGsize partPointNum = partMesh->GetNumberOfPoints();
+    bool pointPartOk = VerifyPartitioned(partMesh, true, "PointProcessIds", partPointNum);
+    std::cout << (pointPartOk ? "PASS" : "FAIL") << ": partitioned point PointProcessIds count=" << partPointNum
+              << "\n";
+    allOk = allOk && pointPartOk;
+
+    IGsize partCellNum = partMesh->GetNumberOfCells();
+    bool cellPartOk = VerifyPartitioned(partMesh, false, "CellProcessIds", partCellNum);
+    std::cout << (cellPartOk ? "PASS" : "FAIL") << ": partitioned cell CellProcessIds count=" << partCellNum << "\n";
+    allOk = allOk && cellPartOk;
+
+    bool pointIdemOk = VerifyIdempotent(mesh, true, "PointProcessIds", pointNum, 7);
+    std::cout << (pointIdemOk ? "PASS" : "FAIL") << ": idempotent point PointProcessIds count=" << pointNum << "\n";
+    allOk = allOk && pointIdemOk;
+
+    bool cellIdemOk = VerifyIdempotent(mesh, false, "CellProcessIds", cellNum, 7);
+    std::cout << (cellIdemOk ? "PASS" : "FAIL") << ": idempotent cell CellProcessIds count=" << cellNum << "\n";
+    allOk = allOk && cellIdemOk;
+
+    auto extMesh = CreateMesh(argc, argv);
+    if (extMesh == nullptr) return 1;
+
+    IGsize extPointNum = extMesh->GetNumberOfPoints();
+    bool extPointOk = VerifyExternalProcessId(extMesh, true, "PointProcessIds", extPointNum);
+    std::cout << (extPointOk ? "PASS" : "FAIL") << ": external point PointProcessIds count=" << extPointNum << "\n";
+    allOk = allOk && extPointOk;
+
+    IGsize extCellNum = extMesh->GetNumberOfCells();
+    bool extCellOk = VerifyExternalProcessId(extMesh, false, "CellProcessIds", extCellNum);
+    std::cout << (extCellOk ? "PASS" : "FAIL") << ": external cell CellProcessIds count=" << extCellNum << "\n";
+    allOk = allOk && extCellOk;
 
     return allOk ? 0 : 1;
 }

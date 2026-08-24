@@ -10,9 +10,9 @@
 
 IGAME_NAMESPACE_BEGIN
 class GenerateProcessIdsFilter : public Filter {
+public:
     I_OBJECT(GenerateProcessIdsFilter)
 
-public:
     static Pointer New() { return new GenerateProcessIdsFilter; }
 
     bool Execute() override;
@@ -29,6 +29,12 @@ public:
 protected:
     GenerateProcessIdsFilter();
     ~GenerateProcessIdsFilter() override = default;
+
+    virtual long long GetPointProcessId(IGsize index);
+    virtual long long GetCellProcessId(IGsize index);
+
+    LongLongArray::Pointer m_PointProcessIdArray{nullptr};
+    LongLongArray::Pointer m_CellProcessIdArray{nullptr};
 
     int m_ProcessId{0};
     bool m_GeneratePointData{true};
