@@ -246,6 +246,9 @@ igame_add_example(testConvertToLagrangeUnstructuredMesh Filter/Convert/TestConve
 # IO (optional modules)
 igame_add_example(testSplineReaderCPU IO/SplineReaderCPU.cpp)
 
+#Data Processing
+igame_add_example(testVolumeMeshSimplification Filter/TestVolumeMeshSimplification.cpp)
+
 if (ENABLE_CGNS_MODULE)
     igame_add_example(testCGNS IO/CGNSReader.cpp)
     target_compile_definitions(testCGNS PUBLIC CGNS_ENABLE)
