@@ -389,7 +389,7 @@ double TetraSimplification::ADQCostOnly(int ti) const {
 
     // Skip if any boundary vertex
     for (int k = 0; k < 4; ++k) {
-        if (m_IsBoundary[v[k]]) return std::numeric_limits<double>::infinity();
+        if (m_PreserveBoundary&&m_IsBoundary[v[k]]) return std::numeric_limits<double>::infinity();
     }
 
     // Centroid position
@@ -430,7 +430,7 @@ TetraSimplification::CostResult TetraSimplification::ComputeCost(int ti) {
 
     // Skip if any boundary vertex
     for (int k = 0; k < 4; ++k) {
-        if (m_IsBoundary[t[k]]) return res;
+        if (m_PreserveBoundary&&m_IsBoundary[t[k]]) return res;
     }
 
     // Centroid position (user disabled QEM solve)
@@ -576,7 +576,8 @@ void TetraSimplification::InitHeap() {
 
     int count = 0;
     for (int ti = 0; ti < m_NumTets; ++ti) {
-        if (!m_TetAlive[ti] || m_IsBoundaryTet[ti]) continue;
+        if (!m_TetAlive[ti]) continue;
+        if (m_PreserveBoundary && m_IsBoundaryTet[ti]) continue;
         double c = ADQCostOnly(ti);
         if (c < std::numeric_limits<double>::infinity()) {
             m_Heap.push({c, ti, 0});
@@ -729,7 +730,7 @@ void TetraSimplification::Simplify() {
         int survivor = m_TetVerts[entry.tetIdx * 4];
         if (m_VertAlive[survivor]) {
             for (int ni : m_VertTets[survivor]) {
-                if (m_TetAlive[ni] && !m_IsBoundaryTet[ni]) {
+                if (m_TetAlive[ni] && !(m_PreserveBoundary&&m_IsBoundaryTet[ni])) {
                     double c = ADQCostOnly(ni);
                     if (c < std::numeric_limits<double>::infinity()) {
                         m_Heap.push({c, ni, m_TetVersion[ni]});
@@ -1056,7 +1057,7 @@ void TetraEdgeSimplification::BuildADQ() {
 
 // ═══════════ EdgeCostFast ═══════════
 double TetraEdgeSimplification::EdgeCostFast(int va, int vb) const {
-    if (m_IsBoundary[va] || m_IsBoundary[vb])
+    if (m_PreserveBoundary&&(m_IsBoundary[va] || m_IsBoundary[vb]))
         return std::numeric_limits<double>::infinity();
 
     const double* pts = m_Pts.data();
@@ -1079,7 +1080,7 @@ TetraEdgeSimplification::ComputeEdgeCost(int va, int vb) {
     res.valid = false;
     res.cost = std::numeric_limits<double>::infinity();
 
-    if (m_IsBoundary[va] || m_IsBoundary[vb]) return res;
+    if (m_PreserveBoundary&&(m_IsBoundary[va] || m_IsBoundary[vb])) return res;
 
     const double* pts = m_Pts.data();
     const int D = m_AttrDim;
@@ -1190,7 +1191,7 @@ void TetraEdgeSimplification::BuildEdgesAndHeap() {
                 int a = v[i], bb = v[j];
                 if (a > bb) std::swap(a, bb);
                 if (!seen.insert({a,bb}).second) continue;
-                if (m_IsBoundary[a] || m_IsBoundary[bb]) continue;
+                if (m_PreserveBoundary&&(m_IsBoundary[a] || m_IsBoundary[bb])) continue;
                 double c = EdgeCostFast(a, bb);
                 if (c < std::numeric_limits<double>::infinity()) {
                     m_Heap.push({c, a, bb, m_VertVersion[a], m_VertVersion[bb]});
@@ -1334,7 +1335,7 @@ void TetraEdgeSimplification::Simplify() {
             int nb = ti*4;
             for (int j = 0; j < 4; ++j) {
                 int nv = tv[nb+j];
-                if (nv != survivor && m_VertAlive[nv] && !m_IsBoundary[nv]) {
+                if (nv != survivor && m_VertAlive[nv] && !(m_PreserveBoundary&&m_IsBoundary[nv])) {
                     neighbors.push_back(nv);
                 }
             }
