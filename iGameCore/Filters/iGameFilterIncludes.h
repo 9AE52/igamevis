@@ -3,6 +3,9 @@
 #include "Convert/iGameConvertToPointCloudFilter.h"
 #include "Convert/iGameConvertToSurfaceMeshFilter.h"
 #include "Convert/iGameConvertToVolumeMeshFilter.h"
+
+#include "DataProcessing/iGameRemoveGhostInformationFilter.h"
+
 #include "MeshCodec/iGameMeshDecoderFilter.h"
 #include "MeshCodec/iGameMeshEncoderFilter.h"
 #include "ModelSurface/iGameModelGeometryFilter.h"
