@@ -31,6 +31,7 @@
 
 #include "iGameFileIO.h"
 #include "iGameFilterIncludes.h"
+#include "DIME/iGameElevationFilter.h"
 #include <IQComponents/igQtFilterDialogDockWidget.h>
 #include <IQComponents/igQtModelDialogWidget.h>
 #include <IQComponents/igQtProgressBarWidget.h>
@@ -105,6 +106,8 @@
 #include <QLineEdit>
 #include <QFormLayout>
 #include <QDialogButtonBox>
+#include <QDoubleSpinBox>
+#include <QLabel>
 
 
 #include "ui_igQtVariableCorrelationWidget.h"
@@ -1177,6 +1180,105 @@ void igQtMainWindow::showDarkFramelessMessage(const QString& title, const QStrin
 }
 
 void igQtMainWindow::initAllFilters() {
+    /* DIME #19：高程标量场（任意方向投影） */
+    connect(ui->action_Elevation, &QAction::triggered, this, [this]() {
+        auto model = rendererWidget->GetScene()->GetCurrentModel();
+        if (!model) {
+            showDarkFramelessMessage(QStringLiteral("高程场"), QStringLiteral("请先选择一个模型。"));
+            return;
+        }
+        auto data = model->GetDataObject();
+
+        // 表单对话框：方向向量三分量 + 输出范围两分量
+        QDialog dlg(this);
+        dlg.setWindowTitle(QStringLiteral("高程场 (Elevation)"));
+        // 深色主题：主窗口样式会渗入子对话框，需显式接管配色
+        dlg.setAttribute(Qt::WA_StyledBackground, true);
+        dlg.setStyleSheet(QStringLiteral(
+            "QDialog { background-color: #1E1E1E; }"
+            "QLabel { color: #D8D8D8; font-size: 10pt; }"
+            "QDoubleSpinBox { background-color: #252526; color: #D4D4D4;"
+            " border: 1px solid #3C3C3C; border-radius: 4px;"
+            " padding: 4px 24px 4px 8px; selection-background-color: #094771; }"
+            "QPushButton { background-color: #2A2A2A; color: #EAEAEA;"
+            " border: 1px solid #3A3A3A; padding: 6px 16px; border-radius: 4px; }"
+            "QPushButton:hover { background-color: #3A3A3A; }"
+            "QPushButton:pressed { background-color: #252526; }"));
+
+        QFormLayout* form = new QFormLayout(&dlg);
+        QDoubleSpinBox* dx = new QDoubleSpinBox(&dlg);
+        QDoubleSpinBox* dy = new QDoubleSpinBox(&dlg);
+        QDoubleSpinBox* dz = new QDoubleSpinBox(&dlg);
+        for (QDoubleSpinBox* sb : {dx, dy, dz}) {
+            sb->setRange(-1000.0, 1000.0);
+            sb->setDecimals(6);
+            sb->setSingleStep(0.1);
+        }
+        dx->setValue(0.0);
+        dy->setValue(0.0);
+        dz->setValue(1.0);
+
+        QDoubleSpinBox* lowSb = new QDoubleSpinBox(&dlg);
+        QDoubleSpinBox* highSb = new QDoubleSpinBox(&dlg);
+        for (QDoubleSpinBox* sb : {lowSb, highSb}) {
+            sb->setRange(-1e9, 1e9);
+            sb->setDecimals(6);
+            sb->setSingleStep(0.1);
+        }
+        lowSb->setValue(0.0);
+        highSb->setValue(1.0);
+
+        form->addRow(QStringLiteral("方向向量 X (dx)："), dx);
+        form->addRow(QStringLiteral("方向向量 Y (dy)："), dy);
+        form->addRow(QStringLiteral("方向向量 Z (dz)："), dz);
+        form->addRow(QStringLiteral("输出范围下限 (low)："), lowSb);
+        form->addRow(QStringLiteral("输出范围上限 (high)："), highSb);
+        form->addRow(QString(), new QLabel(
+            QStringLiteral("提示：方向向量无需归一化，但不能全为 0；负方向 = 高低翻转。"),
+            &dlg));
+
+        QDialogButtonBox* buttons = new QDialogButtonBox(
+            QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dlg);
+        connect(buttons, &QDialogButtonBox::accepted, &dlg, &QDialog::accept);
+        connect(buttons, &QDialogButtonBox::rejected, &dlg, &QDialog::reject);
+        form->addRow(QString(), buttons);
+
+        if (dlg.exec() != QDialog::Accepted) return;
+
+        const double dvx = dx->value(), dvy = dy->value(), dvz = dz->value();
+        const double low = lowSb->value(), high = highSb->value();
+        if (dvx == 0.0 && dvy == 0.0 && dvz == 0.0) {
+            showDarkFramelessMessage(QStringLiteral("高程场"),
+                QStringLiteral("方向向量不能全为 0（零向量没有投影方向）。"));
+            return;
+        }
+        if (low >= high) {
+            showDarkFramelessMessage(QStringLiteral("高程场"),
+                QStringLiteral("范围非法：low 必须小于 high。"));
+            return;
+        }
+
+        ElevationFilter::Pointer filter = ElevationFilter::New();
+        filter->SetDirection(static_cast<float>(dvx), static_cast<float>(dvy),
+                             static_cast<float>(dvz));
+        filter->SetOutputRange(low, high);
+        filter->SetInput(data);
+        if (filter->Execute()) {
+            modelTreeWidget->updateAllAttriubute(data);
+            auto item = modelTreeWidget->getItemFromObject(data);
+            if (item && item->childCount() > 0) {
+                item->setExpanded(true);
+                auto child = item->child(item->childCount() - 1);
+                if (child) {
+                    item->setSelected(false);
+                    child->setSelected(true);
+                    modelTreeWidget->setCurrentItem(child);
+                }
+            }
+            rendererWidget->update();
+        }
+    });
+
     connect(ui->action_GlobalIds, &QAction::triggered, this, [this]() {
         auto model = rendererWidget->GetScene()->GetCurrentModel();
         if (!model) {
