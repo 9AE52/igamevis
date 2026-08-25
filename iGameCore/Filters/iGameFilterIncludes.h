@@ -19,6 +19,7 @@
 #include "Slice/iGameSliceFilter.h"
 #include "Sources/iGameLineTypePointsSourceFilter.h"
 #include "Sources/iGamePointsSourceFilter.h"
+#include "Sources/iGameRandomVectorsFilter.h"
 #include "TensorView/iGameTensorBase.h"
 #include "TensorView/iGameTensorFilter.h"
 #include "TensorView/iGameTensorRepresentation.h"

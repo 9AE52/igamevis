@@ -67,6 +67,7 @@
 #include <QPainter>
 #include <QScrollArea>
 #include <Sources/iGameLineTypePointsSourceFilter.h>
+#include <Sources/iGameRandomVectorsFilter.h>
 #include <Tests/iGameVolumeMeshFilterTest.h>
 #include <VolumeMeshAlgorithm/iGameVolumeMeshClipper.h>
 #include <fcntl.h>
@@ -3112,6 +3113,65 @@ void igQtMainWindow::updateColorBarShow() {
 }
 
 void igQtMainWindow::initAllSources() {
+    QMenu* sources = ui->menu_filters->addMenu(QStringLiteral("数据源 (Sources)"));
+    connect(sources->addAction(QStringLiteral("随机向量 (Random Vectors)")), &QAction::triggered, this, [this](bool) {
+        igQtFilterDialogDockWidget* dialog = new igQtFilterDialogDockWidget(this, true);
+        dialog->setFilterTitle(QStringLiteral("随机向量"));
+        dialog->setFilterDescription(QStringLiteral(
+                "生成随机向量并填充数组，添加为点上的向量属性（IG_VECTOR）。\n"
+                "相同种子可复现相同结果。"));
+        int numId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, QStringLiteral("点数"), "5000");
+        int dimId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, QStringLiteral("向量维度 (1-7)"), "3");
+        int minId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, QStringLiteral("最小值"), "-1");
+        int maxId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, QStringLiteral("最大值"), "1");
+        int seedId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, QStringLiteral("种子"), "42");
+        dialog->show();
+        dialog->setApplyFunctor([=, this]() {
+            bool ok = false;
+            int num = dialog->getInt(numId, ok);
+            if (!ok || num <= 0) {
+                showDarkFramelessMessage(QStringLiteral("错误"), QStringLiteral("请输入有效的点数（大于0的整数）。"));
+                return;
+            }
+            int dim = dialog->getInt(dimId, ok);
+            if (!ok || dim <= 0 || dim > 7) {
+                showDarkFramelessMessage(QStringLiteral("错误"), QStringLiteral("请输入有效的向量维度（1..7）。"));
+                return;
+            }
+            double minV = dialog->getDouble(minId, ok);
+            if (!ok) {
+                showDarkFramelessMessage(QStringLiteral("错误"), QStringLiteral("请输入有效的最小值。"));
+                return;
+            }
+            double maxV = dialog->getDouble(maxId, ok);
+            if (!ok) {
+                showDarkFramelessMessage(QStringLiteral("错误"), QStringLiteral("请输入有效的最大值。"));
+                return;
+            }
+            if (minV > maxV) {
+                showDarkFramelessMessage(QStringLiteral("错误"), QStringLiteral("最小值不能大于最大值。"));
+                return;
+            }
+            int seed = dialog->getInt(seedId, ok);
+            if (!ok) {
+                showDarkFramelessMessage(QStringLiteral("错误"), QStringLiteral("请输入有效的种子。"));
+                return;
+            }
+
+            auto filter = RandomVectorsFilter::New();
+            filter->SetNumberOfPoints(static_cast<unsigned int>(num));
+            filter->SetVectorDimension(static_cast<unsigned int>(dim));
+            filter->SetRange(static_cast<float>(minV), static_cast<float>(maxV));
+            filter->SetSeed(static_cast<unsigned int>(seed));
+            if (filter->Execute()) {
+                modelTreeWidget->addDataObjectToModelTree(filter->GetOutput(), ItemSource::Algorithm);
+                rendererWidget->update();
+                dialog->close();
+            } else {
+                showDarkFramelessMessage(QStringLiteral("错误"), QStringLiteral("随机向量生成失败。"));
+            }
+        });
+    });
     // connect(ui->action_LineSource, &QAction::triggered, this, [&]() {
     //	UnstructuredMesh::Pointer newLinePointSet = UnstructuredMesh::New();
     //	newLinePointSet->SetViewStyle(IG_POINTS);
