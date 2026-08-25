@@ -1,6 +1,6 @@
 /**
  * @class   iGameRandomVectors
- * @brief   Mimic ParaView's "Random Vectors" filter (vtkBrownianPoints).
+ * @brief   "Random Vectors" filter
  *          Adds a random 3-component vector (BrownianVectors) to each point
  *          of the input mesh. The direction is a random unit vector and the
  *          magnitude is uniformly distributed in [minimumSpeed, maximumSpeed].

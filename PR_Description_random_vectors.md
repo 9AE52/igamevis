@@ -1,8 +1,7 @@
 # PR 描述：random_vectors 随机向量滤波器（模仿 ParaView Random Vectors）
 
 ## 功能概述
-新增 `RandomVectorsFilter`：模仿 ParaView 的 **"Random Vectors"** 滤波器（对应 VTK `vtkBrownianPoints`）。
-对输入网格的每个点生成随机向量 `BrownianVectors`，作为 `IG_VECTOR` 点属性输出。向量方向为随机单位向量，模长均匀分布在 [最小速度, 最大速度] 区间。
+新增 `RandomVectorsFilter`：对输入网格的每个点生成随机向量 `BrownianVectors`，作为 `IG_VECTOR` 点属性输出。向量方向为随机单位向量，模长均匀分布在 [最小速度, 最大速度] 区间。
 
 对任意网格输出一个点属性:
 - `BrownianVectors` - 3 分量 float 向量（模长 ∈ [MinimumSpeed, MaximumSpeed]）
@@ -11,9 +10,9 @@
 
 ## 文件改动说明
 Filter:
-- 新增 `iGameCore/Filters/Sources/iGameRandomVectorsFilter.cpp`
-- 新增 `iGameCore/Filters/Sources/iGameRandomVectorsFilter.h`
-- `iGameCore/Filters/iGameFilterIncludes.h` 注册 `Sources/iGameRandomVectorsFilter.h`
+- 新增 `iGameCore/Filters/AttributeManipulation/iGameRandomVectorsFilter.cpp`
+- 新增 `iGameCore/Filters/AttributeManipulation/iGameRandomVectorsFilter.h`
+- `iGameCore/Filters/iGameFilterIncludes.h` 注册 `AttributeManipulation/iGameRandomVectorsFilter.h`
 
 Example:
 - 新增 `Examples/Filter/Sources/TestRandomVectors.cpp`
@@ -21,7 +20,7 @@ Example:
 
 QT:
 - 修改 `Qt/src/IQCore/igQtMainWindow.cpp`
-- 在 UI 菜单：**滤镜 -> 数据处理 (Data Processing)** 中添加 **随机向量 (Random Vectors)**
+- 在 UI 菜单：**滤镜 -> 数据属性操作 (Attribute Manipulation)** 中添加 **随机向量 (Random Vectors)**
 - 未导入模型时输出提示
 
 ## UI 使用流程

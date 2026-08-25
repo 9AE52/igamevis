@@ -1,4 +1,4 @@
-#include <Sources/iGameRandomVectorsFilter.h>
+#include <AttributeManipulation/iGameRandomVectorsFilter.h>
 #include <iGameAttributeSet.h>
 #include <iGameFileIO.h>
 #include <iGameFlatArray.h>
@@ -93,9 +93,19 @@ int main(int argc, char** argv) {
 
     auto output = filter->GetOutput();
     std::string reason;
+    if (output.get() == obj.get()) {
+        std::cerr << "Result: FAIL\n";
+        std::cerr << "filter should produce a new mesh, not modify the input in place\n";
+        return 1;
+    }
     if (!CheckBrownianVectors(output, minSpeed, maxSpeed, reason)) {
         std::cerr << "Result: FAIL\n";
         std::cerr << reason << "\n";
+        return 1;
+    }
+    if (obj->GetAttributeSet() && obj->GetAttributeSet()->GetVector("BrownianVectors").pointer != nullptr) {
+        std::cerr << "Result: FAIL\n";
+        std::cerr << "input mesh should not be modified (BrownianVectors must not appear on the original)\n";
         return 1;
     }
 

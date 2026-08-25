@@ -1,3 +1,4 @@
+#include "AttributeManipulation/iGameRandomVectorsFilter.h"
 #include "Clip/iGameClipFilter.h"
 #include "Contour/iGameContourFilter.h"
 #include "Convert/iGameConvertToPointCloudFilter.h"
@@ -19,7 +20,6 @@
 #include "Slice/iGameSliceFilter.h"
 #include "Sources/iGameLineTypePointsSourceFilter.h"
 #include "Sources/iGamePointsSourceFilter.h"
-#include "Sources/iGameRandomVectorsFilter.h"
 #include "TensorView/iGameTensorBase.h"
 #include "TensorView/iGameTensorFilter.h"
 #include "TensorView/iGameTensorRepresentation.h"
@@ -29,7 +29,6 @@
 #include "VariableCorrelation/iGameGenerateVariableCorrelationDataFilter.h"
 #include "VariableDensity/iGameGenerateVariableDensityDataFilter.h"
 #include "VolumeMeshAlgorithm/iGameTetraDecimation.h"
-
 #include "FeatureExtraction/iGameCurvatureFilter.h"
 #include "FeatureExtraction/iGameGradientFilter.h"
 #include "FeatureExtraction/iGameLaplacianFilter.h"

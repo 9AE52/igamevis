@@ -66,8 +66,8 @@
 #include <QMouseEvent>
 #include <QPainter>
 #include <QScrollArea>
+#include <AttributeManipulation/iGameRandomVectorsFilter.h>
 #include <Sources/iGameLineTypePointsSourceFilter.h>
-#include <Sources/iGameRandomVectorsFilter.h>
 #include <Tests/iGameVolumeMeshFilterTest.h>
 #include <VolumeMeshAlgorithm/iGameVolumeMeshClipper.h>
 #include <fcntl.h>
@@ -1561,7 +1561,8 @@ void igQtMainWindow::initAllFilters() {
         rendererWidget->update();
     });
 
-    connect(mesh_processing->addAction(QStringLiteral("随机向量 (Random Vectors)")), &QAction::triggered, this, [this](bool) {
+    QMenu* attr_manipulation = ui->menu_filters->addMenu(QStringLiteral("数据属性操作 (Attribute Manipulation)"));
+    connect(attr_manipulation->addAction(QStringLiteral("随机向量 (Random Vectors)")), &QAction::triggered, this, [this](bool) {
         if (rendererWidget->GetScene() == nullptr
             || rendererWidget->GetScene()->GetCurrentModel() == nullptr) {
             showDarkFramelessMessage(QStringLiteral("无可用模型"), QStringLiteral("请先加载并选择模型。"));
@@ -1579,9 +1580,6 @@ void igQtMainWindow::initAllFilters() {
 
         igQtFilterDialogDockWidget* dialog = new igQtFilterDialogDockWidget(this, true);
         dialog->setFilterTitle(QStringLiteral("随机向量"));
-        dialog->setFilterDescription(QStringLiteral(
-                "为每个点生成随机向量（BrownianVectors），模仿 ParaView 的 Random Vectors 滤波器。\n"
-                "方向为随机单位向量，模长均匀分布在 [最小速度, 最大速度]。"));
         int minId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, QStringLiteral("最小速度"), "0");
         int maxId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, QStringLiteral("最大速度"), "1");
         dialog->show();
@@ -1603,7 +1601,7 @@ void igQtMainWindow::initAllFilters() {
             filter->SetMaximumSpeed(maxSpeed);
             filter->SetInput(obj);
             if (filter->Execute()) {
-                modelTreeWidget->updateAllAttriubute(obj);
+                modelTreeWidget->addDataObjectToModelTree(filter->GetOutput(), ItemSource::Algorithm);
                 rendererWidget->update();
                 dialog->close();
             } else {
