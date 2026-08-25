@@ -7,7 +7,7 @@
 #include <iostream>
 
 int main() {
-	// 读取演示模型（工作目录下的 ./Models/GhostDemo.vtk）
+	// 读取演示模型
 	auto obj = iGame::FileIO::ReadFile("./Models/GhostDemo.vtk");
 	if (obj.IsNull()) {
 		std::cout << "READ FAILED" << std::endl;

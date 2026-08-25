@@ -1180,7 +1180,7 @@ void igQtMainWindow::initAllFilters() {
 
 
     QMenu* mesh_processing = ui->menu_filters->addMenu(QStringLiteral("数据处理 (Data Processing)"));
-    QAction* ghostCellAction = mesh_processing->addAction(QStringLiteral("Ghost 单元标记 (Ghost Cells)"));
+    QAction* ghostCellAction = ui->menu_filters->addAction(QStringLiteral("Ghost 单元标记 (Ghost Cells)"));
     connect(ghostCellAction, &QAction::triggered, this, [this](bool checked) {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
         iGame::GhostCellFilter::Pointer filter = iGame::GhostCellFilter::New();
