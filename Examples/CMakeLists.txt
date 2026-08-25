@@ -290,7 +290,7 @@ igame_add_example(testChangeColorBar ColorBar/ChangeColorBar.cpp)
 igame_add_example(testMultiscaleInteraction MultiscaleInteraction/TestMultiscaleInteraction.cpp)
 
 # Sources
-igame_add_example(testRandomVectors Filter/Sources/TestRandomVectors.cpp)
+igame_add_example(testRandomVectors Filter/AttributeManipulation/TestRandomVectors.cpp)
 
 # Feature extraction
 igame_add_example(testVortexExtraction Filter/FeatureExtraction/VortexExtraction.cpp)
