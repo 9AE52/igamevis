@@ -1,9 +1,9 @@
 #include <Sources/iGameRandomVectorsFilter.h>
 #include <iGameAttributeSet.h>
+#include <iGameFileIO.h>
 #include <iGameFlatArray.h>
 #include <iGamePointSet.h>
 #include <iGameType.h>
-#include <iGameUnstructuredMesh.h>
 
 #include <cmath>
 #include <iostream>
@@ -11,27 +11,24 @@
 
 namespace {
 
-bool CheckVectorAttribute(const iGame::DataObject::Pointer& obj, unsigned int expectedPoints,
-                          unsigned int expectedDimension, float minValue, float maxValue, std::string& reason) {
-    auto mesh = iGame::DynamicCast<iGame::UnstructuredMesh>(obj);
-    if (!mesh) {
-        reason = "output is not an UnstructuredMesh";
+bool CheckBrownianVectors(const iGame::DataObject::Pointer& obj, double minSpeed, double maxSpeed,
+                          std::string& reason) {
+    auto pointSet = iGame::DynamicCast<iGame::PointSet>(obj);
+    if (!pointSet) {
+        reason = "output is not a PointSet";
         return false;
     }
 
-    if (mesh->GetNumberOfPoints() != expectedPoints) {
-        reason = "point count mismatch: expected " + std::to_string(expectedPoints) + ", got " +
-                 std::to_string(mesh->GetNumberOfPoints());
+    auto attrSet = obj->GetAttributeSet();
+    if (attrSet == nullptr) {
+        reason = "output has no attribute set";
         return false;
     }
-
-    auto attrSet = mesh->GetAttributeSet();
-    auto& attr = attrSet->GetVector("random_vectors");
+    auto& attr = attrSet->GetVector("BrownianVectors");
     if (attr.pointer == nullptr) {
-        reason = "vector attribute 'random_vectors' not found";
+        reason = "vector attribute 'BrownianVectors' not found";
         return false;
     }
-
     if (attr.attachmentType != IG_POINT) {
         reason = "vector attribute is not attached to points";
         return false;
@@ -42,22 +39,23 @@ bool CheckVectorAttribute(const iGame::DataObject::Pointer& obj, unsigned int ex
         reason = "vector attribute is not a FloatArray";
         return false;
     }
-
-    if (static_cast<unsigned int>(vectors->GetDimension()) != expectedDimension) {
-        reason = "vector dimension mismatch";
+    if (vectors->GetDimension() != 3) {
+        reason = "vector dimension is not 3";
         return false;
     }
-
-    if (static_cast<unsigned int>(vectors->GetNumberOfElements()) != expectedPoints) {
+    if (vectors->GetNumberOfElements() != pointSet->GetNumberOfPoints()) {
         reason = "vector element count mismatch";
         return false;
     }
 
-    for (IGsize i = 0; i < vectors->GetNumberOfValues(); ++i) {
-        const float v = vectors->ValueAt(i);
-        if (v < minValue || v > maxValue) {
-            reason = "value " + std::to_string(v) + " out of range [" + std::to_string(minValue) + ", " +
-                     std::to_string(maxValue) + "]";
+    for (IGsize i = 0; i < vectors->GetNumberOfElements(); ++i) {
+        float v[3];
+        vectors->GetElement(i, v);
+        const double mag = std::sqrt(static_cast<double>(v[0]) * v[0] + static_cast<double>(v[1]) * v[1] +
+                                     static_cast<double>(v[2]) * v[2]);
+        if (mag < minSpeed - 1e-6 || mag > maxSpeed + 1e-6) {
+            reason = "vector magnitude " + std::to_string(mag) + " out of range [" + std::to_string(minSpeed) +
+                     ", " + std::to_string(maxSpeed) + "]";
             return false;
         }
     }
@@ -66,19 +64,27 @@ bool CheckVectorAttribute(const iGame::DataObject::Pointer& obj, unsigned int ex
 
 } // namespace
 
-int main() {
-    const unsigned int pointCount = 10000;
-    const unsigned int dimension = 3;
-    const float minValue = -1.f;
-    const float maxValue = 1.f;
-    const unsigned int seed = 42;
+int main(int argc, char** argv) {
+    if (argc < 2) {
+        std::cerr << "Usage: testRandomVectors <mesh-file>\n";
+        return 2;
+    }
+    const std::string fileName = argv[1];
+
+    auto obj = iGame::FileIO::ReadFile(fileName);
+    if (!obj) {
+        std::cerr << "Result: FAIL\n";
+        std::cerr << "Read file failed: " << fileName << "\n";
+        return 1;
+    }
+
+    const double minSpeed = 0.0;
+    const double maxSpeed = 1.0;
 
     auto filter = iGame::RandomVectorsFilter::New();
-    filter->SetNumberOfPoints(pointCount);
-    filter->SetVectorDimension(dimension);
-    filter->SetRange(minValue, maxValue);
-    filter->SetSeed(seed);
-
+    filter->SetMinimumSpeed(minSpeed);
+    filter->SetMaximumSpeed(maxSpeed);
+    filter->SetInput(obj);
     if (!filter->Execute()) {
         std::cerr << "Result: FAIL\n";
         std::cerr << "Filter Execute failed\n";
@@ -87,49 +93,20 @@ int main() {
 
     auto output = filter->GetOutput();
     std::string reason;
-    if (!CheckVectorAttribute(output, pointCount, dimension, minValue, maxValue, reason)) {
+    if (!CheckBrownianVectors(output, minSpeed, maxSpeed, reason)) {
         std::cerr << "Result: FAIL\n";
         std::cerr << reason << "\n";
         return 1;
     }
 
-    auto mesh = iGame::DynamicCast<iGame::UnstructuredMesh>(output);
+    auto pointSet = iGame::DynamicCast<iGame::PointSet>(output);
     auto vectors = iGame::DynamicCast<iGame::FloatArray>(
-            output->GetAttributeSet()->GetVector("random_vectors").pointer);
-    std::cout << "Points: " << mesh->GetNumberOfPoints() << "\n";
+            output->GetAttributeSet()->GetVector("BrownianVectors").pointer);
+    std::cout << "File: " << fileName << "\n";
+    std::cout << "Points: " << pointSet->GetNumberOfPoints() << "\n";
     std::cout << "Dimension: " << vectors->GetDimension() << "\n";
     std::cout << "Elements: " << vectors->GetNumberOfElements() << "\n";
-    std::cout << "Values: " << vectors->GetNumberOfValues() << "\n";
-    std::cout << "Sample[0]: " << vectors->ValueAt(0) << " " << vectors->ValueAt(1) << " " << vectors->ValueAt(2)
-              << "\n";
-    std::cout << "Range: [" << minValue << ", " << maxValue << "]\n";
-
-    auto filter2 = iGame::RandomVectorsFilter::New();
-    filter2->SetNumberOfPoints(pointCount);
-    filter2->SetVectorDimension(dimension);
-    filter2->SetRange(minValue, maxValue);
-    filter2->SetSeed(seed);
-    filter2->Execute();
-    auto output2 = filter2->GetOutput();
-    auto vectors2 = iGame::DynamicCast<iGame::FloatArray>(
-            output2->GetAttributeSet()->GetVector("random_vectors").pointer);
-    bool reproducible = vectors->GetNumberOfValues() == vectors2->GetNumberOfValues();
-    if (reproducible) {
-        for (IGsize i = 0; i < vectors->GetNumberOfValues(); ++i) {
-            if (vectors->ValueAt(i) != vectors2->ValueAt(i)) {
-                reproducible = false;
-                break;
-            }
-        }
-    }
-    std::cout << "Same seed reproducible: " << (reproducible ? "yes" : "no") << "\n";
-
-    if (!reproducible) {
-        std::cerr << "Result: FAIL\n";
-        std::cerr << "same seed produced different random values\n";
-        return 1;
-    }
-
+    std::cout << "Speed range: [" << minSpeed << ", " << maxSpeed << "]\n";
     std::cout << "Result: PASS\n";
     return 0;
 }

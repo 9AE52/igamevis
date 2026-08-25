@@ -1,18 +1,17 @@
 /**
  * @class   iGameRandomVectors
- * @brief   Generate a point set whose each point carries a random vector
- *          attribute. The vector values are filled with uniform random numbers.
+ * @brief   Mimic ParaView's "Random Vectors" filter (vtkBrownianPoints).
+ *          Adds a random 3-component vector (BrownianVectors) to each point
+ *          of the input mesh. The direction is a random unit vector and the
+ *          magnitude is uniformly distributed in [minimumSpeed, maximumSpeed].
  */
 
 #pragma once
 
 #include "iGameFilter.h"
-#include "iGamePointSet.h"
-#include "iGamePoints.h"
-#include "iGameUnstructuredMesh.h"
+#include "iGameDataObject.h"
 
 IGAME_NAMESPACE_BEGIN
-
 
 class RandomVectorsFilter : public Filter {
 public:
@@ -21,21 +20,18 @@ public:
 
     bool Execute() override;
 
-    void SetNumberOfPoints(unsigned int n);
-    void SetVectorDimension(unsigned int d);
-    void SetRange(float minValue, float maxValue);
-    void SetSeed(unsigned int seed);
+    void SetMinimumSpeed(double speed);
+    void SetMaximumSpeed(double speed);
+    double GetMinimumSpeed() const;
+    double GetMaximumSpeed() const;
 
 protected:
     RandomVectorsFilter();
     ~RandomVectorsFilter() override = default;
 
 protected:
-    unsigned int m_NumberOfPoints{1000};
-    unsigned int m_VectorDimension{3};
-    float m_MinValue{0.f};
-    float m_MaxValue{1.f};
-    unsigned int m_Seed{42};
+    double m_MinimumSpeed{0.0};
+    double m_MaximumSpeed{1.0};
 };
 
 IGAME_NAMESPACE_END

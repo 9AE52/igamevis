@@ -1,60 +1,79 @@
- /**
+/**
  * @class   iGameRandomVectors
- * @brief   Generate a point set whose each point carries a random vector
- *          attribute. The vector values are filled with uniform random numbers.
+ * @brief   Mimic ParaView's "Random Vectors" filter (vtkBrownianPoints).
  */
 
 #include "iGameRandomVectorsFilter.h"
 
+#include "iGameAttributeSet.h"
+#include "iGameDrawObject.h"
+#include "iGameFlatArray.h"
+#include "iGamePointSet.h"
+
+#include <cmath>
 #include <random>
+
+namespace {
+// 全局随机数流（非确定性），模拟 vtkMath::Random()
+std::mt19937& GlobalRandomGen() {
+    static std::mt19937 gen(std::random_device{}());
+    return gen;
+}
+} // namespace
 
 IGAME_NAMESPACE_BEGIN
 
 bool RandomVectorsFilter::Execute() {
-    auto output = UnstructuredMesh::New();
-    output->SetName("RandomVectors");
+    auto input = GetInput(0);
+    if (input == nullptr) return false;
+
+    auto pointSet = DynamicCast<PointSet>(input);
+    if (pointSet == nullptr) return false;
+
+    const IGsize numPoints = pointSet->GetNumberOfPoints();
+    if (numPoints <= 0) return false;
 
     auto vectors = FloatArray::New();
-    vectors->SetName("random_vectors");
-    vectors->SetDimension(static_cast<int>(m_VectorDimension));
-    vectors->Reserve(m_NumberOfPoints);
+    vectors->SetName("BrownianVectors");
+    vectors->SetDimension(3);
+    vectors->Reserve(numPoints);
 
-    std::mt19937 gen(m_Seed);
-    std::uniform_real_distribution<float> dist(m_MinValue, m_MaxValue);
+    auto& gen = GlobalRandomGen();
+    std::uniform_real_distribution<double> dirDist(-1.0, 1.0);
+    std::uniform_real_distribution<double> speedDist(m_MinimumSpeed, m_MaximumSpeed);
 
-    for (int i = 0; i < m_NumberOfPoints; i ++) {
-        output->AddPoint(Point(dist(gen), dist(gen), dist(gen)));
-        igIndex cell[1] = {static_cast<igIndex>(i)};
-        output->AddCell(cell, 1, IG_VERTEX);
-        for (unsigned int d = 0; d < m_VectorDimension; ++d) {
-            vectors->AddValue(dist(gen));
+    for (IGsize i = 0; i < numPoints; ++i) {
+        double x = dirDist(gen);
+        double y = dirDist(gen);
+        double z = dirDist(gen);
+        const double length = std::sqrt(x * x + y * y + z * z);
+        if (length > 0.0) {
+            x /= length;
+            y /= length;
+            z /= length;
         }
+        const double speed = speedDist(gen);
+        vectors->AddElement3(x * speed, y * speed, z * speed);
     }
 
-    output->GetAttributeSet()->AddVector(IG_POINT, vectors);
-    SetOutput(output);
+    auto attrSet = pointSet->GetAttributeSet();
+    attrSet->AddVector(IG_POINT, vectors);
+    attrSet->ForceReConvertToDrawableData();
+
+    SetOutput(input);
     return true;
 }
 
-void RandomVectorsFilter::SetNumberOfPoints(unsigned int n) {
-    if (n > 0) m_NumberOfPoints = n;
-}
+void RandomVectorsFilter::SetMinimumSpeed(double speed) { m_MinimumSpeed = speed; }
 
-void RandomVectorsFilter::SetVectorDimension(unsigned int d) {
-    if (d > 0 && d <= 7) m_VectorDimension = d;
-}
+void RandomVectorsFilter::SetMaximumSpeed(double speed) { m_MaximumSpeed = speed; }
 
-void RandomVectorsFilter::SetRange(float minValue, float maxValue) {
-    if (minValue <= maxValue) {
-        m_MinValue = minValue;
-        m_MaxValue = maxValue;
-    }
-}
+double RandomVectorsFilter::GetMinimumSpeed() const { return m_MinimumSpeed; }
 
-void RandomVectorsFilter::SetSeed(unsigned int seed) { m_Seed = seed; }
+double RandomVectorsFilter::GetMaximumSpeed() const { return m_MaximumSpeed; }
 
 RandomVectorsFilter::RandomVectorsFilter() {
-    SetNumberOfInputs(0);
+    SetNumberOfInputs(1);
     SetNumberOfOutputs(1);
 }
 
