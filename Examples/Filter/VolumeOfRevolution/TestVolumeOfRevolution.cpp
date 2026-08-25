@@ -13,7 +13,7 @@ int main() {
     auto scene = iGame::Scene::New();
 
     // Read the file and add it to the scene
-    const std::string fileName = "./Models/vaseTest.vtk";
+    const std::string fileName = "./Models/vase2.vtk";
 
     iGame::DataObject::Pointer obj = iGame::FileIO::ReadFile(fileName);
     if (!obj) {
@@ -26,7 +26,7 @@ int main() {
     double angleRad = 360.0 * M_PI / 180.0;
     auto filter = iGame::VolumeOfRevolutionFilter::New();
 
-    filter->SetAxis(iGame::Vector3d(0.0, 1.0, 0.0).normalized(), iGame::Vector3d(0.0, 0.0, 0.0));
+    filter->SetAxis(iGame::Vector3d(0.0, 0.0, 1.0).normalized(), iGame::Vector3d(0.0, 0.0, 0.0));
     filter->SetResolution(36);
     filter->SetAngle(angleRad);
     filter->SetInput(obj);

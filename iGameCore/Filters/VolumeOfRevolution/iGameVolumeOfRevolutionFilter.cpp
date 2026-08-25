@@ -22,19 +22,6 @@ static void BuildAdjacency(const std::vector<Edge>& edges, std::map<IGsize, std:
     }
 }
 
-// 三角扇生成圆盘端盖
-static void AddCircularCap(IGsize centerPtIdx, const std::vector<IGsize>& ringPts, CellArray* cells,
-                           UnsignedIntArray* types) {
-    if (ringPts.size() < 3) return;
-    for (size_t i = 0; i < ringPts.size(); ++i) {
-        size_t j = (i + 1) % ringPts.size();
-        igIndex tri[3] = {static_cast<igIndex>(centerPtIdx), static_cast<igIndex>(ringPts[i]),
-                          static_cast<igIndex>(ringPts[j])};
-        cells->AddCellIds(tri, 3);
-        types->AddValue(IG_TRIANGLE);
-    }
-}
-
 // ---------- 主执行函数 ----------
 bool VolumeOfRevolutionFilter::Execute() {
     DataObject::Pointer input = GetInput(0);
@@ -253,7 +240,7 @@ bool VolumeOfRevolutionFilter::Execute() {
                 newTypes->AddValue(IG_TRIANGLE);
             } else if (deg1) {
                 igIndex tri[3] = {static_cast<igIndex>(ids[0]), static_cast<igIndex>(ids[1]),
-                                  static_cast<igIndex>(ids[2])};
+                                  static_cast<igIndex>(ids[3])};
                 newCells->AddCellIds(tri, 3);
                 newTypes->AddValue(IG_TRIANGLE);
             } else {
@@ -268,76 +255,7 @@ bool VolumeOfRevolutionFilter::Execute() {
             }
         }
     }
-
-    // -------- 7. 生成端盖 --------
-    std::map<double, std::vector<IGsize>> capGroups;
-    const double EPS = 1e-9;
-    for (const auto& edge: edges) {
-        IGsize i0 = edge.v0, i1 = edge.v1;
-        Vector3d p0 = contourPts[i0];
-        Vector3d p1 = contourPts[i1];
-        Vector3d edgeDir = p1 - p0;
-        double dot = edgeDir.dot(axisDir);
-        if (std::fabs(dot) < EPS) {
-            double h = (proj[i0].h + proj[i1].h) * 0.5;
-            capGroups[h].push_back(i0);
-            capGroups[h].push_back(i1);
-        }
-    }
-
-    if (!capGroups.empty()) {
-        for (auto& group: capGroups) {
-            double h = group.first;
-            auto& ptIndices = group.second;
-            std::set<IGsize> uniquePts(ptIndices.begin(), ptIndices.end());
-            if (uniquePts.size() < 2) continue;
-
-            IGsize minIdx = *uniquePts.begin(), maxIdx = *uniquePts.begin();
-            double minR = proj[minIdx].r, maxR = proj[maxIdx].r;
-            for (IGsize idx: uniquePts) {
-                double r = proj[idx].r;
-                if (r < minR) {
-                    minR = r;
-                    minIdx = idx;
-                }
-                if (r > maxR) {
-                    maxR = r;
-                    maxIdx = idx;
-                }
-            }
-            if (maxR < 1e-9) continue;
-
-            if (minR < 1e-9) {
-                Vector3d center = axisPt + h * axisDir;
-                IGsize centerIdx = newPoints->AddPoint(center[0], center[1], center[2]);
-                std::vector<IGsize> ringPts;
-                ringPts.reserve(numTheta);
-                for (int j = 0; j < numTheta; ++j) ringPts.push_back(pointIndices[maxIdx][j]);
-                AddCircularCap(centerIdx, ringPts, newCells, newTypes);
-            } else {
-                std::vector<IGsize> outerRing, innerRing;
-                outerRing.reserve(numTheta);
-                innerRing.reserve(numTheta);
-                for (int j = 0; j < numTheta; ++j) {
-                    outerRing.push_back(pointIndices[maxIdx][j]);
-                    innerRing.push_back(pointIndices[minIdx][j]);
-                }
-                for (int j = 0; j < m_Resolution; ++j) {
-                    int j_next = (j + 1) % numTheta;
-                    igIndex tri1[3] = {static_cast<igIndex>(outerRing[j]), static_cast<igIndex>(innerRing[j]),
-                                       static_cast<igIndex>(outerRing[j_next])};
-                    newCells->AddCellIds(tri1, 3);
-                    newTypes->AddValue(IG_TRIANGLE);
-                    igIndex tri2[3] = {static_cast<igIndex>(innerRing[j]), static_cast<igIndex>(innerRing[j_next]),
-                                       static_cast<igIndex>(outerRing[j_next])};
-                    newCells->AddCellIds(tri2, 3);
-                    newTypes->AddValue(IG_TRIANGLE);
-                }
-            }
-        }
-    }
-
-    // -------- 8. 输出 --------
+    // -------- 7. 输出 --------
     auto outputMesh = UnstructuredMesh::New();
     outputMesh->SetPoints(newPoints);
     outputMesh->SetCells(newCells, newTypes);
