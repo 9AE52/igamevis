@@ -105,6 +105,7 @@
 #include <QFormLayout>
 #include <QDialogButtonBox>
 
+#include "iGameAppendLocationAttribute.h"
 
 #include "ui_igQtVariableCorrelationWidget.h"
 
@@ -137,14 +138,7 @@ ToolbarSpacingMetrics metricsForIconSize(int iconSize) {
 int titlePointSizeForIcon(int iconSize) {
     return qBound(8, iconSize / 4, 14); // 32->8, 40->10, 46->11, 50->12, 52->13
 }
-
-int resolveToolbarIconSize(int availableWidth, qreal dpiScale) {
-    int iconSize = 52;
-    if (availableWidth <= 1366) {
-        iconSize = 32;
-    } else if (availableWidth <= 1600) {
-        iconSize = 36;
-    } else if (availableWidth <= 1920) {
+ v
         iconSize = 40;
     } else if (availableWidth <= 2560) {
         iconSize = 46;
@@ -1634,37 +1628,6 @@ void igQtMainWindow::initAllFilters() {
 
     QMenu* view = ui->menu_filters->addMenu("特征提取");
 
-    QAction* LocationAttribute = view->addAction(QStringLiteral("附加点坐标到属性(AppendLocaitonAttribute)"));
-    connect(LocationAttribute, &QAction::triggered, this, [this](bool checked) {
-        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
-        AppendLocationAttribute::Pointer filter = AppendLocationAttribute::New();
-        auto data = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
-        filter->SetInput(data);
-        filter->SetAttributeByIndex(data->GetAttributeIndex());
-        int index = data->GetAttributeIndex();
-        if (filter->Execute()) {
-            modelTreeWidget->updateAllAttriubute(data);
-            auto drawObject = DynamicCast<DrawObject>(data);
-            if (drawObject) {
-                auto item = modelTreeWidget->getItemFromObject(data);
-                if (item && item->childCount() > 0) {
-                    item->setExpanded(true);
-                    auto child = item->child(index);
-                    if (child) {
-                        item->setCurrentChild(child);
-                        item->setSelected(false);
-                        item->viewAttribute(index, -1);
-                        child->setSelected(true);
-                        modelTreeWidget->setCurrentItem(child);
-                    }
-                }
-            }
-        } else {
-            std::string message = filter->GetMessage();
-            showDarkFramelessMessage(QStringLiteral("Warning"), QString::fromStdString(message));
-        }
-    });
-
     QAction* gradient = view->addAction(QStringLiteral("计算梯度 (ComputeGradient)"));
     connect(gradient, &QAction::triggered, this, [this](bool checked) {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
@@ -1973,6 +1936,37 @@ void igQtMainWindow::initAllFilters() {
             DataObject::Pointer res = filter->GetOutput(0);
             res->SetName(data->GetName());
             modelTreeWidget->addDataObjectToModelTree(res, Algorithm);
+        }
+    });
+
+    QAction* LocationAttribute = view->addAction(QStringLiteral("附加点坐标到属性(AppendLocaitonAttribute)"));
+    connect(LocationAttribute, &QAction::triggered, this, [this](bool checked) {
+        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
+        AppendLocationAttribute::Pointer filter = AppendLocationAttribute::New();
+        auto data = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+        filter->SetInput(data);
+        filter->SetAttributeByIndex(data->GetAttributeIndex());
+        int index = data->GetAttributeIndex();
+        if (filter->Execute()) {
+            modelTreeWidget->updateAllAttriubute(data);
+            auto drawObject = DynamicCast<DrawObject>(data);
+            if (drawObject) {
+                auto item = modelTreeWidget->getItemFromObject(data);
+                if (item && item->childCount() > 0) {
+                    item->setExpanded(true);
+                    auto child = item->child(index);
+                    if (child) {
+                        item->setCurrentChild(child);
+                        item->setSelected(false);
+                        item->viewAttribute(index, -1);
+                        child->setSelected(true);
+                        modelTreeWidget->setCurrentItem(child);
+                    }
+                }
+            }
+        } else {
+            std::string message = filter->GetMessage();
+            showDarkFramelessMessage(QStringLiteral("Warning"), QString::fromStdString(message));
         }
     });
 }
@@ -2398,7 +2392,7 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         const float OVColor[3]{1.f, 1.f, 1.f};
         const float IVColor[3]{1.f, 1.f, 0.f};
         const float OIVColor[3]{1.f, 1.f, 1.f};
-        const float OIVAlpha = 0.2f;
+        const float OIVAlpha = 0.2f; 
 
         SurfaceMesh::Pointer IV = SurfaceMesh::New();
         OV->SetName(OVName);
@@ -2438,7 +2432,7 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         DrawSurfaceMeshByPointer(t_IV, IVModel->GetPainter3D(), IVColor);
 
         //OV->SetFaceColor(OVColor);
-        OV->SetViewStyle(IG_SURFACE | IG_WIREFRAME);
+        OV->SetViewStyle(IG_SURFACE | IG_WIREFRAME); 
         //IV->SetFaceColor(IVColor);
         //IV->SetViewStyle(IG_SURFACE | IG_WIREFRAME);
         //OIV->SetFaceColor(OIVColor);
