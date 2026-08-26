@@ -1939,7 +1939,7 @@ void igQtMainWindow::initAllFilters() {
         }
     });
 
-    QAction* LocationAttribute = view->addAction(QStringLiteral("附加点坐标到属性(AppendLocaitonAttribute)"));
+    QAction* LocationAttribute = ui->menu_filters->addAction(QStringLiteral("附加点坐标到属性(AppendLocaitonAttribute)"));
     connect(LocationAttribute, &QAction::triggered, this, [this](bool checked) {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
         AppendLocationAttribute::Pointer filter = AppendLocationAttribute::New();
