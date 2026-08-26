@@ -15,6 +15,17 @@ bool CellCenterFilter::Execute() {
     auto input = GetInput(0);
     if (!input) return false;
 
+    // 按输入数组的实际类型创建同类型输出数组，
+    // 避免 Double/Int 数组被降成 Float 导致精度和类型丢失
+    auto createLikeArray = [](ArrayObject::Pointer src) -> ArrayObject::Pointer {
+        switch (src->GetArrayType()) {
+            case IG_DoubleArray:      return DoubleArray::New();
+            case IG_IntArray:         return IntArray::New();
+            case IG_UnsignedIntArray: return UnsignedIntArray::New();
+            default:                  return FloatArray::New();
+        }
+    };
+
     auto inPoints = input->GetPoints();
     CellArray::Pointer inCells;
     if (input->GetDataObjectType() == IG_STRUCTURED_MESH) {
@@ -58,8 +69,9 @@ bool CellCenterFilter::Execute() {
         outPoints->AddPoint(center);
     }
 
-    //点属性：输出点是单元中心，取该单元所有顶点的属性均值，作为该中心点的属性值
-    //单元属性：第i个中心点对应第i个单元，按单元索引逐项拷贝。
+//点属性：输出点是单元中心，取该单元所有顶点的属性均值，作为该中心点的属性值
+//单元属性：按单元索引拷贝（第i个中心点↔第i个单元），
+//          统一标记为IG_POINT，PointSet渲染层才能识别并用于着色
     auto inAttr = input->GetAttributeSet();
     if (inAttr) {
         auto outAttr = AttributeSet::New();
@@ -69,8 +81,8 @@ bool CellCenterFilter::Execute() {
             auto& attr = allAttrs->GetElement(i);
             if (attr.attachmentType == IG_POINT) {
                 //点属性插值：中心点属性 = 该单元所有顶点属性值的均值
-                auto outArray = FloatArray::New();
-                outArray->SetName(attr.pointer->GetName());
+        auto outArray = createLikeArray(attr.pointer);
+        outArray->SetName(attr.pointer->GetName());
                 outArray->SetDimension(attr.pointer->GetDimension());
                 outArray->Resize(inCellNum);
 
@@ -92,8 +104,8 @@ bool CellCenterFilter::Execute() {
                 outAttr->AddAttribute(attr.type, IG_POINT, outArray, attr.GetDataRange());
             }
             else if (attr.attachmentType == IG_CELL) {
-                auto outArray = FloatArray::New();
-                outArray->SetName(attr.pointer->GetName());
+        auto outArray = createLikeArray(attr.pointer);
+        outArray->SetName(attr.pointer->GetName());
                 outArray->SetDimension(attr.pointer->GetDimension());
                 outArray->Resize(inCellNum);
 
@@ -102,7 +114,7 @@ bool CellCenterFilter::Execute() {
                     attr.pointer->GetElement(j, values);//将对应属性的第j个值赋给values
                     outArray->SetElement(j, values);//将values的值赋给我们要输出的outarray的数组指针的第j号位
                 }
-                outAttr->AddAttribute(attr.type, IG_CELL, outArray, attr.GetDataRange());
+                outAttr->AddAttribute(attr.type, IG_POINT, outArray, attr.GetDataRange());
             } 
             else{}//常规网格数据只用IG_POINT和IG_CELL，输出 PointSet 也只能容纳这两种
         }
