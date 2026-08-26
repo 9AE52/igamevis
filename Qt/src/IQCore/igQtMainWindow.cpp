@@ -20,12 +20,14 @@
 #include "Convert/iGameConvertPolyhedralCellsFilter.h"
 #include "Convert/iGameConvertToCellDataFilter.h"
 #include "Convert/iGameConvertToLagrangeUnstructuredMeshFilter.h"
-#include "Convert/iGameConvertToPointCloudFilter.h"
-#include "Convert/iGameConvertToPointDataFilter.h"
-#include "Convert/iGameConvertToSurfaceMeshFilter.h"
-#include "Convert/iGameConvertToVolumeMeshFilter.h"
-
-#include "Interactor/iGameInteractor.h"
+  #include "Convert/iGameConvertToPointCloudFilter.h"
+  #include "Convert/iGameConvertToPointDataFilter.h"
+  #include "Convert/iGameConvertToSurfaceMeshFilter.h"
+  #include "Convert/iGameConvertToVolumeMeshFilter.h"
+  
+  #include "MyFilter/iGameCellCenterFilter.h"
+  
+  #include "Interactor/iGameInteractor.h"
 
 #include "Tests/iGameARAPTest.h"
 
@@ -1637,6 +1639,23 @@ void igQtMainWindow::initAllFilters() {
     //        std::cout << end - start << std::endl;
 
     //    });
+    connect(ui->menu_filters->addAction(QStringLiteral("单元几何中心 (Cell Center)")), &QAction::triggered,
+            this, [this](bool) {
+        auto currentModel = rendererWidget->GetScene()->GetCurrentModel();
+        if (!currentModel) return;
+
+        auto obj = currentModel->GetDataObject();
+        CellCenterFilter::Pointer filter = CellCenterFilter::New();
+        filter->SetInput(obj);
+        if (!filter->Execute()) {
+            showDarkFramelessMessage(QStringLiteral("执行失败"),
+                                     QStringLiteral("当前模型没有单元/顶点数据，或执行出错"));
+            return;
+        }
+
+        modelTreeWidget->addDataObjectToModelTree(filter->GetOutput(), Algorithm);
+        rendererWidget->update();
+    });
     QMenu* convert = ui->menu_filters->addMenu(QStringLiteral("数据转换 (Convert)"));
     connect(convert->addAction(QStringLiteral("转换为点数据 (Convert To PointData)")), &QAction::triggered, this, [&](bool checked) {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
@@ -1972,6 +1991,7 @@ void igQtMainWindow::initAllFilters() {
             modelTreeWidget->addDataObjectToModelTree(res, Algorithm);
         }
     });
+
 }
 
 void igQtMainWindow::initAllDockWidgetConnectWithAction() {
