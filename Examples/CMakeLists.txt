@@ -169,6 +169,12 @@ function(igame_register_example_test EXAMPLE_TARGET)
         set(_TEST_COMMAND bash "${_TEST_SCRIPT}" "$<TARGET_FILE:${EXAMPLE_TARGET}>" 120 -- Models/Quad_Plane_Tensor.vtk)
     endif ()
 
+    # Extract Location is a deterministic CPU-only test. On Windows, invoking
+    # it directly avoids an unnecessary WSL/bash dependency.
+    if (WIN32 AND "${EXAMPLE_TARGET}" STREQUAL "testExtractLocation")
+        set(_TEST_COMMAND "$<TARGET_FILE:${EXAMPLE_TARGET}>")
+    endif ()
+
     if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
         add_test(
             NAME ${EXAMPLE_TARGET}
@@ -229,6 +235,9 @@ igame_add_example(testGetClosestPointsInLine Filter/Selection/TestGetClosestPoin
 igame_add_example(testGetClosestCellsInLine Filter/Selection/TestGetClosestCellsInLine.cpp)
 igame_add_example(testGetPointsInFrustum Filter/Selection/TestGetPointsInFrustum.cpp)
 igame_add_example(testGetCellsInFrustum Filter/Selection/TestGetCellsInFrustum.cpp)
+
+# Data processing
+igame_add_example(testExtractLocation Filter/DataProcessing/ExtractLocation/TestExtractLocation.cpp)
 
 # Compression
 igame_add_example(testDecoder Filter/Compression/TestDecoder.cpp)

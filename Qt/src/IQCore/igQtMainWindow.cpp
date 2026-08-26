@@ -14,6 +14,7 @@
 #include "DataProcessing/iGameMeshSimplificationFilter.h"
 #include "DataProcessing/iGameMeshSimplificationFilterPro.h"
 #include "DataProcessing/iGameMeshTriangulationFilter.h"
+#include "DataProcessing/ExtractLocation/iGameExtractLocationFilter.h"
 #include "DataProcessing/Simplification/iGameMeshSaliency.h"
 #include "DataProcessing/Simplification/iGameMeshSimplificationWithAttributes.h"
 
@@ -105,6 +106,17 @@
 #include <QLineEdit>
 #include <QFormLayout>
 #include <QDialogButtonBox>
+#include <QCheckBox>
+#include <QComboBox>
+#include <QDoubleSpinBox>
+#include <QFormLayout>
+#include <QGroupBox>
+#include <QHeaderView>
+#include <QTableWidget>
+
+#include <algorithm>
+#include <limits>
+#include <memory>
 
 
 #include "ui_igQtVariableCorrelationWidget.h"
@@ -1204,6 +1216,281 @@ void igQtMainWindow::initAllFilters() {
             sa->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
         }
     };
+
+    // 直接置于“算法处理”一级菜单：与 ParaView 的 Extract Location 对应。
+    QAction* extractLocationAction = ui->menu_filters->addAction(
+            QStringLiteral("提取指定位置数据 (Extract Location)"));
+    connect(extractLocationAction, &QAction::triggered, this, [this]() {
+        auto model = rendererWidget->GetScene()->GetCurrentModel();
+        if (!model) {
+            showDarkFramelessMessage(QStringLiteral("提取指定位置数据"), QStringLiteral("请先在模型树中选择一个网格模型。"));
+            return;
+        }
+
+        auto input = DynamicCast<iGame::UnstructuredMesh>(model->GetDataObject());
+        if (!input) {
+            showDarkFramelessMessage(QStringLiteral("提取指定位置数据"),
+                                     QStringLiteral("当前仅支持非结构网格（UnstructuredMesh）；操作已取消。"));
+            return;
+        }
+
+        auto* dialog = new QDialog(this);
+        dialog->setAttribute(Qt::WA_DeleteOnClose);
+        dialog->setModal(false);
+        dialog->setWindowModality(Qt::NonModal);
+        dialog->setWindowTitle(QStringLiteral("提取指定位置数据"));
+        dialog->setMinimumWidth(620);
+        dialog->setStyleSheet(QStringLiteral(R"(
+            QDialog { background: #1f2024; color: #ececec; }
+            QLabel { color: #e7e7e7; font-size: 14px; }
+            QGroupBox { color: #f0f0f0; font-size: 15px; font-weight: 600;
+                        border: 1px solid #565b66; border-radius: 5px; margin-top: 12px; padding-top: 10px; }
+            QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 5px; }
+            QDoubleSpinBox { min-height: 30px; color: #f4f4f4; background: #292b30;
+                             border: 1px solid #686d78; border-radius: 4px; padding: 2px 8px; font-size: 15px; }
+            QDoubleSpinBox:focus { border: 1px solid #3296ff; }
+            QPushButton { min-height: 32px; color: #f4f4f4; background: #343942;
+                          border: 1px solid #697181; border-radius: 4px; padding: 3px 12px; font-size: 14px; }
+            QPushButton:hover { background: #465365; }
+            QPushButton:pressed { background: #2a7bc8; }
+            QTableWidget { color: #eeeeee; background: #25272c; alternate-background-color: #2c2f35;
+                           border: 1px solid #565b66; gridline-color: #4c5059; font-size: 14px; }
+            QTableWidget::item:selected { background: #2a78be; color: white; }
+            QHeaderView::section { color: #f2f2f2; background: #373b43; border: 0; border-right: 1px solid #555a64;
+                                   border-bottom: 1px solid #555a64; padding: 5px; font-size: 14px; font-weight: 600; }
+            QComboBox { min-height: 30px; color: #f4f4f4; background: #292b30; border: 1px solid #686d78;
+                        border-radius: 4px; padding: 2px 8px; font-size: 14px; }
+            QComboBox QAbstractItemView { color: #f4f4f4; background: #292b30; selection-background-color: #2a78be; }
+        )"));
+        auto* layout = new QVBoxLayout(dialog);
+        layout->setContentsMargins(18, 16, 18, 16);
+        layout->setSpacing(10);
+
+        auto* description = new QLabel(
+                QStringLiteral("在输入网格中查找第一个包含指定位置的单元，与 ParaView 的 Extract Cell At Location 语义一致。\n"
+                               "输出会保留点/单元 Data Arrays，并添加 vtkOriginalPointIds 和 vtkOriginalCellIds。\n"
+                               "第一版支持四面体、六面体、棱柱和金字塔单元；其他类型会安全提示。"), dialog);
+        description->setWordWrap(true);
+        description->setStyleSheet(QStringLiteral("color: #d5d9df; line-height: 1.35;"));
+        layout->addWidget(description);
+
+        const auto box = input->GetBoundingBox();
+        const auto center = (box.min + box.max) * 0.5;
+        auto* positionForm = new QFormLayout;
+        auto makeSpinBox = [dialog](double value) {
+            auto* spin = new QDoubleSpinBox(dialog);
+            spin->setDecimals(8);
+            spin->setRange(-1.0e12, 1.0e12);
+            spin->setValue(value);
+            return spin;
+        };
+        auto* xSpin = makeSpinBox(center[0]);
+        auto* ySpin = makeSpinBox(center[1]);
+        auto* zSpin = makeSpinBox(center[2]);
+        positionForm->addRow(QStringLiteral("位置 X"), xSpin);
+        positionForm->addRow(QStringLiteral("位置 Y"), ySpin);
+        positionForm->addRow(QStringLiteral("位置 Z"), zSpin);
+        layout->addLayout(positionForm);
+
+        auto* showPoint = new QCheckBox(QStringLiteral("显示查询点（按所选坐标轴拖动）"), dialog);
+        showPoint->setChecked(true);
+        layout->addWidget(showPoint);
+
+        auto* dragAxis = new QComboBox(dialog);
+        dragAxis->addItem(QStringLiteral("X 轴"), 1);
+        dragAxis->addItem(QStringLiteral("Y 轴"), 2);
+        dragAxis->addItem(QStringLiteral("Z 轴"), 3);
+        auto* dragAxisForm = new QFormLayout;
+        dragAxisForm->addRow(QStringLiteral("拖动方向"), dragAxis);
+        layout->addLayout(dragAxisForm);
+
+        // 查询点是独立的临时 PointSet：不修改输入网格，也不作为算法输出提交。
+        auto scene = rendererWidget->GetScene();
+        auto queryPoint = iGame::PointSet::New();
+        queryPoint->SetName("__ExtractLocation_QueryPoint");
+        queryPoint->AddPoint(iGame::Point(center[0], center[1], center[2]));
+        queryPoint->SetViewStyle(IG_POINTS);
+        queryPoint->SetPointSize(12.0f);
+        const IGuint queryPointModelId = scene->AddModel(queryPoint);
+        auto queryPointModel = scene->GetModelById(queryPointModelId);
+        scene->SetCurrentModel(model);
+
+        auto syncPointFromSpinBoxes = [this, queryPoint, xSpin, ySpin, zSpin]() {
+            queryPoint->SetPoint(0, iGame::Point(xSpin->value(), ySpin->value(), zSpin->value()));
+            queryPoint->ForceReConvertToDrawableData();
+            rendererWidget->update();
+        };
+        connect(xSpin, qOverload<double>(&QDoubleSpinBox::valueChanged), dialog, syncPointFromSpinBoxes);
+        connect(ySpin, qOverload<double>(&QDoubleSpinBox::valueChanged), dialog, syncPointFromSpinBoxes);
+        connect(zSpin, qOverload<double>(&QDoubleSpinBox::valueChanged), dialog, syncPointFromSpinBoxes);
+
+        if (queryPointModel) {
+            auto selection = queryPoint->GetSelection(queryPointModel.get());
+            QPointer<QDoubleSpinBox> guardedX(xSpin);
+            QPointer<QDoubleSpinBox> guardedY(ySpin);
+            QPointer<QDoubleSpinBox> guardedZ(zSpin);
+            selection->_SetSelectionCallBackEvent_("ExtractLocationQueryPoint",
+                    [queryPoint, guardedX, guardedY, guardedZ](IGenum type, const std::vector<igIndex>&, Selection::Operate) {
+                        if (type != IG_DRAGPOINT) return;
+                        // SingleDragStyle 先触发回调再更新点坐标，故延迟一个事件循环读取最终位置。
+                        QTimer::singleShot(0, [queryPoint, guardedX, guardedY, guardedZ]() {
+                            if (!guardedX || !guardedY || !guardedZ) return;
+                            const auto& point = queryPoint->GetPoint(0);
+                            guardedX->setValue(point[0]);
+                            guardedY->setValue(point[1]);
+                            guardedZ->setValue(point[2]);
+                        });
+                    });
+            // ChangeInteractorStyle 还会设置渲染器需要的数据对象与 Painter3D；
+            // 仅调用 Model::RequestDragPoint 会遗漏这一步，导致点可见但无法拾取拖动。
+            scene->SetCurrentModel(queryPointModel);
+            rendererWidget->ChangeInteractorStyle(iGame::Interactor::DragPointStyle);
+            scene->GetInteractor()->SetDragPointConstraintAxis(
+                    dragAxis->currentData().toInt());
+            scene->SetCurrentModel(model);
+        }
+        connect(dragAxis, qOverload<int>(&QComboBox::currentIndexChanged), dialog,
+                [scene, dragAxis](int) {
+                    scene->GetInteractor()->SetDragPointConstraintAxis(
+                            dragAxis->currentData().toInt());
+                });
+        connect(showPoint, &QCheckBox::toggled, dialog, [queryPointModel, this](bool visible) {
+            if (queryPointModel) queryPointModel->SetVisibility(visible);
+            rendererWidget->update();
+        });
+        connect(dialog, &QDialog::finished, dialog, [scene, queryPointModelId, this](int) {
+            scene->GetInteractor()->RequestBasicStyle();
+            scene->RemoveModel(queryPointModelId);
+            rendererWidget->update();
+        });
+
+        auto* centerButton = new QPushButton(QStringLiteral("中心定位 (Center on Bounds)"), dialog);
+        layout->addWidget(centerButton);
+        connect(centerButton, &QPushButton::clicked, dialog, [xSpin, ySpin, zSpin, center]() {
+            xSpin->setValue(center[0]);
+            ySpin->setValue(center[1]);
+            zSpin->setValue(center[2]);
+        });
+
+        auto* dataGroup = new QGroupBox(QStringLiteral("Data Arrays（提取结果）"), dialog);
+        auto* dataLayout = new QVBoxLayout(dataGroup);
+        auto* dataHint = new QLabel(QStringLiteral("执行后显示输出数组的名称、附着位置、维数、元素数和范围。"), dataGroup);
+        dataHint->setWordWrap(true);
+        dataLayout->addWidget(dataHint);
+        auto* dataTable = new QTableWidget(0, 5, dataGroup);
+        dataTable->setHorizontalHeaderLabels({QStringLiteral("名称"), QStringLiteral("位置"), QStringLiteral("类型"),
+                                               QStringLiteral("元素数"), QStringLiteral("范围")});
+        dataTable->horizontalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
+        dataTable->horizontalHeader()->setStretchLastSection(true);
+        dataTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
+        dataTable->setAlternatingRowColors(true);
+        dataTable->setMinimumHeight(220);
+        dataLayout->addWidget(dataTable);
+        layout->addWidget(dataGroup);
+
+        auto* findGroup = new QGroupBox(QStringLiteral("查找数据"), dialog);
+        auto* findLayout = new QVBoxLayout(findGroup);
+        auto* findRow = new QHBoxLayout;
+        auto* fieldCombo = new QComboBox(findGroup);
+        fieldCombo->addItem(QStringLiteral("请先执行提取"), -1);
+        auto* findButton = new QPushButton(QStringLiteral("查看命中值"), findGroup);
+        findRow->addWidget(fieldCombo, 1);
+        findRow->addWidget(findButton);
+        findLayout->addLayout(findRow);
+        auto* findResult = new QLabel(QStringLiteral("选择输出数组后，可查看提取结果中的首个命中点/单元元组。"), findGroup);
+        findResult->setWordWrap(true);
+        findResult->setStyleSheet(QStringLiteral("color: #bdc7d3;"));
+        findLayout->addWidget(findResult);
+        layout->addWidget(findGroup);
+
+        auto latestOutput = std::make_shared<iGame::UnstructuredMesh::Pointer>();
+        connect(findButton, &QPushButton::clicked, dialog, [latestOutput, fieldCombo, findResult]() {
+            const int attributeIndex = fieldCombo->currentData().toInt();
+            if (!*latestOutput || attributeIndex < 0) {
+                findResult->setText(QStringLiteral("请先在网格内部选择位置并执行提取。"));
+                return;
+            }
+            auto attributes = (*latestOutput)->GetAttributeSet()->GetAllAttributes();
+            if (attributeIndex >= attributes->GetNumberOfElements()) {
+                findResult->setText(QStringLiteral("所选数组已不可用，请重新执行提取。"));
+                return;
+            }
+            auto& attribute = attributes->GetElement(attributeIndex);
+            if (attribute.isDeleted || !attribute.pointer || attribute.pointer->GetNumberOfElements() == 0) {
+                findResult->setText(QStringLiteral("该数组没有命中元素：指定位置可能不在任何单元内部。"));
+                return;
+            }
+            QStringList values;
+            for (int component = 0; component < attribute.pointer->GetDimension(); ++component)
+                values << QString::number(attribute.pointer->GetElementValue(0, component), 'g', 8);
+            findResult->setText(QStringLiteral("%1（%2）的第一个命中%3元组：[%4]")
+                                        .arg(QString::fromStdString(attribute.pointer->GetName()))
+                                        .arg(attribute.pointer->GetDimension() == 1 ? QStringLiteral("标量") : QStringLiteral("向量"))
+                                        .arg(attribute.attachmentType == IG_POINT ? QStringLiteral("点") : QStringLiteral("单元"))
+                                        .arg(values.join(QStringLiteral(", "))));
+        });
+
+        auto* statusLabel = new QLabel(QStringLiteral("提示：选择 X、Y 或 Z 轴后，用左键拖动白色查询点；对应坐标值会实时更新。"), dialog);
+        statusLabel->setWordWrap(true);
+        statusLabel->setStyleSheet(QStringLiteral("color: #9fc5ec;"));
+        layout->addWidget(statusLabel);
+
+        auto* executeButton = new QPushButton(QStringLiteral("执行"), dialog);
+        layout->addWidget(executeButton);
+        connect(executeButton, &QPushButton::clicked, dialog,
+                [this, input, xSpin, ySpin, zSpin, dataTable, fieldCombo, findResult, statusLabel, latestOutput]() {
+            auto filter = iGame::ExtractLocationFilter::New();
+            filter->SetInput(input);
+            filter->SetLocation(xSpin->value(), ySpin->value(), zSpin->value());
+            if (!filter->Execute()) {
+                showDarkFramelessMessage(QStringLiteral("提取指定位置数据"),
+                                         QString::fromStdString(filter->GetLastError()));
+                return;
+            }
+
+            auto output = DynamicCast<iGame::UnstructuredMesh>(filter->GetOutput());
+            *latestOutput = output;
+            modelTreeWidget->addDataObjectToModelTree(output, Algorithm);
+            rendererWidget->update();
+
+            dataTable->setRowCount(0);
+            fieldCombo->clear();
+            auto attributes = output->GetAttributeSet()->GetAllAttributes();
+            for (int attributeIndex = 0; attributeIndex < attributes->GetNumberOfElements(); ++attributeIndex) {
+                auto& attribute = attributes->GetElement(attributeIndex);
+                if (attribute.isDeleted || !attribute.pointer) continue;
+                auto array = attribute.pointer;
+                QStringList ranges;
+                const int dimension = array->GetDimension();
+                for (int component = 0; component < dimension; ++component) {
+                    double minimum = std::numeric_limits<double>::infinity();
+                    double maximum = -std::numeric_limits<double>::infinity();
+                    for (igIndex index = 0; index < array->GetNumberOfElements(); ++index) {
+                        const double value = array->GetElementValue(index, component);
+                        minimum = std::min(minimum, value);
+                        maximum = std::max(maximum, value);
+                    }
+                    if (array->GetNumberOfElements() > 0)
+                        ranges << QStringLiteral("[%1, %2]").arg(minimum, 0, 'g', 6).arg(maximum, 0, 'g', 6);
+                }
+                const int row = dataTable->rowCount();
+                dataTable->insertRow(row);
+                dataTable->setItem(row, 0, new QTableWidgetItem(QString::fromStdString(array->GetName())));
+                dataTable->setItem(row, 1, new QTableWidgetItem(attribute.attachmentType == IG_POINT
+                                                                         ? QStringLiteral("点数据")
+                                                                         : QStringLiteral("单元数据")));
+                dataTable->setItem(row, 2, new QTableWidgetItem(dimension == 1 ? QStringLiteral("标量") : QStringLiteral("向量")));
+                dataTable->setItem(row, 3, new QTableWidgetItem(QString::number(array->GetNumberOfElements())));
+                dataTable->setItem(row, 4, new QTableWidgetItem(ranges.join(QStringLiteral(" "))));
+                fieldCombo->addItem(QString::fromStdString(array->GetName()), attributeIndex);
+            }
+            if (fieldCombo->count() == 0) fieldCombo->addItem(QStringLiteral("输出中没有可查询数组"), -1);
+            findResult->setText(QStringLiteral("请选择一个数组，再点击“查看命中值”。"));
+            statusLabel->setText(QStringLiteral("提取完成：命中 %1 个单元，输出已加入模型树。")
+                                         .arg(filter->GetExtractedCellIds().size()));
+        });
+        dialog->show();
+    });
 
     QMenu* mesh_processing = ui->menu_filters->addMenu(QStringLiteral("数据处理 (Data Processing)"));
     connect(mesh_processing->addAction(QStringLiteral("表面网格简化 (Surface Simplification)")), &QAction::triggered, this, [&](bool checked) {
