@@ -24,14 +24,14 @@ protected:
     ~GhostCellFilter() override = default;
 
 private:
-    // ´ÓÊäÈëÍø¸ñµÄÊôĞÔ¼¯Àï¶ÁÈ¡µã ghost ±ê¼ÇÊı×é
+    // ä»è¾“å…¥ç½‘æ ¼ä¸­è¯»å–ç‚¹ä¸Šçš„ ghost æ ‡è®°æ•°ç»„
     bool LoadPointGhostArray(DataObject::Pointer input, std::vector<char>& pointGhosts);
 
-    //¸ù¾İµã ghost ±ê¼Ç¼ÆËãÃ¿¸öµ¥ÔªÊÇ²»ÊÇ ghost µ¥Ôª
+    // æ ¹æ®ç‚¹çš„ ghost æ ‡è®°è®¡ç®—æ¯ä¸ªå•å…ƒæ˜¯å¦ä¸º ghost å•å…ƒ
     bool ComputeCellGhosts(DataObject::Pointer input, const std::vector<char>& pointGhosts, bool hasPointGhosts,
                            std::vector<char>& cellGhosts);
 
-    //  °Ñ±ê¼ÇÊı×é¹Òµ½ÊäÈëÍø¸ñµÄµ¥ÔªÊôĞÔÉÏ
+    // å°†è®¡ç®—ç»“æœå†™å…¥å•å…ƒçš„ GhostCells å±æ€§
     bool AttachCellGhostArray(DataObject::Pointer input, const std::vector<char>& cellGhosts);
 
     std::string m_PointGhostArrayName{"GhostPoints"};

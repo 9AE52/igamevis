@@ -1,6 +1,6 @@
 #include "iGameGhostCellFilter.h"
 #include "iGameAttributeSet.h"
-#include "iGameCell.h" 
+#include "iGameCell.h"
 #include "iGameFlatArray.h"
 
 IGAME_NAMESPACE_BEGIN
@@ -34,24 +34,23 @@ bool GhostCellFilter::LoadPointGhostArray(DataObject::Pointer input, std::vector
     if (idx < 0) return false;
 
     auto& attr = attrs->GetAttribute(idx);
-    if (attr.attachmentType != IG_POINT) return false; 
+    if (attr.attachmentType != IG_POINT) return false;
     if (attr.pointer.IsNull()) return false;
 
     IGsize n = attr.pointer->GetNumberOfElements();
     pointGhosts.assign(n, 0);
     for (IGsize i = 0; i < n; i++) {
-        if (attr.pointer->GetValue(i) != 0.0) pointGhosts[i] = 1; 
+        if (attr.pointer->GetValue(i) != 0.0) pointGhosts[i] = 1;
     }
     return n > 0;
 }
 
-// Ò»¸öµ¥ÔªÖ»Òª°üº¬ÈÎÒâÒ»¸ö ghost µã£¬¾Í±ê¼ÇÎª ghost µ¥Ôª¡£
 bool GhostCellFilter::ComputeCellGhosts(DataObject::Pointer input, const std::vector<char>& pointGhosts,
                                         bool hasPointGhosts, std::vector<char>& cellGhosts) {
 
     auto markRange = [&](IGsize count, auto getCellPointIds) -> bool {
         cellGhosts.assign(count, 0);
-        if (!hasPointGhosts) return true; 
+        if (!hasPointGhosts) return true;
         if (count == 0) return true;
 
         igIndex ids[IGAME_CELL_MAX_SIZE];
@@ -70,17 +69,17 @@ bool GhostCellFilter::ComputeCellGhosts(DataObject::Pointer input, const std::ve
         return true;
     };
 
-    // ±íÃæÍø¸ñ
-    if (auto mesh = DynamicCast<SurfaceMesh>(input)) {
-        return markRange(mesh->GetNumberOfFaces(),
-                         [mesh](IGsize c, igIndex* ids) { return mesh->GetFacePointIds(c, ids); });
-    }
-    // ÌåÍø¸ñ
+    // ä½“ç½‘æ ¼
     if (auto mesh = DynamicCast<VolumeMesh>(input)) {
         return markRange(mesh->GetNumberOfVolumes(),
                          [mesh](IGsize c, igIndex* ids) { return mesh->GetVolumePointIds(c, ids); });
     }
-    // ·Ç½á¹¹»¯Íø¸ñ
+    // è¡¨é¢ç½‘æ ¼
+    if (auto mesh = DynamicCast<SurfaceMesh>(input)) {
+        return markRange(mesh->GetNumberOfFaces(),
+                         [mesh](IGsize c, igIndex* ids) { return mesh->GetFacePointIds(c, ids); });
+    }
+    // éç»“æ„åŒ–ç½‘æ ¼
     if (auto mesh = DynamicCast<UnstructuredMesh>(input)) {
         return markRange(mesh->GetNumberOfCells(),
                          [mesh](IGsize c, igIndex* ids) { return mesh->GetCellPointIds(c, ids); });
@@ -101,7 +100,7 @@ bool GhostCellFilter::AttachCellGhostArray(DataObject::Pointer input, const std:
         attrs->AddScalar(IG_CELL, marker);
     }
 
-    // 0 = Õı³£µ¥Ôª£¬1 = ghost µ¥Ôª
+    // 0 = æ­£å¸¸å•å…ƒï¼Œ1 = ghost å•å…ƒ
     marker->Resize((IGsize) cellGhosts.size());
     for (IGsize i = 0; i < (IGsize) cellGhosts.size(); i++) { marker->SetValue(i, cellGhosts[i] ? 1.0 : 0.0); }
     return true;
