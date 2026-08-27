@@ -138,14 +138,19 @@ ToolbarSpacingMetrics metricsForIconSize(int iconSize) {
 int titlePointSizeForIcon(int iconSize) {
     return qBound(8, iconSize / 4, 14); // 32->8, 40->10, 46->11, 50->12, 52->13
 }
- v
+int resolveToolbarIconSize(int availableWidth, qreal dpiScale) {
+    int iconSize = 52;
+    if (availableWidth <= 1366) {
+        iconSize = 32;
+    } else if (availableWidth <= 1600) {
+        iconSize = 36;
+    } else if (availableWidth <= 1920) {
         iconSize = 40;
     } else if (availableWidth <= 2560) {
         iconSize = 46;
     } else if (availableWidth <= 2880) {
         iconSize = 50;
     }
-
     const qreal scale = qMax<qreal>(1.0, dpiScale);
     return qBound(24, static_cast<int>(qRound(static_cast<qreal>(iconSize) / scale)), 52);
 }
@@ -1944,7 +1949,7 @@ void igQtMainWindow::initAllFilters() {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
         AppendLocationAttribute::Pointer filter = AppendLocationAttribute::New();
         auto data = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
-         ilter->SetInput(data);
+        filter->SetInput(data);
         filter->SetAttributeByIndex(data->GetAttributeIndex());
         int index = data->GetAttributeIndex();
         if (filter->Execute()) {
