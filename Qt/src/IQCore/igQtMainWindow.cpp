@@ -3,6 +3,7 @@
 // Created by m_ky on 2024/4/10.
 //
 
+#include "ModelSurface/iGameMultiBlockGeometryFilter.h"
 #include "MeshMetrics/iGameVolumeMeshMetricsFilter.h"
 #include "Deformation/iGameStressDeformationFilterCode.h"
 
@@ -1558,6 +1559,42 @@ void igQtMainWindow::initAllFilters() {
         surface->SetName(obj->GetName() + "_surface");
         modelTreeWidget->addDataObjectToModelTree(surface, Algorithm);
         rendererWidget->update();
+    });
+
+    connect(mesh_processing->addAction("多块模型表面提取"), &QAction::triggered, this, [&](bool checked) {
+        if (!rendererWidget) {
+            showDarkFramelessMessage(QStringLiteral("Warning"),
+                                     QStringLiteral("渲染器组件未初始化。"));
+        }
+
+        auto scene = rendererWidget->GetScene();
+        if (!scene) { 
+            showDarkFramelessMessage(QStringLiteral("Warning"), QStringLiteral("场景未初始化。"));
+        }
+
+        auto currentModel = scene->GetCurrentModel();
+        if (!currentModel) { 
+            showDarkFramelessMessage(QStringLiteral("Warning"), QStringLiteral("未能获取当前选定模型。")); 
+        }
+
+        auto obj = currentModel->GetDataObject();
+        if (!obj) {
+            showDarkFramelessMessage(QStringLiteral("Warning"), QStringLiteral("未能获取DataObject。"));
+        }
+
+        auto multiBlockFilter = MultiBlockGeometryFilter::New();
+        multiBlockFilter->SetInput(obj);
+        if (!multiBlockFilter->Execute()) {
+			showDarkFramelessMessage(QStringLiteral("Warning"), QStringLiteral("多块模型表面提取失败。"));
+			return;
+		}
+
+        auto multiBlockObj = multiBlockFilter->GetOutput();
+        multiBlockObj->SetName(obj->GetName() + "_MultiBlockSurface");
+        modelTreeWidget->addDataObjectToModelTree(multiBlockObj, Algorithm);
+
+        rendererWidget->update();
+
     });
 
     //connect(mesh_processing->addAction("Test"), &QAction::triggered, this, [&](bool checked) {
