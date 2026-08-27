@@ -20,6 +20,14 @@
 #include "Convert/iGameConvertPolyhedralCellsFilter.h"
 #include "Convert/iGameConvertToCellDataFilter.h"
 #include "Convert/iGameConvertToLagrangeUnstructuredMeshFilter.h"
+#include "Convert/iGameConvertToPointCloudFilter.h"
+#include "Convert/iGameConvertToPointDataFilter.h"
+#include "Convert/iGameConvertToSurfaceMeshFilter.h"
+#include "Convert/iGameConvertToVolumeMeshFilter.h"
+
+#include "FeatureExtraction/iGameFeatureEdgesFilter.h"
+
+#include "Interactor/iGameInteractor.h"
   #include "Convert/iGameConvertToPointCloudFilter.h"
   #include "Convert/iGameConvertToPointDataFilter.h"
   #include "Convert/iGameConvertToSurfaceMeshFilter.h"
@@ -1179,6 +1187,106 @@ void igQtMainWindow::showDarkFramelessMessage(const QString& title, const QStrin
 }
 
 void igQtMainWindow::initAllFilters() {
+    /* Feature Edges is intentionally a first-level item under 算法处理. */
+    connect(ui->menu_filters->addAction(QStringLiteral("特征边提取 (Feature Edges)")),
+            &QAction::triggered, this, [this](bool) {
+        if (!rendererWidget || !rendererWidget->GetScene() || !rendererWidget->GetScene()->GetCurrentModel()) {
+            showDarkFramelessMessage(QStringLiteral("无可用模型"), QStringLiteral("请先加载并选择模型。"));
+            return;
+        }
+
+        auto scene = rendererWidget->GetScene();
+        auto input = scene->GetCurrentModel()->GetDataObject();
+        if (!input) {
+            showDarkFramelessMessage(QStringLiteral("无可用模型"), QStringLiteral("当前模型没有可用数据。"));
+            return;
+        }
+
+        /* FeatureEdgesFilter consumes a SurfaceMesh. Do not silently convert a
+         * volume mesh here: surface extraction is a separate user-visible
+         * operation under 算法处理 -> 数据处理. */
+        auto surfaceInput = DynamicCast<SurfaceMesh>(input);
+        if (!surfaceInput) {
+            showDarkFramelessMessage(
+                    QStringLiteral("请先提取表面网格"),
+                    QStringLiteral("当前模型是体网格，特征边提取只支持表面网格。\n"
+                                   "请先在“算法处理 -> 数据处理 -> 表面提取 (Surface Extraction)”中执行表面提取，"
+                                   "再重新运行特征边提取。"));
+            return;
+        }
+
+        if (!surfaceInput || surfaceInput->GetNumberOfPoints() == 0 || surfaceInput->GetNumberOfFaces() == 0) {
+            showDarkFramelessMessage(QStringLiteral("无法提取特征边"),
+                                     QStringLiteral("当前模型没有可用的表面网格，请先执行表面提取。"));
+            return;
+        }
+
+        auto* dialog = new igQtFilterDialogDockWidget(this, true);
+        dialog->setFilterTitle(QStringLiteral("特征边提取"));
+        dialog->setFilterDescription(QStringLiteral("从表面网格中提取边界边、特征边和非流形边。"));
+        const int angleId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT,
+                                                  QStringLiteral("特征角度 (0..180)"), QStringLiteral("30.0"));
+        const int boundaryId = dialog->addParameter(igQtFilterDialogDockWidget::QT_CHECK_BOX,
+                                                     QStringLiteral("边界边"), QStringLiteral("true"));
+        const int featureId = dialog->addParameter(igQtFilterDialogDockWidget::QT_CHECK_BOX,
+                                                    QStringLiteral("特征边"), QStringLiteral("true"));
+        const int nonManifoldId = dialog->addParameter(igQtFilterDialogDockWidget::QT_CHECK_BOX,
+                                                       QStringLiteral("非流形边"), QStringLiteral("true"));
+        const int manifoldId = dialog->addParameter(igQtFilterDialogDockWidget::QT_CHECK_BOX,
+                                                    QStringLiteral("普通流形边"), QStringLiteral("false"));
+        dialog->show();
+
+        dialog->setApplyFunctor([=, this]() {
+            bool ok = false;
+            const double angle = dialog->getDouble(angleId, ok);
+            if (!ok || angle < 0.0 || angle > 180.0) {
+                showDarkFramelessMessage(QStringLiteral("参数错误"),
+                                         QStringLiteral("特征角度必须是 0 到 180 之间的数字。"));
+                return;
+            }
+
+            const bool boundaryEdges = dialog->getChecked(boundaryId, ok);
+            const bool featureEdges = dialog->getChecked(featureId, ok);
+            const bool nonManifoldEdges = dialog->getChecked(nonManifoldId, ok);
+            const bool manifoldEdges = dialog->getChecked(manifoldId, ok);
+
+            auto filter = FeatureEdgesFilter::New();
+            filter->SetInput(surfaceInput);
+            filter->SetFeatureAngle(angle);
+            filter->SetBoundaryEdges(boundaryEdges);
+            filter->SetFeatureEdges(featureEdges);
+            filter->SetNonManifoldEdges(nonManifoldEdges);
+            filter->SetManifoldEdges(manifoldEdges);
+
+            if (!filter->Execute()) {
+                showDarkFramelessMessage(QStringLiteral("执行失败"),
+                                         QStringLiteral("当前参数下没有提取到特征边，或输入网格无效。"));
+                return;
+            }
+
+            auto output = DynamicCast<UnstructuredMesh>(filter->GetOutput());
+            if (!output) {
+                showDarkFramelessMessage(QStringLiteral("执行失败"), QStringLiteral("算法未产生有效的线网格结果。"));
+                return;
+            }
+
+            output->SetName(input->GetName() + "_feature_edges");
+            int edgeTypeIndex = -1;
+            if (auto outputDrawObject = DynamicCast<DrawObject>(output)) {
+                outputDrawObject->ConvertToDrawableData();
+                outputDrawObject->SetViewStyle(IG_WIREFRAME);
+                outputDrawObject->SetLineWidth(4.0f);
+                outputDrawObject->SetAlwaysOnTop(true);
+
+                edgeTypeIndex = output->GetAttributeSet()->GetAttributeIndex("Edge Types");
+            }
+
+            modelTreeWidget->addDataObjectToModelTree(output, ItemSource::Algorithm);
+            if (auto outputDrawObject = DynamicCast<DrawObject>(output); outputDrawObject && edgeTypeIndex >= 0) {
+                outputDrawObject->ViewCloudPicture(scene, edgeTypeIndex, 0);
+            }
+            rendererWidget->update();
+            dialog->close();
     connect(ui->action_GlobalIds, &QAction::triggered, this, [this]() {
         auto model = rendererWidget->GetScene()->GetCurrentModel();
         if (!model) {
