@@ -287,6 +287,7 @@ igame_add_example(testDeformation Filter/Deformation/TestStressDeformationFilter
 igame_add_example(testDeformationCode Filter/Deformation/TestStressDeformationFilterCode.cpp)
 igame_add_example(testContourLine Filter/TestContourLine.cpp)
 igame_add_example(testGhostDemo Filter/GhostCell/TestGhostDemo.cpp)
+igame_add_example(testBoundaryMeshQuality Filter/TestBoundaryMeshQuality.cpp)
 
 # Color bar / interaction
 igame_add_example(testChangeColorRange ColorBar/ChangeColorRange.cpp)
