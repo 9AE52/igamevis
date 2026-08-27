@@ -1731,7 +1731,7 @@ void igQtMainWindow::initAllFilters() {
         }
     });
 
-    QAction* cellSize = view->addAction(QStringLiteral("计算单元尺寸 (ComputeCellSize)"));
+    QAction* cellSize = ui->menu_filters->addAction(QStringLiteral("计算单元尺寸 (ComputeCellSize)"));
     connect(cellSize, &QAction::triggered, this, [this](bool checked) {
         auto* scene = rendererWidget->GetScene();
         auto model = scene ? scene->GetCurrentModel() : nullptr;
