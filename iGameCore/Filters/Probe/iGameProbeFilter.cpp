@@ -1,13 +1,13 @@
 // ============================================================================
 // ProbeFilter — 见 iGameProbeFilter.h
 //
-// 算法说明（第二版）：
-//   1. 单元定位：遍历所有单元。面单元走 ProbeLocateInFace（只认三角形）、
-//      体单元走 ProbeLocateInVolume（只认四面体）；命中后按重心坐标对全部
-//      点属性（标量/矢量等）做线性插值，probe_method = 0。
-//   2. IDW 回退：所有单元都未命中（或输入没有单元）时，遍历全部数据点，
-//      用最大堆维护距离最近的 k 个点（O(n log k)），按 1/(d^2 + eps) 加权
-//      插值，probe_method = 1。
+// 算法说明（v3）:
+//   1. 单元定位：遍历模型单元。面网格走面单元、体网格走体单元
+//      （v1 仅三角形 / 四面体，其余类型未命中）；命中后按重心坐标对全部
+//      点属性（标量 / 矢量等）做线性插值。
+//   2. 结果原地写入查询点集：复用/新建同名点属性数组，另加
+//      ValidPointMask（找到单元 = 1，未找到 = 0，未找到时插值属性填 0）。
+//   3. 输出 0 与输入 1 为同一个对象，重复执行不新建点集。
 // ============================================================================
 #include "iGameProbeFilter.h"
 
@@ -18,210 +18,207 @@
 #include <iGameVolumeMesh.h>
 
 #include <algorithm>
-#include <cstdint>
-#include <queue>
-#include <utility>
+#include <cmath>
+#include <random>
 #include <vector>
 
 IGAME_NAMESPACE_BEGIN
 
 ProbeFilter::ProbeFilter() {
-    SetNumberOfInputs(1);
-    SetNumberOfOutputs(0);  // 结果通过 GetResult() 查询，与 Selection 系列一致
+    SetNumberOfInputs(2);
+    SetNumberOfOutputs(1);
 }
 
-void ProbeFilter::SetProbePoint(const Point& point) {
-    m_ProbePoint = point;
-    m_HasProbePoint = true;
-}
+void ProbeFilter::GenerateSpherePoints(PointSet::Pointer points, const Point& center,
+                                       float radius, int count, unsigned seed) {
+    if (points.IsNull() || count <= 0 || radius <= 0.0f) return;
+    auto pts = points->GetPoints();
+    if (pts.IsNull()) return;
 
-void ProbeFilter::SetProbePoint(float x, float y, float z) {
-    m_ProbePoint = Point(x, y, z);
-    m_HasProbePoint = true;
-}
+    std::mt19937 gen;
+    if (seed == 0) {
+        std::random_device rd;
+        gen.seed(rd());
+    } else {
+        gen.seed(seed);
+    }
+    std::uniform_real_distribution<double> u01(0.0, 1.0);
+    constexpr double kTwoPi = 6.283185307179586476925286766559;
 
-PointSet::Pointer ProbeFilter::GetResult() {
-    return m_Result;
-}
-
-IntArray::Pointer ProbeFilter::GetProbeMethods() {
-    return m_ProbeMethods;
+    // 球体体积均匀采样：r = R * u^(1/3)，θ 均匀，φ = acos(1 - 2u)
+    pts->Reset();
+    pts->Reserve(static_cast<IGsize>(count));
+    for (int i = 0; i < count; ++i) {
+        const double r = static_cast<double>(radius) * std::cbrt(u01(gen));
+        const double theta = kTwoPi * u01(gen);
+        const double phi = std::acos(1.0 - 2.0 * u01(gen));
+        const double sp = std::sin(phi);
+        pts->AddPoint(static_cast<float>(center[0] + r * sp * std::cos(theta)),
+                      static_cast<float>(center[1] + r * sp * std::sin(theta)),
+                      static_cast<float>(center[2] + r * std::cos(phi)));
+    }
+    points->Modified();
 }
 
 bool ProbeFilter::Execute() {
     // ================= 取输入并校验 =================
     auto in = GetInput(0);
-    if (in.IsNull()) return false;
+    auto query = DynamicCast<PointSet>(GetInput(1));
+    if (in.IsNull() || query.IsNull()) return false;
+
     auto srcPoints = in->GetPoints();
+    auto queryPoints = query->GetPoints();
     if (srcPoints.IsNull() || srcPoints->GetNumberOfPoints() == 0) return false;
-    if (!m_HasProbePoint) return false;
+    if (queryPoints.IsNull() || queryPoints->GetNumberOfPoints() == 0) return false;
 
-    // 清空上一次结果，避免失败后返回旧数据
-    m_Result = nullptr;
-    m_ProbeMethods = nullptr;
+    const IGsize numQuery = queryPoints->GetNumberOfPoints();
 
-    const IGsize numSrc = srcPoints->GetNumberOfPoints();
-    const int k = std::max(1, m_NeighborCount);
-    const Point q = m_ProbePoint;
+    // ================= 容差与包围盒 =================
+    const double tolerance = HasAutoTolerance() ? kProbeDefaultTolerance : m_Tolerance;
+    double bboxDiag = in->GetBoundingBox().diag();
+    if (bboxDiag <= kProbeNumericalEps) bboxDiag = 1.0;
 
-    // ================= 输出对象（1 个探测点）=================
-    m_Result = PointSet::New();
-    auto outPoints = Points::New();
-    outPoints->AddPoint(q);
-    m_Result->SetPoints(outPoints);
+    // ================= 输出属性准备（原地写入查询点集）=================
+    AttributeSet* inAttrs = in->GetAttributeSet();
+    AttributeSet* outAttrs = query->GetAttributeSet();
+    if (inAttrs == nullptr || outAttrs == nullptr) return false;
 
-    m_ProbeMethods = IntArray::New();
-    m_ProbeMethods->SetName("probe_method");
-    m_ProbeMethods->SetDimension(1);
-    m_ProbeMethods->Resize(1);
-
-    // 输入的全部点属性（标量/矢量等）按插值拷贝到结果点集
     struct OutAttribute {
         ArrayObject::Pointer inArray;
         FloatArray::Pointer outArray;
         int dimension;
     };
     std::vector<OutAttribute> outAttributes;
-    if (AttributeSet* inAttributes = in->GetAttributeSet()) {
-        auto allAttributes = inAttributes->GetAllPointAttributes();
+
+    {
+        auto allAttributes = inAttrs->GetAllPointAttributes();
         for (IGsize i = 0; i < allAttributes->GetNumberOfElements(); ++i) {
             auto& attr = allAttributes->GetElement(i);
             if (attr.isDeleted || attr.pointer.IsNull()) continue;
+            if (attr.attachmentType != IG_POINT) continue;  // 只插值点属性
+
+            const std::string name = attr.pointer->GetName();
             const int dimension = std::max(1, attr.pointer->GetDimension());
-            auto outArray = FloatArray::New();
-            outArray->SetName(attr.pointer->GetName());
-            outArray->SetDimension(dimension);
-            outArray->Resize(1);
-            m_Result->GetAttributeSet()->AddAttribute(attr.type, attr.attachmentType,
-                                                      outArray, attr.GetDataRange());
+
+            FloatArray::Pointer outArray = nullptr;
+            const int existingIndex = outAttrs->GetAttributeIndex(name);
+            if (existingIndex >= 0) {
+                auto existing = DynamicCast<FloatArray>(
+                    outAttrs->GetAttribute(existingIndex).pointer);
+                if (!existing.IsNull()) {
+                    outArray = existing;
+                } else {
+                    outAttrs->DeleteAttribute(existingIndex);  // 类型不符，删除重建
+                }
+            }
+            if (outArray.IsNull()) {
+                outArray = FloatArray::New();
+                outArray->SetName(name);
+                outArray->SetDimension(dimension);
+                outArray->Resize(numQuery);
+                outAttrs->AddAttribute(attr.type, IG_POINT, outArray,
+                                       attr.GetDataRange());
+            } else {
+                if (outArray->GetDimension() != dimension) {
+                    outArray->SetDimension(dimension);
+                }
+                outArray->Resize(numQuery);
+            }
             outAttributes.push_back({attr.pointer, outArray, dimension});
         }
     }
 
-    // 对全部点属性做一次带权组合：value(q) = Σ w_i * value(pointId_i)
-    const auto interpolateWith =
-        [&outAttributes](const std::vector<std::pair<igIndex, double>>& weightedPoints) {
-            double rawValues[IGAME_CELL_MAX_SIZE] = {};
-            double interpolated[IGAME_CELL_MAX_SIZE] = {};
-            for (auto& out : outAttributes) {
-                const int dimension = out.dimension;
-                for (int c = 0; c < dimension; ++c) interpolated[c] = 0.0;
-                for (const auto& wp : weightedPoints) {
-                    out.inArray->GetElement(wp.first, rawValues);
-                    for (int c = 0; c < dimension; ++c) {
-                        interpolated[c] += wp.second * rawValues[c];
-                    }
-                }
-                out.outArray->SetElement(0, interpolated);
-            }
-        };
-
-    // ================= 1. 单元定位 =================
-    Cell* hitCell = nullptr;
-    ProbeSimplexHit hit;
-
-    auto cellArray = in->GetCellArray();
-    if (cellArray && cellArray->GetNumberOfCells() > 0) {
-        auto um = DynamicCast<UnstructuredMesh>(in);
-        auto vm = DynamicCast<VolumeMesh>(in);
-        auto sm = DynamicCast<SurfaceMesh>(in);
-
-        const IGsize numCells = cellArray->GetNumberOfCells();
-        for (IGsize cellId = 0; cellId < numCells; ++cellId) {
-            Cell* cell = nullptr;
-            if (um) {
-                cell = um->GetCell(cellId);
-            } else if (vm) {
-                cell = vm->GetVolume(cellId);
-            } else if (sm) {
-                cell = sm->GetFace(cellId);
-            }
-            if (cell == nullptr) continue;
-
-            const auto cellType = static_cast<IGCellType>(cell->GetCellType());
-            const igIndex dim = Cell::GetCellDimension(cellType);
-            const bool found = (dim == 2) ? ProbeLocateInFace(cell, q, hit)
-                                          : (dim == 3) ? ProbeLocateInVolume(cell, q, hit)
-                                                       : false;
-            if (found) {
-                hitCell = cell;
-                break;
+    // ValidPointMask：找到单元 = 1，未找到 = 0
+    IntArray::Pointer mask = nullptr;
+    {
+        const int maskIndex = outAttrs->GetAttributeIndex("ValidPointMask");
+        if (maskIndex >= 0) {
+            auto existing = DynamicCast<IntArray>(
+                outAttrs->GetAttribute(maskIndex).pointer);
+            if (!existing.IsNull()) {
+                mask = existing;
+            } else {
+                outAttrs->DeleteAttribute(maskIndex);
             }
         }
-    }
-
-    // ================= 2. 插值 =================
-    if (hitCell != nullptr && hit.found) {
-        // ---- 单元线性插值 ----
-        m_ProbeMethods->SetValue(0, 0);
-
-        std::vector<std::pair<igIndex, double>> weightedPoints;
-        weightedPoints.reserve(hit.numVertices);
-        for (int v = 0; v < hit.numVertices; ++v) {
-            weightedPoints.emplace_back(hitCell->GetPointId(hit.localVertIds[v]),
-                                        hit.barycentric[v]);
-        }
-        interpolateWith(weightedPoints);
-    } else {
-        // ---- IDW 回退：最大堆维护最近 k 个点 ----
-        m_ProbeMethods->SetValue(0, 1);
-
-        struct Neighbor {
-            double dist2;
-            int32_t id;
-            bool operator<(const Neighbor& o) const {
-                if (dist2 != o.dist2) return dist2 < o.dist2;
-                return id < o.id;
-            }
-        };
-
-        std::priority_queue<Neighbor> heap;
-        for (IGsize i = 0; i < numSrc; ++i) {
-            const Point& p = srcPoints->GetPoint(i);
-            const double dx = static_cast<double>(q[0]) - p[0];
-            const double dy = static_cast<double>(q[1]) - p[1];
-            const double dz = static_cast<double>(q[2]) - p[2];
-            Neighbor nb{dx * dx + dy * dy + dz * dz, static_cast<int32_t>(i)};
-            if (static_cast<int>(heap.size()) < k) {
-                heap.push(nb);
-            } else if (nb < heap.top()) {
-                heap.pop();
-                heap.push(nb);
-            }
-        }
-
-        std::vector<Neighbor> knn;
-        knn.reserve(heap.size());
-        while (!heap.empty()) {
-            knn.push_back(heap.top());
-            heap.pop();
-        }
-        std::sort(knn.begin(), knn.end());  // 按 (距离², id) 升序，保证确定性
-
-        if (knn.empty()) {
-            m_Result = nullptr;
-            m_ProbeMethods = nullptr;
-            return false;
-        }
-
-        constexpr double kEpsDist2 = 1e-12;
-        std::vector<std::pair<igIndex, double>> weightedPoints;
-        // 恰好命中数据点（或 K=1）时退化为最近点采样，不做加权
-        if (knn[0].dist2 <= kEpsDist2 || knn.size() == 1) {
-            weightedPoints.emplace_back(knn[0].id, 1.0);
+        if (mask.IsNull()) {
+            mask = IntArray::New();
+            mask->SetName("ValidPointMask");
+            mask->SetDimension(1);
+            mask->Resize(numQuery);
+            outAttrs->AddAttribute(IG_SCALAR, IG_POINT, mask);
         } else {
-            double sumWeight = 0.0;
-            for (const auto& nb : knn) {
-                sumWeight += 1.0 / (nb.dist2 + kEpsDist2);
-            }
-            for (const auto& nb : knn) {
-                weightedPoints.emplace_back(nb.id, 1.0 / (nb.dist2 + kEpsDist2) / sumWeight);
-            }
+            mask->Resize(numQuery);
         }
-        interpolateWith(weightedPoints);
     }
 
-    m_Result->Modified();
+    // ================= 单元访问 =================
+    auto um = DynamicCast<UnstructuredMesh>(in);
+    auto vm = DynamicCast<VolumeMesh>(in);
+    auto sm = DynamicCast<SurfaceMesh>(in);
+
+    CellArray::Pointer cellArray = in->GetCellArray();
+    const IGsize numCells = (cellArray.IsNull()) ? 0 : cellArray->GetNumberOfCells();
+
+    // 对模型全部点属性做一次带权组合：value(q) = Σ w_i * value(pointId_i)
+    const auto interpolateWith = [&outAttributes](IGsize queryId, Cell* cell,
+                                                  const ProbeCellHit& hit) {
+        double rawValues[IGAME_CELL_MAX_SIZE] = {};
+        double interpolated[IGAME_CELL_MAX_SIZE] = {};
+        for (auto& out : outAttributes) {
+            const int dimension = out.dimension;
+            for (int c = 0; c < dimension; ++c) interpolated[c] = 0.0;
+            for (int v = 0; v < hit.numVertices; ++v) {
+                out.inArray->GetElement(cell->GetPointId(hit.localVertIds[v]),
+                                        rawValues);
+                for (int c = 0; c < dimension; ++c) {
+                    interpolated[c] += hit.weights[v] * rawValues[c];
+                }
+            }
+            out.outArray->SetElement(queryId, interpolated);
+        }
+    };
+
+    // ================= 逐查询点点定位 + 插值 =================
+    for (IGsize qi = 0; qi < numQuery; ++qi) {
+        const Point& q = queryPoints->GetPoint(qi);
+
+        bool found = false;
+        if (numCells > 0) {
+            for (IGsize cellId = 0; cellId < numCells; ++cellId) {
+                Cell* cell = nullptr;
+                if (vm) {
+                    cell = vm->GetVolume(cellId);
+                } else if (sm) {
+                    cell = sm->GetFace(cellId);
+                } else if (um) {
+                    cell = um->GetCell(cellId);
+                }
+                if (cell == nullptr) continue;
+
+                ProbeCellHit hit;
+                if (EvaluatePosition(cell, q, tolerance, bboxDiag, hit)) {
+                    // 容差可能导致同时命中多个单元：取第一个找到的单元
+                    interpolateWith(qi, cell, hit);
+                    found = true;
+                    break;
+                }
+            }
+        }
+
+        mask->SetValue(qi, found ? 1 : 0);
+        if (!found) {
+            double zeros[IGAME_CELL_MAX_SIZE] = {};
+            for (auto& out : outAttributes) {
+                out.outArray->SetElement(qi, zeros);
+            }
+        }
+    }
+
+    query->Modified();
+
+    // 输出 0 与输入 1 为同一个对象（原地更新，不新建点集）
+    SetOutput(0, query);
     return true;
 }
 

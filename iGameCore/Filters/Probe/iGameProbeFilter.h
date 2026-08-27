@@ -1,25 +1,36 @@
 // ============================================================================
-// ProbeFilter — 单点探测（单元定位 + 线性插值；未命中回退 K 近邻 IDW）
+// ProbeFilter — 在指定位置探测数据（点定位 + 插值）
 //
-// 数据流: data_object -> point_set（探测结果，1 个点） 输入端口 1 / 输出端口 0
+// 数据流（v3 设计）:
+//   输入 0：模型网格（面网格 / 体网格），提供单元与点属性；
+//   输入 1：查询点点集（PointSet），用于点定位 + 插值；
+//   输出 0：与输入 1 为同一个对象 —— 在查询点集上原地添加插值属性与
+//           ValidPointMask，不新建输出点集，重复执行不会产生新对象。
 //
 // 用法:
 //   auto f = ProbeFilter::New();
-//   f->SetInput(obj);                  // 带点坐标/点属性（可选带单元）的数据对象
-//   f->SetProbePoint(x, y, z);         // 探测点（每次只探测一个点）
-//   f->SetNeighborCount(8);            // IDW 回退的近邻数，默认 8
+//   f->SetInput(model);        // 模型网格
+//   f->SetInput(1, queryPts);  // 查询点点集（Execute 后原地带上插值属性）
+//   f->SetTolerance(1e-6);     // 可选；默认自动使用 kProbeDefaultTolerance
 //   f->Execute();
-//   auto result = f->GetResult();      // 结果 PointSet：探测点 + 插值属性
+//   auto result = f->GetOutput();  // 与 queryPts 为同一对象
 //
-// 算法:
-//   1. 遍历所有单元：面单元只接受三角形、体单元只接受四面体（见
-//      iGameProbeLocator），命中后按重心坐标对全部点属性做线性插值。
-//   2. 全部未命中（或输入无单元）时，遍历全部数据点用最大堆取最近 k 个点
-//      做反距离加权插值（IDW）。
+// 算法（v1）:
+//   1. 对每个查询点遍历模型单元（面网格只查面单元、体网格只查体单元），
+//      调用 EvaluatePosition 判定；v1 仅支持三角形 / 四面体，其余类型未命中；
+//   2. 命中后按重心坐标对模型全部点属性做线性插值，写入查询点；
+//   3. 新增点属性 ValidPointMask：找到单元 = 1，未找到 = 0；
+//      未找到单元时插值属性填 0；
+//   4. 模型无属性 / 无单元不报错，流程照常执行。
+//
+// 球体随机采样（交互层使用）:
+//   GenerateSpherePoints(points, center, radius, n) 在以 center 为球心、
+//   radius 为半径的球体内均匀随机采样 n 个点，原地写入 points。
 // ============================================================================
 #pragma once
 #include <iGameDataObject.h>
 #include <iGameFilter.h>
+#include <iGameFlatArray.h>
 #include <iGamePointSet.h>
 #include <iGamePoints.h>
 
@@ -31,32 +42,22 @@ public:
 
     bool Execute() override;
 
-    // ---- 探测点输入（单点）----
-    void SetProbePoint(const Point& point);
-    void SetProbePoint(float x, float y, float z);
+    // ---- 容差（相对值，默认自动）----
+    void SetTolerance(double value) { m_Tolerance = value; }
+    double GetTolerance() const { return m_Tolerance; }
+    void SetAutoTolerance() { m_Tolerance = -1.0; }
+    bool HasAutoTolerance() const { return m_Tolerance < 0.0; }
 
-    // ---- 结果查询（Execute() 成功之后调用）----
-    PointSet::Pointer GetResult();
-    IntArray::Pointer GetProbeMethods();
-
-    // ---- 算法参数 ----
-    void SetNeighborCount(int value) { m_NeighborCount = value; }
-    int GetNeighborCount() const { return m_NeighborCount; }
+    // ---- 球体随机采样（原地修改 points，供 UI / 测试复用）----
+    // seed == 0 时使用随机种子；否则使用固定种子（便于复现）。
+    static void GenerateSpherePoints(PointSet::Pointer points, const Point& center,
+                                     float radius, int count, unsigned seed = 0);
 
 protected:
     ProbeFilter();
     ~ProbeFilter() override = default;
 
 private:
-    /* Input */
-    Point m_ProbePoint{};
-    bool m_HasProbePoint{false};
-
-    /* Output */
-    PointSet::Pointer m_Result{};
-    IntArray::Pointer m_ProbeMethods{};
-
-    /* Algorithm parameters */
-    int m_NeighborCount{8};
+    double m_Tolerance{-1.0};  // < 0 表示自动计算
 };
 IGAME_NAMESPACE_END
