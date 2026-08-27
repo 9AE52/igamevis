@@ -323,39 +323,85 @@ igQtMainWindow::igQtMainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui
                                              QStringLiteral("当前模型没有点标量数据，无法进行等值面体提取"));
                     return;
                 }
-                auto& attr = attrs->GetElement(0);
-                auto array = attr.pointer;
-                int dim = array->GetDimension();
-                auto range = attr.GetDataRange();
-
                 igQtFilterDialogDockWidget* dialog = new igQtFilterDialogDockWidget(this, true);
                 dialog->setFilterTitle(QStringLiteral("等值面体提取 (IsoVolume)"));
                 dialog->setFilterDescription(QStringLiteral("提取标量值落在 [lower, upper] 区间内的体数据"));
 
-                std::vector<QString> comps;
-                for (int i = 0; i < (dim > 0 ? dim : 1); ++i) {
-                    comps.push_back(QStringLiteral("分量 %1").arg(i));
+                // 点属性数组选择框（列出所有点属性）
+                std::vector<QString> arrNames;
+                for (igIndex a = 0; a < attrs->GetNumberOfElements(); ++a) {
+                    arrNames.push_back(QString::fromStdString(attrs->GetElement(a).pointer->GetName()));
                 }
-                int compId = dialog->addParameter(igQtFilterDialogDockWidget::QT_COMBO_BOX,
-                                                  QStringLiteral("标量分量"), comps);
+                int arrayId = dialog->addParameter(igQtFilterDialogDockWidget::QT_COMBO_BOX,
+                                                   QStringLiteral("点属性数组"), arrNames);
 
-                double smin = 0.0, smax = 1.0;
-                if (range && range->GetNumberOfElements() >= 4) {
-                    smin = range->GetValue(2);
-                    smax = range->GetValue(3);
-                }
-                if (smax <= smin) { smax = smin + 1.0; }
+                // 标量分量（随所选数组动态更新）
+                std::vector<QString> comps0;
+                comps0.push_back(QStringLiteral("分量 0"));
+                int compId = dialog->addParameter(igQtFilterDialogDockWidget::QT_COMBO_BOX,
+                                                  QStringLiteral("标量分量"), comps0);
+
                 int lowerId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT,
-                                                   QStringLiteral("lower"),
-                                                   QString::number(smin + (smax - smin) / 3.0));
+                                                   QStringLiteral("lower"), "0");
                 int upperId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT,
-                                                   QStringLiteral("upper"),
-                                                   QString::number(smin + (smax - smin) * 2.0 / 3.0));
+                                                   QStringLiteral("upper"), "0");
+
+                // 根据 (数组, 分量) 更新分量列表与 lower/upper 默认值
+                auto updateRange = [=](int arrayIdx, int compIdx) {
+                    if (arrayIdx < 0 || arrayIdx >= (int)attrs->GetNumberOfElements()) return;
+                    auto& at = attrs->GetElement(arrayIdx);
+                    auto arr = at.pointer;
+                    int d = arr->GetDimension();
+                    QComboBox* compCombo = dynamic_cast<QComboBox*>(dialog->getWidget(compId));
+                    if (compCombo) {
+                        compCombo->blockSignals(true);
+                        compCombo->clear();
+                        int n = (d > 0 ? d : 1);
+                        for (int i = 0; i < n; ++i) compCombo->addItem(QStringLiteral("分量 %1").arg(i));
+                        compCombo->setCurrentIndex(compIdx >= 0 && compIdx < n ? compIdx : 0);
+                        compCombo->blockSignals(false);
+                    }
+                    int c = compCombo ? compCombo->currentIndex() : 0;
+                    auto range = at.GetDataRange();
+                    double smin = 0.0, smax = 1.0;
+                    if (range) {
+                        int base = 2 + 2 * c;
+                        if (range->GetNumberOfElements() >= base + 2) {
+                            smin = range->GetValue(base);
+                            smax = range->GetValue(base + 1);
+                        } else if (range->GetNumberOfElements() >= 2) {
+                            smin = range->GetValue(0);
+                            smax = range->GetValue(1);
+                        }
+                    }
+                    if (smax <= smin) smax = smin + 1.0;
+                    QLineEdit* lo = dynamic_cast<QLineEdit*>(dialog->getWidget(lowerId));
+                    QLineEdit* up = dynamic_cast<QLineEdit*>(dialog->getWidget(upperId));
+                    if (lo) lo->setText(QString::number(smin + (smax - smin) / 3.0));
+                    if (up) up->setText(QString::number(smin + (smax - smin) * 2.0 / 3.0));
+                };
+
+                updateRange(0, 0);
+
+                QComboBox* arrCombo = dynamic_cast<QComboBox*>(dialog->getWidget(arrayId));
+                QComboBox* compComboW = dynamic_cast<QComboBox*>(dialog->getWidget(compId));
+                if (arrCombo) {
+                    connect(arrCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+                            [updateRange](int idx) { updateRange(idx, 0); });
+                }
+                if (compComboW) {
+                    connect(compComboW, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+                            [updateRange, arrCombo](int ci) {
+                                int ai = arrCombo ? arrCombo->currentIndex() : 0;
+                                updateRange(ai, ci);
+                            });
+                }
                 dialog->show();
 
                 dialog->setApplyFunctor([=, this]() {
-                    bool okLower = false, okUpper = false, okCombo = false;
-                    int comp = dialog->getComboIndex(compId, okCombo);
+                    bool okArr = false, okComp = false, okLower = false, okUpper = false;
+                    int arrIdx = dialog->getComboIndex(arrayId, okArr);
+                    int comp = dialog->getComboIndex(compId, okComp);
                     double lower = dialog->getDouble(lowerId, okLower);
                     double upper = dialog->getDouble(upperId, okUpper);
                     if (!okLower || !okUpper) {
@@ -366,6 +412,13 @@ igQtMainWindow::igQtMainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui
                     if (lower > upper) {
                         double tmp = lower; lower = upper; upper = tmp;
                     }
+                    if (arrIdx < 0 || arrIdx >= (int)attrs->GetNumberOfElements()) {
+                        showDarkFramelessMessage(QStringLiteral("提示"),
+                                                 QStringLiteral("请选择有效的点属性数组"));
+                        return;
+                    }
+                    auto& at = attrs->GetElement(arrIdx);
+                    auto array = at.pointer;
                     auto filter = IsoVolumeFilter::New();
                     filter->SetInput(obj);
                     filter->SetIsoScalarData(array, lower, upper, comp);
