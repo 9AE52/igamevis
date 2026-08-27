@@ -16,7 +16,7 @@ IGAME_NAMESPACE_BEGIN
 static ArrayObject::Pointer DeepCopyArray(ArrayObject::Pointer src) {
     if (!src) return nullptr;
 
-    // 转换为具体类型并调用 DeepCopy
+    // 逐个尝试所有具体数组类型，调用其 DeepCopy 方法
     if (auto farr = DynamicCast<FloatArray>(src)) {
         auto copy = FloatArray::New();
         copy->DeepCopy(farr);
@@ -35,9 +35,52 @@ static ArrayObject::Pointer DeepCopyArray(ArrayObject::Pointer src) {
         copy->SetName(src->GetName());
         return copy;
     }
+    if (auto iarr = DynamicCast<IntArray>(src)) {
+        auto copy = IntArray::New();
+        copy->DeepCopy(iarr);
+        copy->SetName(src->GetName());
+        return copy;
+    }
+    if (auto sarr = DynamicCast<ShortArray>(src)) {
+        auto copy = ShortArray::New();
+        copy->DeepCopy(sarr);
+        copy->SetName(src->GetName());
+        return copy;
+    }
+    if (auto usarr = DynamicCast<UnsignedShortArray>(src)) {
+        auto copy = UnsignedShortArray::New();
+        copy->DeepCopy(usarr);
+        copy->SetName(src->GetName());
+        return copy;
+    }
+    if (auto carr = DynamicCast<CharArray>(src)) {
+        auto copy = CharArray::New();
+        copy->DeepCopy(carr);
+        copy->SetName(src->GetName());
+        return copy;
+    }
+    if (auto ucarr = DynamicCast<UnsignedCharArray>(src)) {
+        auto copy = UnsignedCharArray::New();
+        copy->DeepCopy(ucarr);
+        copy->SetName(src->GetName());
+        return copy;
+    }
+    if (auto llarr = DynamicCast<LongLongArray>(src)) {
+        auto copy = LongLongArray::New();
+        copy->DeepCopy(llarr);
+        copy->SetName(src->GetName());
+        return copy;
+    }
+    if (auto ullarr = DynamicCast<UnsignedLongLongArray>(src)) {
+        auto copy = UnsignedLongLongArray::New();
+        copy->DeepCopy(ullarr);
+        copy->SetName(src->GetName());
+        return copy;
+    }
 
-    // 如果都不匹配，退回浅拷贝
-    return src;
+    // 如果出现未覆盖的类型则报错并返回空指针，避免隐式浅拷贝导致共享数据。
+    igError("DeepCopyArray: unsupported array type (not in FlatArray macro list).");
+    return nullptr;
 }
 
 bool PassArrays::Execute() {
