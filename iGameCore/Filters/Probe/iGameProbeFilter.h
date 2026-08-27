@@ -26,6 +26,7 @@
 // 球体随机采样（交互层使用）:
 //   GenerateSpherePoints(points, center, radius, n) 在以 center 为球心、
 //   radius 为半径的球体内均匀随机采样 n 个点，原地写入 points。
+//   radius == 0 时按退化球处理：n 个点全部生成在 center 位置。
 // ============================================================================
 #pragma once
 #include <iGameDataObject.h>
@@ -49,6 +50,7 @@ public:
     bool HasAutoTolerance() const { return m_Tolerance < 0.0; }
 
     // ---- 球体随机采样（原地修改 points，供 UI / 测试复用）----
+    // radius == 0 时所有点落在 center 位置；radius < 0 时不生成任何点。
     // seed == 0 时使用随机种子；否则使用固定种子（便于复现）。
     static void GenerateSpherePoints(PointSet::Pointer points, const Point& center,
                                      float radius, int count, unsigned seed = 0);

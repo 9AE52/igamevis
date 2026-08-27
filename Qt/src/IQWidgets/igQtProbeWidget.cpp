@@ -245,7 +245,8 @@ bool igQtProbeWidget::parseParams(Point& center, float& radius, int& count,
     const double r = m_radius->text().toDouble(&okR);
     const double n = m_count->text().toInt(&okN);
     if (!okX || !okY || !okZ || !okR || !okN) return false;
-    if (r <= 0.0 || n < 1.0) return false;
+    // radius == 0 合法：此时所有查询点都生成在球心位置。
+    if (r < 0.0 || n < 1.0) return false;
 
     center = Point(static_cast<float>(x), static_cast<float>(y),
                    static_cast<float>(z));

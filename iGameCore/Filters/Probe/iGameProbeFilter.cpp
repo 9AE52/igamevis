@@ -31,7 +31,8 @@ ProbeFilter::ProbeFilter() {
 
 void ProbeFilter::GenerateSpherePoints(PointSet::Pointer points, const Point& center,
                                        float radius, int count, unsigned seed) {
-    if (points.IsNull() || count <= 0 || radius <= 0.0f) return;
+    // radius < 0 非法；radius == 0 时按退化球处理：全部点落在球心。
+    if (points.IsNull() || count <= 0 || radius < 0.0f) return;
     auto pts = points->GetPoints();
     if (pts.IsNull()) return;
 
