@@ -58,7 +58,7 @@ int main() {
     if (!filter->Execute()) {
         std::cout << "Filter ERROR!\n";
         std::cin.get();
-        return 0;
+        return -1;
     }
     obj = filter->GetOutput();
     scene->AddModel(obj);
