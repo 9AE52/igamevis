@@ -49,8 +49,8 @@ if (WIN32)
             "-DIGAME_ABQ_RUNTIME_DIR=${AbqSDK_DLL_DIR}"
             "-DIGAME_ABQ_RUNTIME_LIBRARY_NAMES=${_IGAME_EXAMPLE_ABQ_RUNTIME_NAMES}"
             "-DIGAME_HDF5_RUNTIME_FILE=${_IGAME_EXAMPLE_HDF5_RUNTIME}"
-            "-DIGAME_GPS_RUNTIME_DIR=${CMAKE_SOURCE_DIR}/CMakeGPS/CMakeGPS/ReferenceDLL"
-            -P "${CMAKE_SOURCE_DIR}/../Cmake/DeployExampleRuntime.cmake"
+            "-DIGAME_GPS_RUNTIME_DIR=${CMAKE_CURRENT_SOURCE_DIR}/../CMakeGPS/CMakeGPS/ReferenceDLL"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/../Cmake/DeployExampleRuntime.cmake"
         COMMENT "Deploying runtime DLLs for Examples"
         VERBATIM)
 else ()
@@ -243,6 +243,9 @@ igame_add_example(testConvertToVolumeMesh Filter/Convert/TestConvertToVolumeMesh
 igame_add_example(testConvertToSurfaceMesh Filter/Convert/TestConvertToSurfaceMesh.cpp)
 igame_add_example(testConvertToLagrangeUnstructuredMesh Filter/Convert/TestConvertToLagrangeUnstructuredMesh.cpp)
 
+# My Filters
+igame_add_example(testCellCenterFilter Filter/MyFilter/TestCellCenterFilter.cpp)
+
 # IO (optional modules)
 igame_add_example(testSplineReaderCPU IO/SplineReaderCPU.cpp)
 
@@ -280,10 +283,12 @@ endif ()
 
 igame_add_example(testClip Filter/TestClip.cpp)
 igame_add_example(testSlice Filter/TestSlice.cpp)
+igame_add_example(testIsoVolume Filter/TestIsoVolume.cpp)
 igame_add_example(testDeformation Filter/Deformation/TestStressDeformationFilter.cpp)
 igame_add_example(testDeformationCode Filter/Deformation/TestStressDeformationFilterCode.cpp)
 igame_add_example(testContourLine Filter/TestContourLine.cpp)
 igame_add_example(testMultiBlockGeometry Filter/TestMultiBlockGeometry.cpp)
+igame_add_example(testGhostDemo Filter/GhostCell/TestGhostDemo.cpp)
 
 # Color bar / interaction
 igame_add_example(testChangeColorRange ColorBar/ChangeColorRange.cpp)
@@ -296,6 +301,18 @@ igame_add_example(testCurvatureExtraction Filter/FeatureExtraction/CurvatureExtr
 igame_add_example(testGradientExtraction Filter/FeatureExtraction/GradientExtraction.cpp)
 igame_add_example(testLaplacianExtraction Filter/FeatureExtraction/LaplacianExtraction.cpp)
 
+# Feature edges console test
+igame_add_example(
+    testFeatureEdges
+    Filter/FeatureExtraction/FeatureEdges.cpp
+)
+
+# Feature edges GUI visualization
+igame_add_example(
+    testFeatureEdgesVisualization
+    Filter/FeatureExtraction/FeatureEdgesVisualization.cpp
+)
+
 if (ENABLE_LIBTORCH_MODULE)
     igame_add_example(testVortexDetection Filter/FeatureExtraction/VortexDetection.cpp)
     target_compile_definitions(testVortexDetection PUBLIC LibTorch_ENABLE)
@@ -304,6 +321,12 @@ if (ENABLE_LIBTORCH_MODULE)
         target_link_libraries(testVortexDetection PRIVATE OpenMP::OpenMP_CXX)
     endif ()
 endif ()
+
+# Global IDs
+igame_add_example(
+    testGenerateGlobalIds
+    Filter/GlobalIds/TestGenerateGlobalIds.cpp
+)
 
 get_property(IGAME_EXAMPLE_TARGETS DIRECTORY PROPERTY IGAME_EXAMPLE_TARGETS)
 if (NOT IGAME_EXAMPLE_TARGETS)
