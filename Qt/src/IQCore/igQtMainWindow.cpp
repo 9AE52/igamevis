@@ -4,7 +4,6 @@
 //
 
 #include "ModelSurface/iGameMultiBlockGeometryFilter.h"
-#include "MeshMetrics/iGameVolumeMeshMetricsFilter.h"
 #include "Deformation/iGameStressDeformationFilterCode.h"
 
 #include "DataProcessing/Tests/iGameGradient.h"
