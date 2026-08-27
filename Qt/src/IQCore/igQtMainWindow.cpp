@@ -1287,6 +1287,8 @@ void igQtMainWindow::initAllFilters() {
             }
             rendererWidget->update();
             dialog->close();
+        });
+        });
     connect(ui->action_GlobalIds, &QAction::triggered, this, [this]() {
         auto model = rendererWidget->GetScene()->GetCurrentModel();
         if (!model) {
@@ -1728,55 +1730,6 @@ void igQtMainWindow::initAllFilters() {
         rendererWidget->update();
     });
 
-    //connect(mesh_processing->addAction("Test"), &QAction::triggered, this, [&](bool checked) {
-    //    auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
-
-    //    auto m_StreamBase = iGame::StreamBase::New();
-    //    auto streamtracer = m_StreamBase->streamFilter;
-    //    streamtracer->initStreamTracer(obj);
-    //    //auto seeds=streamtracer->getModelSelect();//当实际已经选中了重点区域时直接调用该函数
-    //    Vector3f boundMax = streamtracer->GetMesh()->GetBoundingBox().max; //包围盒区域
-    //    Vector3f boundMin = streamtracer->GetMesh()->GetBoundingBox().min;
-    //    Vector3f centerMax = (boundMax - boundMin) / 5 + boundMin; //模拟被选中重点区域
-    //    auto seeds = streamtracer->getAllSubBlockCenters(boundMax, boundMin, centerMax, boundMin, 2,
-    //                                                     4); //4，6为划分子块的数量
-    //    float lengthOfStreamLine = 5;
-    //    float lengthOfStep = 0.3;
-    //    float maxSteps = 1000;
-    //    float terminalSpeed = 0.005;
-    //    streamtracer->SetInput(seeds, "V", lengthOfStreamLine, lengthOfStep, terminalSpeed, maxSteps);
-    //    streamtracer->Execute();
-    //    std::cout << seeds.size() << std::endl;
-    //    auto output = streamtracer->GetOutput();
-
-    //    modelTreeWidget->addDataObjectToModelTree(output, Algorithm);
-    //    rendererWidget->update();
-    //});
-
-    //connect(mesh_processing->addAction("Test2"), &QAction::triggered, this, [&](bool checked) { 
-    //    auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
-
-    //    auto filter = iGame::VolumeMeshMetricsFilter::New();
-    //    filter->SetVolumeMetric(VolumeMeshMetricsFilter::HEX_VOLUME);
-    //    filter->SetInput(obj);
-    //    filter->Execute();
-
-    //    modelTreeWidget->addDataObjectToModelTree(filter->GetOutput(), Algorithm);
-    //    rendererWidget->update();
-    //    });
-    //connect(mesh_processing->addAction("Test3"), &QAction::triggered, this, [&](bool checked) 
-    //    { 
-    //        CellArray::Pointer cellArray = CellArray::New();
-    //        clock_t start = clock();
-    //        igIndex cell[3]{};
-    //        cellArray->AddCellIds(cell, 2);
-    //        for (int i = 0; i < 10000000; i++) { 
-    //            cellArray->AddCellIds(cell, 3);
-    //        }
-    //        clock_t end = clock();
-    //        std::cout << end - start << std::endl;
-
-    //    });
     connect(ui->menu_filters->addAction(QStringLiteral("单元几何中心 (Cell Center)")), &QAction::triggered,
             this, [this](bool) {
         auto currentModel = rendererWidget->GetScene()->GetCurrentModel();
@@ -2040,76 +1993,6 @@ void igQtMainWindow::initAllFilters() {
 
                 }
             }
-            // 显示指标
-            // double acc  = filter->GetAccuracy();
-            // double prec = filter->GetPrecision();
-            // double rec  = filter->GetRecall();
-            //
-            // if (acc > 0.0 && prec > 0.0 && rec > 0.0 &&
-            //     !std::isnan(acc) && !std::isnan(prec) && !std::isnan(rec)) {
-            //     QDialog* dialog = this->property("vortexMetricsDialog").value<QDialog*>();
-            //
-            //     if (!dialog) {
-            //         dialog = new QDialog(this);
-            //         dialog->setWindowTitle("Vortex Prediction Metrics");
-            //         dialog->setAttribute(Qt::WA_DeleteOnClose);
-            //         dialog->setModal(false);
-            //
-            //         this->setProperty("vortexMetricsDialog", QVariant::fromValue(dialog));
-            //
-            //         QLabel* label = new QLabel(dialog);
-            //         label->setObjectName("vortexMetricsLabel");
-            //         label->setTextFormat(Qt::RichText);
-            //         label->setAlignment(Qt::AlignCenter);
-            //
-            //         QVBoxLayout* layout = new QVBoxLayout(dialog);
-            //         layout->addWidget(label);
-            //         dialog->setLayout(layout);
-            //         dialog->resize(270, 100);
-            //         connect(dialog, &QDialog::destroyed, this, [this]() {
-            //             this->setProperty("vortexMetricsDialog", QVariant());
-            //         });
-            //     }
-            //     QLabel* label = dialog->findChild<QLabel*>("vortexMetricsLabel");
-            //     if (label) {
-            //         QString msg = QString(
-            //             "<table align='center' cellspacing='6'>"
-            //             // "<tr><td>Accuracy</td><td>:</td><td>%1</td></tr>"
-            //             "<tr><td>Precision</td><td>:</td><td>%1%<</td></tr>"
-            //             "<tr><td>Recall</td><td>:</td><td>%2%<</td></tr>"
-            //             "</table>"
-            //         )
-            //         // .arg(acc,  0, 'f', 3)
-            //         .arg(prec * 100.0, 0, 'f', 2)
-            //         .arg(rec * 100.0,  0, 'f', 2);
-            //
-            //         label->setText(msg);
-            //     }
-            //     QPointer<QDialog> safeDialog(dialog);
-            //     QTimer::singleShot(48, this, [safeDialog]() {
-            //         if (!safeDialog) return;
-            //         safeDialog->show();
-            //         safeDialog->raise();
-            //     });
-            // }
-
-            // old version
-            // vortexMetricsLabel
-            // double acc  = filter->GetAccuracy();
-            // double prec = filter->GetPrecision();
-            // double rec  = filter->GetRecall();
-            // if (acc > 0.0 && prec > 0.0 && rec > 0.0) {
-            //     QString txt = QString("Acc: %1  Prec: %2  Rec: %3")
-            //                       .arg(acc,  0, 'f', 3)
-            //                       .arg(prec, 0, 'f', 3)
-            //                       .arg(rec,  0, 'f', 3);
-            //     vortexMetricsLabel->setText(txt);
-            //     vortexMetricsLabel->show();
-            //     updateVortexMetricsLabelPos();
-            // } else {
-            //     vortexMetricsLabel->clear();
-            //     vortexMetricsLabel->hide();
-            // }
         }else {
             std::string message = filter->GetMessage();
             showDarkFramelessMessage(QStringLiteral("Warning"), QString::fromStdString(message));
