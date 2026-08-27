@@ -3,11 +3,9 @@
 // Created by m_ky on 2024/4/10.
 //
 
-#include "Deformation/iGameStressDeformationFilterCode.h"
 #include "MeshMetrics/iGameVolumeMeshMetricsFilter.h"
+#include "Deformation/iGameStressDeformationFilterCode.h"
 
-#include "DataProcessing/Simplification/iGameMeshSaliency.h"
-#include "DataProcessing/Simplification/iGameMeshSimplificationWithAttributes.h"
 #include "DataProcessing/Tests/iGameGradient.h"
 #include "DataProcessing/Tests/iGameSimplification2.h"
 #include "DataProcessing/Tests/iGameSurfaceSimplification.h"
@@ -16,27 +14,26 @@
 #include "DataProcessing/iGameMeshSimplificationFilter.h"
 #include "DataProcessing/iGameMeshSimplificationFilterPro.h"
 #include "DataProcessing/iGameMeshTriangulationFilter.h"
+#include "DataProcessing/Simplification/iGameMeshSaliency.h"
+#include "DataProcessing/Simplification/iGameMeshSimplificationWithAttributes.h"
 
 #include "Convert/iGameConvertPolyhedralCellsFilter.h"
 #include "Convert/iGameConvertToCellDataFilter.h"
 #include "Convert/iGameConvertToLagrangeUnstructuredMeshFilter.h"
-#include "Convert/iGameConvertToPointCloudFilter.h"
-#include "Convert/iGameConvertToPointDataFilter.h"
-#include "Convert/iGameConvertToSurfaceMeshFilter.h"
-#include "Convert/iGameConvertToVolumeMeshFilter.h"
-
-#include "MyFilter/iGameCellCenterFilter.h"
-
-#include "Interactor/iGameInteractor.h"
+  #include "Convert/iGameConvertToPointCloudFilter.h"
+  #include "Convert/iGameConvertToPointDataFilter.h"
+  #include "Convert/iGameConvertToSurfaceMeshFilter.h"
+  #include "Convert/iGameConvertToVolumeMeshFilter.h"
+  
+  #include "MyFilter/iGameCellCenterFilter.h"
+  
+  #include "Interactor/iGameInteractor.h"
 
 #include "Tests/iGameARAPTest.h"
 
-#include "GhostCell/iGameGhostCellFilter.h"
 #include "iGameFileIO.h"
 #include "iGameFilterIncludes.h"
-#include <BuildAdjacencyRelation/iGameBuildAdjacencyRelationFilter.h>
-#include <IQComponents/Dialog/igQtBoxSettingDialog.h>
-#include <IQComponents/Dialog/igQtChromeFramelessDialog.h>
+#include "GhostCell/iGameGhostCellFilter.h"
 #include <IQComponents/igQtFilterDialogDockWidget.h>
 #include <IQComponents/igQtModelDialogWidget.h>
 #include <IQComponents/igQtProgressBarWidget.h>
@@ -52,29 +49,31 @@
 #include <IQWidgets/igQtModelDrawWidget.h>
 #include <IQWidgets/igQtModelInformationWidget.h>
 #include <IQWidgets/igQtParallelCoordinatesWidget.h>
-#include <IQWidgets/igQtPartFocusWidget.h>
 #include <IQWidgets/igQtTensorWidget.h>
 #include <IQWidgets/igQtVariableCorrelationWidget.h>
+#include <IQWidgets/igQtPartFocusWidget.h>
+#include <IQComponents/Dialog/igQtBoxSettingDialog.h>
+#include <IQComponents/Dialog/igQtChromeFramelessDialog.h>
+#include <iGameBlockMapping.h>
 #include <P3SAM/iGameP3SAMSegmenter.h>
 #include <QDebug>
-#include <QGridLayout>
-#include <QHBoxLayout>
 #include <QLabel>
 #include <QMessageBox>
-#include <QMouseEvent>
-#include <QPainter>
-#include <QPushButton>
-#include <QScrollArea>
 #include <QSplitter>
 #include <QStyleFactory>
+#include <QGridLayout>
+#include <QHBoxLayout>
 #include <QToolButton>
 #include <QVBoxLayout>
 #include <QWidgetAction>
+#include <QPushButton>
+#include <QMouseEvent>
+#include <QPainter>
+#include <QScrollArea>
 #include <Sources/iGameLineTypePointsSourceFilter.h>
 #include <Tests/iGameVolumeMeshFilterTest.h>
 #include <VolumeMeshAlgorithm/iGameVolumeMeshClipper.h>
 #include <fcntl.h>
-#include <iGameBlockMapping.h>
 #include <iGameBoxStyle.h>
 #include <iGameCtxPresObjData.h>
 #include <iGameDataSource.h>
@@ -84,37 +83,37 @@
 #include <iGameUnstructuredMesh.h>
 #include <iGameVolumeMesh.h>
 #include <include/IQComponents/Dialog/igQtChangeBackGroundDialog.h>
-#include <include/IQComponents/Dialog/igQtDarkFramelessMessage.h>
 #include <include/IQComponents/Dialog/igQtMeshCodecDialog.h>
+#include <include/IQComponents/Dialog/igQtDarkFramelessMessage.h>
 #include <include/IQComponents/Dialog/igQtScreenShotOptionDialog.h>
+#include <BuildAdjacencyRelation/iGameBuildAdjacencyRelationFilter.h>
 #include <meshoptimizer.h>
 #include <stdio.h>
 
-#include <QApplication>
 #include <QDebug>
-#include <QDialog>
-#include <QDialogButtonBox>
-#include <QEasingCurve>
-#include <QFontMetrics>
-#include <QFormLayout>
-#include <QGuiApplication>
-#include <QLineEdit>
 #include <QMessageBox>
-#include <QPointer>
-#include <QPropertyAnimation>
-#include <QScreen>
-#include <QSettings>
 #include <QSplitter>
-#include <QStyle>
+#include <QPointer>
 #include <QTimer>
+#include <QGuiApplication>
+#include <QScreen>
 #include <QWindow>
+#include <QApplication>
+#include <QPropertyAnimation>
+#include <QEasingCurve>
+#include <QStyle>
+#include <QFontMetrics>
+#include <QSettings>
+#include <QDialog>
+#include <QLineEdit>
+#include <QFormLayout>
+#include <QDialogButtonBox>
 
 #include "AppendLocationAttribute/iGameAppendLocationAttribute.h"
 
 #include "ui_igQtVariableCorrelationWidget.h"
 
-namespace
-{
+namespace {
 struct ToolbarSpacingMetrics {
     int btnGap;
     int edgeMargin;
@@ -162,12 +161,16 @@ int resolveToolbarIconSize(int availableWidth, qreal dpiScale) {
 
 int resolveToolbarIconSizeForWidget(const QWidget* widget) {
     QScreen* screen = widget ? widget->screen() : nullptr;
-    if (!screen) { screen = QGuiApplication::primaryScreen(); }
+    if (!screen) {
+        screen = QGuiApplication::primaryScreen();
+    }
     const qreal dpiScale = screen ? screen->devicePixelRatio() : 1.0;
     // 响应式：优先按窗口自身可视宽度分档，而不是整个屏幕；
     // 窗口还没显示（width==0）或过窄时才回退到屏幕宽度。
     int refWidth = widget ? widget->width() : 0;
-    if (refWidth < 400) { refWidth = screen ? screen->availableGeometry().width() : 1920; }
+    if (refWidth < 400) {
+        refWidth = screen ? screen->availableGeometry().width() : 1920;
+    }
     return resolveToolbarIconSize(refWidth, dpiScale);
 }
 
@@ -293,7 +296,7 @@ QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
     width: 0;
 }
 )";
-} // namespace
+}
 
 igQtMainWindow::igQtMainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWindow) {
     ui->setupUi(this);
@@ -311,12 +314,20 @@ igQtMainWindow::igQtMainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui
     initAllInteractor();
     updateRecentFilePaths();
     // 将 toolBar_4 的 +X -X +Y -Y +Z -Z 六个按钮分为两行、每行三个展示
-    rebuildActionsAsTwoRowWidget(ui->toolBar_4,
-                                 {ui->action_setViewToPositiveX, ui->action_setViewToNegativeX,
-                                  ui->action_setViewToPositiveY, ui->action_setViewToNegativeY,
-                                  ui->action_setViewToPositiveZ, ui->action_setViewToNegativeZ},
-                                 3, ui->action_rotateNinetyCounterClockwise);
-    initToolbarComponent(); // 在 rebuild 之后：用 QToolButton 行+标题替代 QToolBar，避免 QToolBar 进 layout 导致图标不渲染
+    rebuildActionsAsTwoRowWidget(
+            ui->toolBar_4,
+            {
+                    ui->action_setViewToPositiveX,
+                    ui->action_setViewToNegativeX,
+                    ui->action_setViewToPositiveY,
+                    ui->action_setViewToNegativeY,
+                    ui->action_setViewToPositiveZ,
+                    ui->action_setViewToNegativeZ
+            },
+            3,
+            ui->action_rotateNinetyCounterClockwise
+    );
+    initToolbarComponent();  // 在 rebuild 之后：用 QToolButton 行+标题替代 QToolBar，避免 QToolBar 进 layout 导致图标不渲染
     connect(modelTreeWidget, &igQtModelDialogWidget::Update, rendererWidget, &igQtRenderWidget::update);
 
     // 初始化命令管理器并建立与 MCP Tool Server 的连接
@@ -405,11 +416,17 @@ void igQtMainWindow::initCustomTitleBar() {
     m_titleLabel->installEventFilter(this);
 
     // 按钮功能
-    connect(m_btnMinimize, &QPushButton::clicked, this, [this]() { minimizeWithAnimation(); });
+    connect(m_btnMinimize, &QPushButton::clicked, this, [this]() {
+        minimizeWithAnimation();
+    });
 
-    connect(m_btnMaximize, &QPushButton::clicked, this, [this]() { toggleMaximizeRestore(); });
+    connect(m_btnMaximize, &QPushButton::clicked, this, [this]() {
+        toggleMaximizeRestore();
+    });
 
-    connect(m_btnClose, &QPushButton::clicked, this, [this]() { this->close(); });
+    connect(m_btnClose, &QPushButton::clicked, this, [this]() {
+        this->close();
+    });
 
     // 监听全局鼠标释放，防止拖动状态在某些场景下卡住
     qApp->installEventFilter(this);
@@ -423,14 +440,18 @@ bool igQtMainWindow::eventFilter(QObject* watched, QEvent* event) {
     if (m_titleBarDragging) {
         if (event->type() == QEvent::MouseButtonRelease) {
             auto* me = static_cast<QMouseEvent*>(event);
-            if (me->button() == Qt::LeftButton) { m_titleBarDragging = false; }
+            if (me->button() == Qt::LeftButton) {
+                m_titleBarDragging = false;
+            }
         } else if (event->type() == QEvent::WindowDeactivate) {
             m_titleBarDragging = false;
         }
     }
 
     // 按钮自身的事件交给 Qt 处理，保证 clicked() 能正常触发
-    if (qobject_cast<QPushButton*>(watched)) { return QMainWindow::eventFilter(watched, event); }
+    if (qobject_cast<QPushButton*>(watched)) {
+        return QMainWindow::eventFilter(watched, event);
+    }
 
     // 只对标题栏本身或标题文本处理拖动，不拦截按钮
     if (watched == m_titleBar || watched == m_titleLabel) {
@@ -448,8 +469,7 @@ bool igQtMainWindow::eventFilter(QObject* watched, QEvent* event) {
                 auto* me = static_cast<QMouseEvent*>(event);
                 if (m_titleBarDragging && (me->buttons() & Qt::LeftButton)) {
                     if (isMaximized()) {
-                        const qreal ratioX = qBound<qreal>(
-                                0.0, static_cast<qreal>(me->pos().x()) / qMax(1, m_titleBar->width()), 1.0);
+                        const qreal ratioX = qBound<qreal>(0.0, static_cast<qreal>(me->pos().x()) / qMax(1, m_titleBar->width()), 1.0);
                         showNormal();
                         const int newX = me->globalPos().x() - static_cast<int>(width() * ratioX);
                         const int newY = me->globalPos().y() - m_titleBar->height() / 2;
@@ -460,7 +480,9 @@ bool igQtMainWindow::eventFilter(QObject* watched, QEvent* event) {
                     move(me->globalPos() - m_dragOffset);
                     return true;
                 }
-                if (!(me->buttons() & Qt::LeftButton)) { m_titleBarDragging = false; }
+                if (!(me->buttons() & Qt::LeftButton)) {
+                    m_titleBarDragging = false;
+                }
                 break;
             }
             case QEvent::MouseButtonDblClick: {
@@ -488,12 +510,16 @@ bool igQtMainWindow::eventFilter(QObject* watched, QEvent* event) {
 }
 
 void igQtMainWindow::changeEvent(QEvent* event) {
-    if (event->type() == QEvent::WindowStateChange) { updateMaximizeButtonIcon(); }
+    if (event->type() == QEvent::WindowStateChange) {
+        updateMaximizeButtonIcon();
+    }
     QMainWindow::changeEvent(event);
 }
 
 void igQtMainWindow::minimizeWithAnimation() {
-    if (m_isMinimizing || isMinimized()) { return; }
+    if (m_isMinimizing || isMinimized()) {
+        return;
+    }
 
     m_isMinimizing = true;
     m_geometryBeforeMinimize = geometry();
@@ -522,18 +548,24 @@ void igQtMainWindow::minimizeWithAnimation() {
 
 void igQtMainWindow::toggleMaximizeRestore() {
     if (isMaximized()) {
-        if (m_isRestoringFromMaximized) { return; }
+        if (m_isRestoringFromMaximized) {
+            return;
+        }
 
         m_isRestoringFromMaximized = true;
         QRect targetRect = m_normalGeometry;
         if (!targetRect.isValid() || targetRect.width() < 100 || targetRect.height() < 100) {
             QRect workArea = QGuiApplication::primaryScreen()->availableGeometry();
-            targetRect = QRect(workArea.x() + workArea.width() / 10, workArea.y() + workArea.height() / 10,
-                               workArea.width() * 8 / 10, workArea.height() * 8 / 10);
+            targetRect = QRect(workArea.x() + workArea.width() / 10,
+                               workArea.y() + workArea.height() / 10,
+                               workArea.width() * 8 / 10,
+                               workArea.height() * 8 / 10);
         }
 
         QRect startRect = QGuiApplication::primaryScreen()->availableGeometry();
-        if (windowHandle() && windowHandle()->screen()) { startRect = windowHandle()->screen()->availableGeometry(); }
+        if (windowHandle() && windowHandle()->screen()) {
+            startRect = windowHandle()->screen()->availableGeometry();
+        }
 
         showNormal();
         setGeometry(startRect);
@@ -670,7 +702,7 @@ void igQtMainWindow::initAllUnDefinedComponents() {
     ui->dockWidget_Animation->hide();
     ui->dockWidget_ModelList->hide();
     ui->dockWidget_ContourExtract->hide();
-
+    
     // Setup default GUI layout.
     // 启用左侧区域的 tab 功能，使左侧 dockwidget 可以通过 tab 切换
     this->setTabPosition(Qt::LeftDockWidgetArea, QTabWidget::North);
@@ -731,7 +763,9 @@ void igQtMainWindow::initAllUnDefinedComponents() {
     // 属性窗口停靠在左侧（常驻），图层树悬浮在 OpenGL 右下角
     this->addDockWidget(Qt::LeftDockWidgetArea, modelTreeWidget->getPropertiesDock());
     // 上方为工具 Tab，下方为 Properties
-    this->splitDockWidget(m_leftFieldDock, modelTreeWidget->getPropertiesDock(), Qt::Vertical);
+    this->splitDockWidget(m_leftFieldDock,
+                          modelTreeWidget->getPropertiesDock(),
+                          Qt::Vertical);
     modelTreeWidget->getPropertiesDock()->show();
     // 无 Tab 时不占工具区（仅 Properties 可见）
     m_leftFieldDock->hide();
@@ -770,7 +804,9 @@ void igQtMainWindow::initAllUnDefinedComponents() {
 
     // 延迟定位图层树悬浮窗口到OpenGL渲染窗口右下角
     QTimer::singleShot(100, this, [this]() {
-        if (rendererWidget && modelTreeWidget) { modelTreeWidget->positionTreeDockToRendererCorner(rendererWidget); }
+        if (rendererWidget && modelTreeWidget) {
+            modelTreeWidget->positionTreeDockToRendererCorner(rendererWidget);
+        }
     });
 
 
@@ -795,6 +831,7 @@ void igQtMainWindow::initAllUnDefinedComponents() {
     DeformationDockWidget->setFeatures(QDockWidget::DockWidgetClosable);
     DeformationDockWidget->hide();
     this->addDockWidget(Qt::RightDockWidgetArea, DeformationDockWidget);
+
 }
 void igQtMainWindow::initToolbarComponent() {
     // 为每个工具栏在下方添加居中文字标题（顺序：文件与输出、操作、选择与编辑、视图设置）
@@ -806,19 +843,19 @@ void igQtMainWindow::initToolbarComponent() {
 }
 
 void igQtMainWindow::initAllComponents() {
-    connect(ui->action_ShowOrientationAxes, &QAction::triggered, this, [&](bool checked) {
+    connect(ui->action_ShowOrientationAxes, &QAction::triggered, this, [&](bool checked){
         iGame::SceneManager::Instance()->GetCurrentScene()->ToggleAxes();
         iGame::SceneManager::Instance()->GetCurrentScene()->Update();
-    });
+   });
     connect(ui->action_ChangeBackground, &QAction::triggered, this, [&]() {
         igQtChangeBackGroundDialog dialog(this);
         dialog.setWindowTitle("Change BackGround Color.");
-        int R = 0, G = 0, B = 0;
-        if (dialog.exec() == QDialog::Accepted) {
-            auto input = dialog.getInput();
-            R = input[0], G = input[1], B = input[2];
-            iGame::SceneManager::Instance()->GetCurrentScene()->SetBackGround(R, G, B);
-        }
+      int R = 0, G = 0, B = 0;
+      if (dialog.exec() == QDialog::Accepted) {
+          auto input = dialog.getInput();
+          R = input[0], G = input[1], B = input[2];
+          iGame::SceneManager::Instance()->GetCurrentScene()->SetBackGround(R, G, B);
+      }
     });
     connect(ui->action_VolumeRendering, &QAction::triggered, this,
             [&](bool toggled) { iGame::SceneManager::Instance()->GetCurrentScene()->SetVolumeRendering(toggled); });
@@ -829,23 +866,24 @@ void igQtMainWindow::initAllComponents() {
     // vortexMetricsLabel
     vortexMetricsLabel = new QLabel(rendererWidget);
     vortexMetricsLabel->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
-    vortexMetricsLabel->setStyleSheet("QLabel { color: rgb(230,230,230); font-size: 20px; "
-                                      "background: rgba(30,30,30,150); padding: 8px 12px; border-radius: 6px; }");
-    vortexMetricsLabel->hide();
+    vortexMetricsLabel->setStyleSheet(
+        "QLabel { color: rgb(230,230,230); font-size: 20px; "
+        "background: rgba(30,30,30,150); padding: 8px 12px; border-radius: 6px; }");
+	    vortexMetricsLabel->hide();
 
-    connect(ui->action_compress, &QAction::triggered, this, [&](bool checked) {
-        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return false;
-        auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
-        // 支持两种情况：
-        // 1) 单块：当前对象本身是可压缩的 PointSet
-        // 2) 多块：根对象为容器（HasSubDataObject()==true），由 MeshCodecDialog 自动切换到 IGCM + IGC
-        if (!DynamicCast<PointSet>(obj) && !obj->HasSubDataObject()) return false;
+	    connect(ui->action_compress, &QAction::triggered, this, [&](bool checked) {
+	        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return false;
+	        auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+	        // 支持两种情况：
+	        // 1) 单块：当前对象本身是可压缩的 PointSet
+	        // 2) 多块：根对象为容器（HasSubDataObject()==true），由 MeshCodecDialog 自动切换到 IGCM + IGC
+	        if (!DynamicCast<PointSet>(obj) && !obj->HasSubDataObject()) return false;
 
-        igQtMeshCodecDialog* d = new igQtMeshCodecDialog(this, obj);
-        d->exec();
+	        igQtMeshCodecDialog* d = new igQtMeshCodecDialog(this, obj);
+	        d->exec();
 
-        return true;
-    });
+	        return true;
+	    });
 
     connect(ui->action_LoadFile, &QAction::triggered, fileLoader, &igQtFileLoader::LoadFile);
     // connect(ui->action_CS, &QAction::triggered, fileLoader, &igQtFileLoader::LoadOnlineS);
@@ -1122,13 +1160,14 @@ void igQtMainWindow::initAllComponents() {
     initAllMySignalConnections();
 }
 
-void igQtMainWindow::updateVortexMetricsLabelPos() {
+void igQtMainWindow::updateVortexMetricsLabelPos()
+{
     if (!vortexMetricsLabel || !vortexMetricsLabel->isVisible()) return;
 
     vortexMetricsLabel->adjustSize();
 
     const int margin = 20;
-    int x = rendererWidget->width() - vortexMetricsLabel->width() - margin;
+    int x = rendererWidget->width()  - vortexMetricsLabel->width()  - margin;
     int y = rendererWidget->height() - vortexMetricsLabel->height() - margin;
 
     vortexMetricsLabel->move(x, y);
@@ -1153,8 +1192,9 @@ void igQtMainWindow::initAllFilters() {
     });
     connect(modelTreeWidget, &igQtModelDialogWidget::CurrendModelChanged, this, [this]() {
         if (!GlobalIdDockWidget || !GlobalIdDockWidget->isVisible()) return;
-        QTimer::singleShot(
-                0, this, [this]() { GlobalIdWidget->setCurrentModel(rendererWidget->GetScene()->GetCurrentModel()); });
+        QTimer::singleShot(0, this, [this]() {
+            GlobalIdWidget->setCurrentModel(rendererWidget->GetScene()->GetCurrentModel());
+        });
     });
 
     /* Data Processing 前两档：加宽以容纳较长参数标签，并关闭参数区滚动条（内容较少无需滚动） */
@@ -1198,399 +1238,387 @@ void igQtMainWindow::initAllFilters() {
         }
     });
 
-    connect(mesh_processing->addAction(QStringLiteral("表面网格简化 (Surface Simplification)")), &QAction::triggered,
-            this, [&](bool checked) {
-                if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
+    connect(mesh_processing->addAction(QStringLiteral("表面网格简化 (Surface Simplification)")), &QAction::triggered, this, [&](bool checked) {
+        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
 
-                igQtFilterDialogDockWidget* dialog = new igQtFilterDialogDockWidget(this, true);
-                dialog->setFilterTitle(QStringLiteral("表面网格简化"));
-                int reductionId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT,
-                                                       QStringLiteral("简化比例 (0..1)"), "0.5");
-                int preserveId = dialog->addParameter(igQtFilterDialogDockWidget::QT_CHECK_BOX,
-                                                      QStringLiteral("保留网格边界"), "true");
-                int scalarId = dialog->addParameter(igQtFilterDialogDockWidget::QT_CHECK_BOX,
-                                                    QStringLiteral("检查网格全部标量"), "true");
-                int checkId = dialog->addParameter(igQtFilterDialogDockWidget::QT_CHECK_BOX,
-                                                   QStringLiteral("几何相似性度量"), "false");
-                tuneMeshSimplifyFilterDialog(dialog);
-                dialog->show();
-                dialog->setApplyFunctor([=, this]() {
-                    bool ok;
-                    QString result = "";
+        igQtFilterDialogDockWidget* dialog = new igQtFilterDialogDockWidget(this, true);
+        dialog->setFilterTitle(QStringLiteral("表面网格简化"));
+        int reductionId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, QStringLiteral("简化比例 (0..1)"), "0.5");
+        int preserveId =
+                dialog->addParameter(igQtFilterDialogDockWidget::QT_CHECK_BOX, QStringLiteral("保留网格边界"), "true");
+        int scalarId = dialog->addParameter(igQtFilterDialogDockWidget::QT_CHECK_BOX, QStringLiteral("检查网格全部标量"),
+                                            "true");
+        int checkId = dialog->addParameter(igQtFilterDialogDockWidget::QT_CHECK_BOX, QStringLiteral("几何相似性度量"),
+                                           "false");
+        tuneMeshSimplifyFilterDialog(dialog);
+        dialog->show();
+        dialog->setApplyFunctor([=, this]() {
+            bool ok;
+            QString result = "";
 
-                    MeshTriangulationFilter::Pointer triangulation = MeshTriangulationFilter::New();
-                    auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
-                    triangulation->SetInput(obj);
-                    ok = triangulation->Execute();
+            MeshTriangulationFilter::Pointer triangulation = MeshTriangulationFilter::New();
+            auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+            triangulation->SetInput(obj);
+            ok = triangulation->Execute();
 
-                    if (!ok) {
-                        result = QString("网格简化算法只支持表面网格");
-                        showDarkFramelessMessage(QStringLiteral("非表面网格"), result);
-                        dialog->close();
-                        return;
+            if (!ok) {
+                result = QString("网格简化算法只支持表面网格");
+                showDarkFramelessMessage(QStringLiteral("非表面网格"), result);
+                dialog->close();
+                return;
+            }
+
+            obj = triangulation->GetOutput();
+
+            MeshSimplificationFilter::Pointer filter = MeshSimplificationFilter::New();
+            filter->SetTargetReduction(1 - dialog->getDouble(reductionId, ok));
+            filter->SetPreserveBoundary(dialog->getChecked(preserveId, ok));
+            filter->SetAllScalarCheck(dialog->getChecked(scalarId, ok));
+            filter->SetInput(obj);
+
+            ok = filter->Execute();
+
+            if (!ok) {
+                result = QStringLiteral("执行出错");
+                showDarkFramelessMessage(QStringLiteral("执行出错"), result);
+                dialog->close();
+                return;
+            }
+
+            auto oldMesh = DynamicCast<SurfaceMesh>(obj);
+            auto outObj = filter->GetOutput();
+            auto newMesh = DynamicCast<SurfaceMesh>(outObj);
+            auto oldPoints = oldMesh->GetPoints();
+            auto newPoints = newMesh->GetPoints();
+
+
+            if (dialog->getChecked(checkId, ok)) {
+                PointFinder::Pointer newPicker = PointFinder::New();
+                newPicker->SetPoints(newPoints);
+                newPicker->Initialize();
+
+                double w1 = 0.0, w2 = 0.0;
+                // 计算原始网格的表面积
+                for (int i = 0; i < oldMesh->GetNumberOfFaces(); i++) {
+                    igIndex f[3]{};
+                    oldMesh->GetFacePointIds(i, f);
+                    Point v0 = oldMesh->GetPoint(f[0]);
+                    Point v1 = oldMesh->GetPoint(f[1]);
+                    Point v2 = oldMesh->GetPoint(f[2]);
+
+                    Vector3f d10 = v1 - v0;
+                    Vector3f d20 = v2 - v0;
+
+                    w1 += CrossProduct(d10, d20).norm() / 2.0;
+                }
+
+                double d1 = 0.0, d2 = 0.0;
+                double d3 = 0.0, d4 = 0.0;
+
+                iGame::ProgressObserver* ProgressBar = iGame::ProgressObserver::Instance();
+                ProgressBar->UpdateProgress(0);
+                int blockNum = oldPoints->GetNumberOfPoints() / 100, progress = 0;
+                // 计算平均平方距离
+                for (int i = 0; i < oldPoints->GetNumberOfPoints(); i++) {
+                    if (i > progress * blockNum) {
+                        ProgressBar->UpdateProgress(progress * 0.01);
+                        progress++;
                     }
+                    auto p = oldPoints->GetPoint(i);
 
-                    obj = triangulation->GetOutput();
-
-                    MeshSimplificationFilter::Pointer filter = MeshSimplificationFilter::New();
-                    filter->SetTargetReduction(1 - dialog->getDouble(reductionId, ok));
-                    filter->SetPreserveBoundary(dialog->getChecked(preserveId, ok));
-                    filter->SetAllScalarCheck(dialog->getChecked(scalarId, ok));
-                    filter->SetInput(obj);
-
-                    ok = filter->Execute();
-
-                    if (!ok) {
-                        result = QStringLiteral("执行出错");
-                        showDarkFramelessMessage(QStringLiteral("执行出错"), result);
-                        dialog->close();
-                        return;
+                    igIndex id = newPicker->FindClosestPoint(p);
+                    if (id != -1) {
+                        Point cp = newPoints->GetPoint(id);
+                        d1 += (p - cp).squaredNorm();
+                        d3 += (p - cp).norm();
                     }
+                }
 
-                    auto oldMesh = DynamicCast<SurfaceMesh>(obj);
-                    auto outObj = filter->GetOutput();
-                    auto newMesh = DynamicCast<SurfaceMesh>(outObj);
-                    auto oldPoints = oldMesh->GetPoints();
-                    auto newPoints = newMesh->GetPoints();
+                double d = 1.0 / w1 * d1 /*+ 1.0 / w2 * d2*/;
+                double dd = 1.0 / oldPoints->GetNumberOfPoints() * d3 /*+ 1.0 / newPoints->GetNumberOfPoints() * d4*/;
 
+                result += "\n几何相似性度量";
+                result += "\n Squared Mean Distance: " + QString::number(d);
+                result += "\n Mean Distance: " + QString::number(dd);
+                result += "\nSquared Mean Distance: " + QString::number(d * 100) + "%";
+                result += "\nMean Distance: " + QString::number(dd / oldMesh->GetBoundingBox().diag() * 100) + "%";
+                result += "\n\n累计几何误差: " + QString::number(filter->GetError());
+            } else {
+                result += "\n累计几何误差: " + QString::number(filter->GetError());
+            }
 
-                    if (dialog->getChecked(checkId, ok)) {
-                        PointFinder::Pointer newPicker = PointFinder::New();
-                        newPicker->SetPoints(newPoints);
-                        newPicker->Initialize();
+            modelTreeWidget->addDataObjectToModelTree(outObj, Algorithm);
+            rendererWidget->update();
 
-                        double w1 = 0.0, w2 = 0.0;
-                        // 计算原始网格的表面积
-                        for (int i = 0; i < oldMesh->GetNumberOfFaces(); i++) {
-                            igIndex f[3]{};
-                            oldMesh->GetFacePointIds(i, f);
-                            Point v0 = oldMesh->GetPoint(f[0]);
-                            Point v1 = oldMesh->GetPoint(f[1]);
-                            Point v2 = oldMesh->GetPoint(f[2]);
+            // QMessageBox::information(this, "简化成功", result);
+            dialog->close();
+        });
+    });
 
-                            Vector3f d10 = v1 - v0;
-                            Vector3f d20 = v2 - v0;
+    connect(mesh_processing->addAction(QStringLiteral("快速表面简化 (Fast Surface Simplification)")), &QAction::triggered, this, [&](bool checked) {
+        if (rendererWidget->GetScene() == nullptr
+            || rendererWidget->GetScene()->GetCurrentModel() == nullptr) {
+            return;
+        }
 
-                            w1 += CrossProduct(d10, d20).norm() / 2.0;
-                        }
+        igQtFilterDialogDockWidget* dialog = new igQtFilterDialogDockWidget(this, true);
+        dialog->setFilterTitle(QStringLiteral("快速表面简化"));
+        int reductionId =
+                dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, QStringLiteral("目标简化比例 (0..1)"), "0.5");
+        int faceCountId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, QStringLiteral("目标面数"), "0");
 
-                        double d1 = 0.0, d2 = 0.0;
-                        double d3 = 0.0, d4 = 0.0;
+        int preserveId =
+                dialog->addParameter(igQtFilterDialogDockWidget::QT_CHECK_BOX, QStringLiteral("保留网格边界"), "true");
+        //int scalarId = dialog->addParameter(igQtFilterDialogDockWidget::QT_CHECK_BOX, QStringLiteral("检查网格全部标量"),
+        //                                    "true");
 
-                        iGame::ProgressObserver* ProgressBar = iGame::ProgressObserver::Instance();
-                        ProgressBar->UpdateProgress(0);
-                        int blockNum = oldPoints->GetNumberOfPoints() / 100, progress = 0;
-                        // 计算平均平方距离
-                        for (int i = 0; i < oldPoints->GetNumberOfPoints(); i++) {
-                            if (i > progress * blockNum) {
-                                ProgressBar->UpdateProgress(progress * 0.01);
-                                progress++;
-                            }
-                            auto p = oldPoints->GetPoint(i);
+        tuneMeshSimplifyFilterDialog(dialog);
+        dialog->show();
+        dialog->setApplyFunctor([=, this]() {
+            bool ok;
+            QString result = "";
 
-                            igIndex id = newPicker->FindClosestPoint(p);
-                            if (id != -1) {
-                                Point cp = newPoints->GetPoint(id);
-                                d1 += (p - cp).squaredNorm();
-                                d3 += (p - cp).norm();
-                            }
-                        }
+            if (rendererWidget->GetScene() == nullptr
+                || rendererWidget->GetScene()->GetCurrentModel() == nullptr) {
+                showDarkFramelessMessage(QStringLiteral("无可用模型"), QStringLiteral("请先加载并选择模型。"));
+                dialog->close();
+                return;
+            }
+            auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+            if (obj == nullptr) {
+                showDarkFramelessMessage(QStringLiteral("无可用模型"), QStringLiteral("当前模型没有可用数据。"));
+                dialog->close();
+                return;
+            }
 
-                        double d = 1.0 / w1 * d1 /*+ 1.0 / w2 * d2*/;
-                        double dd = 1.0 / oldPoints->GetNumberOfPoints() *
-                                    d3 /*+ 1.0 / newPoints->GetNumberOfPoints() * d4*/;
+            MeshSimplificationFilterPro::Pointer filter = MeshSimplificationFilterPro::New();
+            filter->SetInput(obj);
+            filter->SetTargetReduction(dialog->getDouble(reductionId, ok));
+            filter->SetTargetFaceCount(dialog->getInt(faceCountId, ok));
+            filter->SetPreserveBoundary(dialog->getChecked(preserveId, ok));
+            filter->SetFreeze(true);
+            filter->SetTransformToCellData(true);
+            ok = filter->Execute();
 
-                        result += "\n几何相似性度量";
-                        result += "\n Squared Mean Distance: " + QString::number(d);
-                        result += "\n Mean Distance: " + QString::number(dd);
-                        result += "\nSquared Mean Distance: " + QString::number(d * 100) + "%";
-                        result += "\nMean Distance: " + QString::number(dd / oldMesh->GetBoundingBox().diag() * 100) +
-                                  "%";
-                        result += "\n\n累计几何误差: " + QString::number(filter->GetError());
+            if (!ok) {
+                result = QStringLiteral("算法执行错误");
+                showDarkFramelessMessage(QStringLiteral("执行出错"), result);
+                dialog->close();
+                return;
+            }
+
+            auto new_mesh = filter->GetOutput(0);
+            if (new_mesh == nullptr) {
+                showDarkFramelessMessage(QStringLiteral("执行出错"), QStringLiteral("算法未产生有效结果。"));
+                dialog->close();
+                return;
+            }
+            modelTreeWidget->addDataObjectToModelTree(new_mesh, Algorithm);
+            rendererWidget->update();
+            // QMessageBox::information(this, "执行成功", result);
+            dialog->close();
+        });
+    });
+
+    connect(mesh_processing->addAction(QStringLiteral("表面简化 (Surface Simplification)")),
+        &QAction::triggered, this, [&](bool checked) {
+        auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+
+        SurfaceMesh::Pointer mesh;
+        if (obj->GetDataObjectType() == IG_SURFACE_MESH) {
+            mesh = DynamicCast<SurfaceMesh>(obj);
+        } else if (obj->GetDataObjectType() == IG_UNSTRUCTURED_MESH) {
+            mesh = DynamicCast<UnstructuredMesh>(obj)->TransferToSurfaceMesh();
+        }
+
+        MeshTriangulationFilter::Pointer triangulation = MeshTriangulationFilter::New();
+        triangulation->SetInput(mesh);
+        if (!triangulation->Execute()) return false;
+        mesh = DynamicCast<SurfaceMesh>(triangulation->GetOutput());
+
+        igQtFilterDialogDockWidget* dialog = new igQtFilterDialogDockWidget(this);
+        int reductionId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "Reduction (0..1)", "0.05");
+        int faceCountId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "Target Face Count", "0");
+
+        dialog->show();
+        dialog->setApplyFunctor([=, this]() {
+            bool ok;
+            QString result = "";
+
+            std::vector<FVector> V;
+            std::vector<int> F;
+            std::vector<std::vector<float>> A;
+            std::vector<float> AW;
+
+            float minv[3] = {FLT_MAX, FLT_MAX, FLT_MAX};
+            float maxv[3] = {-FLT_MAX, -FLT_MAX, -FLT_MAX};
+
+            for (size_t i = 0; i < mesh->GetNumberOfPoints(); ++i) {
+                auto& v = mesh->GetPoint(i);
+
+                V.push_back({v[0], v[1], v[2]});
+
+                for (int j = 0; j < 3; ++j) {
+                    float vj = v[j];
+
+                    minv[j] = minv[j] > vj ? vj : minv[j];
+                    maxv[j] = maxv[j] < vj ? vj : maxv[j];
+                }
+            }
+
+            float extent = 0.f;
+
+            extent = (maxv[0] - minv[0]) < extent ? extent : (maxv[0] - minv[0]);
+            extent = (maxv[1] - minv[1]) < extent ? extent : (maxv[1] - minv[1]);
+            extent = (maxv[2] - minv[2]) < extent ? extent : (maxv[2] - minv[2]);
+
+            float scale = extent == 0 ? 0.f : 1.f / extent;
+
+            for (size_t i = 0; i < mesh->GetNumberOfPoints(); ++i) {
+                V[i].x = (V[i].x - minv[0]) * scale;
+                V[i].y = (V[i].y - minv[1]) * scale;
+                V[i].z = (V[i].z - minv[2]) * scale;
+            }
+
+            igIndex ids[3];
+            for (int i = 0; i < mesh->GetNumberOfFaces(); i++) {
+                mesh->GetFacePointIds(i, ids);
+                F.push_back(ids[0]);
+                F.push_back(ids[1]);
+                F.push_back(ids[2]);
+            }
+
+            for (int i = 0; i < mesh->GetAttributeSet()->GetNumberOfAttributes(); i++) {
+                auto& attr = mesh->GetAttributeSet()->GetAttribute(i);
+                int dim = attr.pointer->GetDimension();
+                for (int d = 0; d < dim; d++) {
+                    double val_max = -FLT_MAX;
+                    double val_min = FLT_MAX;
+                    for (size_t j = 0; j < mesh->GetNumberOfPoints(); j++) {
+                        double val = attr.pointer->GetValue(j * dim + d);
+                        val_max = val_max < val ? val : val_max;
+                        val_min = val_min > val ? val : val_min;
+                    }
+                    if (val_min == val_max) {
+                        std::vector<float> data(mesh->GetNumberOfPoints(), 0.f);
+                        A.push_back(std::move(data));
+                        AW.push_back(0.f);
                     } else {
-                        result += "\n累计几何误差: " + QString::number(filter->GetError());
-                    }
-
-                    modelTreeWidget->addDataObjectToModelTree(outObj, Algorithm);
-                    rendererWidget->update();
-
-                    // QMessageBox::information(this, "简化成功", result);
-                    dialog->close();
-                });
-            });
-
-    connect(mesh_processing->addAction(QStringLiteral("快速表面简化 (Fast Surface Simplification)")),
-            &QAction::triggered, this, [&](bool checked) {
-                if (rendererWidget->GetScene() == nullptr || rendererWidget->GetScene()->GetCurrentModel() == nullptr) {
-                    return;
-                }
-
-                igQtFilterDialogDockWidget* dialog = new igQtFilterDialogDockWidget(this, true);
-                dialog->setFilterTitle(QStringLiteral("快速表面简化"));
-                int reductionId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT,
-                                                       QStringLiteral("目标简化比例 (0..1)"), "0.5");
-                int faceCountId =
-                        dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, QStringLiteral("目标面数"), "0");
-
-                int preserveId = dialog->addParameter(igQtFilterDialogDockWidget::QT_CHECK_BOX,
-                                                      QStringLiteral("保留网格边界"), "true");
-                //int scalarId = dialog->addParameter(igQtFilterDialogDockWidget::QT_CHECK_BOX, QStringLiteral("检查网格全部标量"),
-                //                                    "true");
-
-                tuneMeshSimplifyFilterDialog(dialog);
-                dialog->show();
-                dialog->setApplyFunctor([=, this]() {
-                    bool ok;
-                    QString result = "";
-
-                    if (rendererWidget->GetScene() == nullptr ||
-                        rendererWidget->GetScene()->GetCurrentModel() == nullptr) {
-                        showDarkFramelessMessage(QStringLiteral("无可用模型"), QStringLiteral("请先加载并选择模型。"));
-                        dialog->close();
-                        return;
-                    }
-                    auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
-                    if (obj == nullptr) {
-                        showDarkFramelessMessage(QStringLiteral("无可用模型"),
-                                                 QStringLiteral("当前模型没有可用数据。"));
-                        dialog->close();
-                        return;
-                    }
-
-                    MeshSimplificationFilterPro::Pointer filter = MeshSimplificationFilterPro::New();
-                    filter->SetInput(obj);
-                    filter->SetTargetReduction(dialog->getDouble(reductionId, ok));
-                    filter->SetTargetFaceCount(dialog->getInt(faceCountId, ok));
-                    filter->SetPreserveBoundary(dialog->getChecked(preserveId, ok));
-                    filter->SetFreeze(true);
-                    filter->SetTransformToCellData(true);
-                    ok = filter->Execute();
-
-                    if (!ok) {
-                        result = QStringLiteral("算法执行错误");
-                        showDarkFramelessMessage(QStringLiteral("执行出错"), result);
-                        dialog->close();
-                        return;
-                    }
-
-                    auto new_mesh = filter->GetOutput(0);
-                    if (new_mesh == nullptr) {
-                        showDarkFramelessMessage(QStringLiteral("执行出错"), QStringLiteral("算法未产生有效结果。"));
-                        dialog->close();
-                        return;
-                    }
-                    modelTreeWidget->addDataObjectToModelTree(new_mesh, Algorithm);
-                    rendererWidget->update();
-                    // QMessageBox::information(this, "执行成功", result);
-                    dialog->close();
-                });
-            });
-
-    connect(mesh_processing->addAction(QStringLiteral("表面简化 (Surface Simplification)")), &QAction::triggered, this,
-            [&](bool checked) {
-                auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
-
-                SurfaceMesh::Pointer mesh;
-                if (obj->GetDataObjectType() == IG_SURFACE_MESH) {
-                    mesh = DynamicCast<SurfaceMesh>(obj);
-                } else if (obj->GetDataObjectType() == IG_UNSTRUCTURED_MESH) {
-                    mesh = DynamicCast<UnstructuredMesh>(obj)->TransferToSurfaceMesh();
-                }
-
-                MeshTriangulationFilter::Pointer triangulation = MeshTriangulationFilter::New();
-                triangulation->SetInput(mesh);
-                if (!triangulation->Execute()) return false;
-                mesh = DynamicCast<SurfaceMesh>(triangulation->GetOutput());
-
-                igQtFilterDialogDockWidget* dialog = new igQtFilterDialogDockWidget(this);
-                int reductionId =
-                        dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "Reduction (0..1)", "0.05");
-                int faceCountId =
-                        dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, "Target Face Count", "0");
-
-                dialog->show();
-                dialog->setApplyFunctor([=, this]() {
-                    bool ok;
-                    QString result = "";
-
-                    std::vector<FVector> V;
-                    std::vector<int> F;
-                    std::vector<std::vector<float>> A;
-                    std::vector<float> AW;
-
-                    float minv[3] = {FLT_MAX, FLT_MAX, FLT_MAX};
-                    float maxv[3] = {-FLT_MAX, -FLT_MAX, -FLT_MAX};
-
-                    for (size_t i = 0; i < mesh->GetNumberOfPoints(); ++i) {
-                        auto& v = mesh->GetPoint(i);
-
-                        V.push_back({v[0], v[1], v[2]});
-
-                        for (int j = 0; j < 3; ++j) {
-                            float vj = v[j];
-
-                            minv[j] = minv[j] > vj ? vj : minv[j];
-                            maxv[j] = maxv[j] < vj ? vj : maxv[j];
+                        std::vector<float> data;
+                        for (size_t j = 0; j < mesh->GetNumberOfPoints(); j++) {
+                            data.push_back(attr.pointer->GetValue(j * dim + d));
                         }
+                        //for (size_t j = 0; j < mesh->GetNumberOfPoints(); j++) {
+                        //    data.push_back((attr.pointer->GetValue(j * dim + d)));
+                        //}
+                        A.push_back(std::move(data));
+                        AW.push_back(1.0f / (val_max - val_min));
                     }
-
-                    float extent = 0.f;
-
-                    extent = (maxv[0] - minv[0]) < extent ? extent : (maxv[0] - minv[0]);
-                    extent = (maxv[1] - minv[1]) < extent ? extent : (maxv[1] - minv[1]);
-                    extent = (maxv[2] - minv[2]) < extent ? extent : (maxv[2] - minv[2]);
-
-                    float scale = extent == 0 ? 0.f : 1.f / extent;
-
-                    for (size_t i = 0; i < mesh->GetNumberOfPoints(); ++i) {
-                        V[i].x = (V[i].x - minv[0]) * scale;
-                        V[i].y = (V[i].y - minv[1]) * scale;
-                        V[i].z = (V[i].z - minv[2]) * scale;
-                    }
-
-                    igIndex ids[3];
-                    for (int i = 0; i < mesh->GetNumberOfFaces(); i++) {
-                        mesh->GetFacePointIds(i, ids);
-                        F.push_back(ids[0]);
-                        F.push_back(ids[1]);
-                        F.push_back(ids[2]);
-                    }
-
-                    for (int i = 0; i < mesh->GetAttributeSet()->GetNumberOfAttributes(); i++) {
-                        auto& attr = mesh->GetAttributeSet()->GetAttribute(i);
-                        int dim = attr.pointer->GetDimension();
-                        for (int d = 0; d < dim; d++) {
-                            double val_max = -FLT_MAX;
-                            double val_min = FLT_MAX;
-                            for (size_t j = 0; j < mesh->GetNumberOfPoints(); j++) {
-                                double val = attr.pointer->GetValue(j * dim + d);
-                                val_max = val_max < val ? val : val_max;
-                                val_min = val_min > val ? val : val_min;
-                            }
-                            if (val_min == val_max) {
-                                std::vector<float> data(mesh->GetNumberOfPoints(), 0.f);
-                                A.push_back(std::move(data));
-                                AW.push_back(0.f);
-                            } else {
-                                std::vector<float> data;
-                                for (size_t j = 0; j < mesh->GetNumberOfPoints(); j++) {
-                                    data.push_back(attr.pointer->GetValue(j * dim + d));
-                                }
-                                //for (size_t j = 0; j < mesh->GetNumberOfPoints(); j++) {
-                                //    data.push_back((attr.pointer->GetValue(j * dim + d)));
-                                //}
-                                A.push_back(std::move(data));
-                                AW.push_back(1.0f / (val_max - val_min));
-                            }
-                        }
-                    }
-
-                    clock_t start = clock();
-                    MeshSaliencyCalculator saliencyCalculator(V, F);
-                    saliencyCalculator.Execute();
-
-                    MeshSimplifierWithAttributes simplifier(V, F, A, AW, saliencyCalculator.NormalCurvature,
-                                                            dialog->getDouble(reductionId, ok));
-
-                    simplifier.SetUseVertexImportance(false);
-                    simplifier.SetUseDynamicAttributePenalty(true);
-
-                    simplifier.IsOptimizedPosition = true;
-                    simplifier.Execute();
-
-                    clock_t end = clock();
-                    std::cout << "Time taken: " << double(end - start) / CLOCKS_PER_SEC << " seconds." << std::endl;
-
-
-                    auto newMesh = SurfaceMesh::New();
-                    for (const auto& v: V) {
-                        newMesh->AddPoint(
-                                Point(v.x * extent + minv[0], v.y * extent + minv[1], v.z * extent + minv[2]));
-                    }
-                    //for (const auto& v: V) {
-                    //    newMesh->AddPoint(Point(v.x, v.y, v.z));
-                    //}
-                    auto CellArray = CellArray::New();
-                    for (int i = 0; i < F.size() / 3; i++) {
-                        CellArray->AddCellId3(F[i * 3], F[i * 3 + 1], F[i * 3 + 2]);
-                    }
-                    newMesh->SetFaces(CellArray);
-
-                    int count = 0;
-                    auto Attributes = AttributeSet::New();
-                    for (int i = 0; i < mesh->GetAttributeSet()->GetNumberOfAttributes(); i++) {
-                        auto& attr = mesh->GetAttributeSet()->GetAttribute(i);
-                        int dim = attr.pointer->GetDimension();
-                        auto arr = FloatArray::New();
-                        arr->SetDimension(dim);
-                        arr->Resize(mesh->GetNumberOfPoints());
-                        arr->SetName(attr.pointer->GetName());
-
-                        for (int d = 0; d < dim; d++) {
-                            for (size_t j = 0; j < mesh->GetNumberOfPoints(); j++) {
-                                arr->SetValue(j * dim + d, A[count + d][j]);
-                            }
-                        }
-                        count += dim;
-
-                        Attributes->AddAttribute(attr.type, attr.attachmentType, arr);
-                    }
-                    newMesh->SetAttributeSet(Attributes);
-
-                    modelTreeWidget->addDataObjectToModelTree(newMesh, Algorithm);
-                    rendererWidget->update();
-                    dialog->close();
-                });
-            });
-
-    connect(mesh_processing->addAction(QStringLiteral("表面三角化 (Surface Triangulation)")), &QAction::triggered, this,
-            [&](bool checked) {
-                auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
-
-                MeshTriangulationFilter::Pointer triangulation = MeshTriangulationFilter::New();
-                triangulation->SetInput(obj);
-                if (triangulation->Execute()) {
-                    auto mesh = DynamicCast<SurfaceMesh>(triangulation->GetOutput());
-
-                    modelTreeWidget->addDataObjectToModelTree(mesh, Algorithm);
-                    rendererWidget->update();
                 }
-            });
+            }
 
-    connect(mesh_processing->addAction(QStringLiteral("表面提取 (Surface Extraction)")), &QAction::triggered, this,
-            [&](bool checked) {
-                if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
-                auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
-                if (!obj) return;
+            clock_t start = clock();
+            MeshSaliencyCalculator saliencyCalculator(V, F);
+            saliencyCalculator.Execute();
 
-                auto filter = ConvertToSurfaceMeshFilter::New();
-                filter->SetInput(obj);
-                filter->SetConvertMethod(ConvertToSurfaceMeshFilter::IG_EXTRACT_SURFACE_MESH);
-                if (!filter->Execute()) {
-                    showDarkFramelessMessage(QStringLiteral("Warning"), QStringLiteral("当前数据类型不支持表面提取。"));
-                    return;
-                }
+            MeshSimplifierWithAttributes simplifier(V, F, A, AW, saliencyCalculator.NormalCurvature,
+                                                    dialog->getDouble(reductionId, ok));
 
-                auto surface = filter->GetSurfaceMesh();
-                if (!surface) {
-                    showDarkFramelessMessage(QStringLiteral("Warning"), QStringLiteral("表面提取失败。"));
-                    return;
-                }
-                if (surface.GetPointer() == obj.GetPointer()) {
-                    showDarkFramelessMessage(QStringLiteral("Warning"),
-                                             QStringLiteral("当前模型已经是表面网格，无需提取。"));
-                    return;
-                }
-                if (surface->GetNumberOfFaces() == 0) {
-                    showDarkFramelessMessage(QStringLiteral("Warning"),
-                                             QStringLiteral("提取结果为空，当前模型没有可提取的表面单元。"));
-                    return;
-                }
+            simplifier.SetUseVertexImportance(false);
+            simplifier.SetUseDynamicAttributePenalty(true);
 
-                surface->SetName(obj->GetName() + "_surface");
-                modelTreeWidget->addDataObjectToModelTree(surface, Algorithm);
-                rendererWidget->update();
-            });
+            simplifier.IsOptimizedPosition = true;
+            simplifier.Execute();
+
+            clock_t end = clock();
+            std::cout << "Time taken: " << double(end - start) / CLOCKS_PER_SEC << " seconds." << std::endl;
+
+
+            auto newMesh = SurfaceMesh::New();
+            for (const auto& v: V) {
+                newMesh->AddPoint(Point(v.x * extent + minv[0], v.y * extent + minv[1], v.z * extent + minv[2]));
+            }
+            //for (const auto& v: V) {
+            //    newMesh->AddPoint(Point(v.x, v.y, v.z));
+            //}
+            auto CellArray = CellArray::New();
+            for (int i = 0; i < F.size() / 3; i++) { CellArray->AddCellId3(F[i * 3], F[i * 3 + 1], F[i * 3 + 2]); }
+            newMesh->SetFaces(CellArray);
+
+            int count = 0;
+            auto Attributes = AttributeSet::New();
+            for (int i = 0; i < mesh->GetAttributeSet()->GetNumberOfAttributes(); i++) {
+                auto& attr = mesh->GetAttributeSet()->GetAttribute(i);
+                int dim = attr.pointer->GetDimension();
+                auto arr = FloatArray::New();
+                arr->SetDimension(dim);
+                arr->Resize(mesh->GetNumberOfPoints());
+                arr->SetName(attr.pointer->GetName());
+
+                for (int d = 0; d < dim; d++) {
+                    for (size_t j = 0; j < mesh->GetNumberOfPoints(); j++) {
+                        arr->SetValue(j * dim + d, A[count + d][j]);
+                    }
+                }
+                count += dim;
+
+                Attributes->AddAttribute(attr.type, attr.attachmentType, arr);
+            }
+            newMesh->SetAttributeSet(Attributes);
+
+            modelTreeWidget->addDataObjectToModelTree(newMesh, Algorithm);
+            rendererWidget->update();
+            dialog->close();
+        });
+    });
+
+    connect(mesh_processing->addAction(QStringLiteral("表面三角化 (Surface Triangulation)")), &QAction::triggered, this, [&](bool checked) {
+        auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+
+        MeshTriangulationFilter::Pointer triangulation = MeshTriangulationFilter::New();
+        triangulation->SetInput(obj);
+        if (triangulation->Execute()) {
+            auto mesh = DynamicCast<SurfaceMesh>(triangulation->GetOutput());
+
+            modelTreeWidget->addDataObjectToModelTree(mesh, Algorithm);
+            rendererWidget->update();
+        }
+    });
+
+    connect(mesh_processing->addAction(QStringLiteral("表面提取 (Surface Extraction)")), &QAction::triggered, this, [&](bool checked) {
+        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
+        auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+        if (!obj) return;
+
+        auto filter = ConvertToSurfaceMeshFilter::New();
+        filter->SetInput(obj);
+        filter->SetConvertMethod(ConvertToSurfaceMeshFilter::IG_EXTRACT_SURFACE_MESH);
+        if (!filter->Execute()) {
+            showDarkFramelessMessage(QStringLiteral("Warning"),
+                                     QStringLiteral("当前数据类型不支持表面提取。"));
+            return;
+        }
+
+        auto surface = filter->GetSurfaceMesh();
+        if (!surface) {
+            showDarkFramelessMessage(QStringLiteral("Warning"), QStringLiteral("表面提取失败。"));
+            return;
+        }
+        if (surface.GetPointer() == obj.GetPointer()) {
+            showDarkFramelessMessage(QStringLiteral("Warning"),
+                                     QStringLiteral("当前模型已经是表面网格，无需提取。"));
+            return;
+        }
+        if (surface->GetNumberOfFaces() == 0) {
+            showDarkFramelessMessage(QStringLiteral("Warning"),
+                                     QStringLiteral("提取结果为空，当前模型没有可提取的表面单元。"));
+            return;
+        }
+
+        surface->SetName(obj->GetName() + "_surface");
+        modelTreeWidget->addDataObjectToModelTree(surface, Algorithm);
+        rendererWidget->update();
+    });
 
     //connect(mesh_processing->addAction("Test"), &QAction::triggered, this, [&](bool checked) {
     //    auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
@@ -1617,7 +1645,7 @@ void igQtMainWindow::initAllFilters() {
     //    rendererWidget->update();
     //});
 
-    //connect(mesh_processing->addAction("Test2"), &QAction::triggered, this, [&](bool checked) {
+    //connect(mesh_processing->addAction("Test2"), &QAction::triggered, this, [&](bool checked) { 
     //    auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
 
     //    auto filter = iGame::VolumeMeshMetricsFilter::New();
@@ -1628,59 +1656,57 @@ void igQtMainWindow::initAllFilters() {
     //    modelTreeWidget->addDataObjectToModelTree(filter->GetOutput(), Algorithm);
     //    rendererWidget->update();
     //    });
-    //connect(mesh_processing->addAction("Test3"), &QAction::triggered, this, [&](bool checked)
-    //    {
+    //connect(mesh_processing->addAction("Test3"), &QAction::triggered, this, [&](bool checked) 
+    //    { 
     //        CellArray::Pointer cellArray = CellArray::New();
     //        clock_t start = clock();
     //        igIndex cell[3]{};
     //        cellArray->AddCellIds(cell, 2);
-    //        for (int i = 0; i < 10000000; i++) {
+    //        for (int i = 0; i < 10000000; i++) { 
     //            cellArray->AddCellIds(cell, 3);
     //        }
     //        clock_t end = clock();
     //        std::cout << end - start << std::endl;
 
     //    });
-    connect(ui->menu_filters->addAction(QStringLiteral("单元几何中心 (Cell Center)")), &QAction::triggered, this,
-            [this](bool) {
-                auto currentModel = rendererWidget->GetScene()->GetCurrentModel();
-                if (!currentModel) return;
+    connect(ui->menu_filters->addAction(QStringLiteral("单元几何中心 (Cell Center)")), &QAction::triggered,
+            this, [this](bool) {
+        auto currentModel = rendererWidget->GetScene()->GetCurrentModel();
+        if (!currentModel) return;
 
-                auto obj = currentModel->GetDataObject();
-                CellCenterFilter::Pointer filter = CellCenterFilter::New();
-                filter->SetInput(obj);
-                if (!filter->Execute()) {
-                    showDarkFramelessMessage(QStringLiteral("执行失败"),
-                                             QStringLiteral("当前模型没有单元/顶点数据，或执行出错"));
-                    return;
-                }
+        auto obj = currentModel->GetDataObject();
+        CellCenterFilter::Pointer filter = CellCenterFilter::New();
+        filter->SetInput(obj);
+        if (!filter->Execute()) {
+            showDarkFramelessMessage(QStringLiteral("执行失败"),
+                                     QStringLiteral("当前模型没有单元/顶点数据，或执行出错"));
+            return;
+        }
 
-                modelTreeWidget->addDataObjectToModelTree(filter->GetOutput(), Algorithm);
-                rendererWidget->update();
-            });
+        modelTreeWidget->addDataObjectToModelTree(filter->GetOutput(), Algorithm);
+        rendererWidget->update();
+    });
     QMenu* convert = ui->menu_filters->addMenu(QStringLiteral("数据转换 (Convert)"));
-    connect(convert->addAction(QStringLiteral("转换为点数据 (Convert To PointData)")), &QAction::triggered, this,
-            [&](bool checked) {
-                if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
-                auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
-                ConvertToPointDataFilter::Pointer filter = ConvertToPointDataFilter::New();
-                filter->SetInput(obj);
-                if (filter->Execute()) {
-                    modelTreeWidget->addDataObjectToModelTree(filter->GetOutput(), Algorithm);
-                    rendererWidget->update();
-                }
-            });
-    connect(convert->addAction(QStringLiteral("转换为单元数据 (Convert To CellData)")), &QAction::triggered, this,
-            [&](bool checked) {
-                if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
-                auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
-                ConvertToCellDataFilter::Pointer filter = ConvertToCellDataFilter::New();
-                filter->SetInput(obj);
-                if (filter->Execute()) {
-                    modelTreeWidget->addDataObjectToModelTree(filter->GetOutput(), Algorithm);
-                    rendererWidget->update();
-                }
-            });
+    connect(convert->addAction(QStringLiteral("转换为点数据 (Convert To PointData)")), &QAction::triggered, this, [&](bool checked) {
+        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
+        auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+        ConvertToPointDataFilter::Pointer filter = ConvertToPointDataFilter::New();
+        filter->SetInput(obj);
+        if (filter->Execute()) {
+            modelTreeWidget->addDataObjectToModelTree(filter->GetOutput(), Algorithm);
+            rendererWidget->update();
+        }
+    });
+    connect(convert->addAction(QStringLiteral("转换为单元数据 (Convert To CellData)")), &QAction::triggered, this, [&](bool checked) {
+        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
+        auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+        ConvertToCellDataFilter::Pointer filter = ConvertToCellDataFilter::New();
+        filter->SetInput(obj);
+        if (filter->Execute()) {
+            modelTreeWidget->addDataObjectToModelTree(filter->GetOutput(), Algorithm);
+            rendererWidget->update();
+        }
+    });
 
 
     QMenu* view = ui->menu_filters->addMenu("特征提取");
@@ -1710,9 +1736,11 @@ void igQtMainWindow::initAllFilters() {
                     }
                 }
             }
-        } else {
+        }
+        else {
             std::string message = filter->GetMessage();
             showDarkFramelessMessage(QStringLiteral("Warning"), QString::fromStdString(message));
+
         }
     });
 
@@ -1741,7 +1769,8 @@ void igQtMainWindow::initAllFilters() {
                     }
                 }
             }
-        } else {
+        }
+        else {
             std::string message = filter->GetMessage();
             showDarkFramelessMessage(QStringLiteral("Warning"), QString::fromStdString(message));
         }
@@ -1772,7 +1801,8 @@ void igQtMainWindow::initAllFilters() {
                     }
                 }
             }
-        } else {
+        }
+        else {
             std::string message = filter->GetMessage();
             showDarkFramelessMessage(QStringLiteral("Warning"), QString::fromStdString(message));
         }
@@ -1819,7 +1849,8 @@ void igQtMainWindow::initAllFilters() {
                 }
             }
             if (attrName.empty()) {
-                showDarkFramelessMessage(QStringLiteral("Warning"), QStringLiteral("请先选择一个矢量属性"));
+                showDarkFramelessMessage(QStringLiteral("Warning"),
+                                         QStringLiteral("请先选择一个矢量属性"));
                 return;
             }
 
@@ -1827,13 +1858,16 @@ void igQtMainWindow::initAllFilters() {
             // 在这里声明诉求，可使后续任何 initAnimationComponents
             //（如选中属性触发 CurrendModelChanged）都不会把缓存关掉。
             ui->widget_Animation->setPreferredCacheNum(frameNum);
-            if (frames->GetMaxCacheSize() < static_cast<unsigned int>(frameNum)) { frames->EnableCache(frameNum); }
+            if (frames->GetMaxCacheSize() < static_cast<unsigned int>(frameNum)) {
+                frames->EnableCache(frameNum);
+            }
 
             // 只算当前帧；父容器属性登记、值域刷新与进度条都在该函数内部完成
             const int vortIndex = ui->widget_Animation->ensureVortexForCurrentFrame(data, attrName, 0);
 
             if (vortIndex < 0) {
-                showDarkFramelessMessage(QStringLiteral("Warning"), QStringLiteral("当前帧的涡量计算失败"));
+                showDarkFramelessMessage(QStringLiteral("Warning"),
+                                         QStringLiteral("当前帧的涡量计算失败"));
                 return;
             }
 
@@ -1895,6 +1929,7 @@ void igQtMainWindow::initAllFilters() {
                         child->setSelected(true);
                         modelTreeWidget->setCurrentItem(child);
                     }
+
                 }
             }
             // 显示指标
@@ -1967,7 +2002,7 @@ void igQtMainWindow::initAllFilters() {
             //     vortexMetricsLabel->clear();
             //     vortexMetricsLabel->hide();
             // }
-        } else {
+        }else {
             std::string message = filter->GetMessage();
             showDarkFramelessMessage(QStringLiteral("Warning"), QString::fromStdString(message));
         }
@@ -1985,40 +2020,7 @@ void igQtMainWindow::initAllFilters() {
             res->SetName(data->GetName());
             modelTreeWidget->addDataObjectToModelTree(res, Algorithm);
         }
-    });
-
-    QAction* LocationAttribute =
-            ui->menu_filters->addAction(QStringLiteral("附加点坐标到属性(AppendLocaitonAttribute)"));
-    connect(LocationAttribute, &QAction::triggered, this, [this](bool checked) {
-        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
-        AppendLocationAttribute::Pointer filter = AppendLocationAttribute::New();
-        auto data = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
-        filter->SetInput(data);
-        filter->SetAttributeByIndex(data->GetAttributeIndex());
-        int index = data->GetAttributeIndex();
-        if (filter->Execute()) {
-            modelTreeWidget->updateAllAttriubute(data);
-            auto drawObject = DynamicCast<DrawObject>(data);
-            if (drawObject) {
-                auto item = modelTreeWidget->getItemFromObject(data);
-                if (item && item->childCount() > 0) {
-                    item->setExpanded(true);
-                    auto child = item->child(index);
-                    if (child) {
-                        item->setCurrentChild(child);
-                        item->setSelected(false);
-                        item->viewAttribute(index, -1);
-                        child->setSelected(true);
-                        modelTreeWidget->setCurrentItem(child);
-                    }
-                }
-            }
-        } else {
-            std::string message = filter->GetMessage();
-            showDarkFramelessMessage(QStringLiteral("Warning"), QString::fromStdString(message));
-        }
-    });
-    QAction* passArrays = ui->menu_filters->addAction(QStringLiteral("传递过滤数据数组 (Pass Arrays)"));
+QAction* passArrays = ui->menu_filters->addAction(QStringLiteral("传递过滤数据数组 (Pass Arrays)"));
     connect(passArrays, &QAction::triggered, this, [this](bool) {
         auto model = rendererWidget->GetScene()->GetCurrentModel();
         if (!model) return;
@@ -2162,6 +2164,38 @@ void igQtMainWindow::initAllFilters() {
 
         dlg->show();
     });
+    });
+
+    QAction* LocationAttribute = ui->menu_filters->addAction(QStringLiteral("附加点坐标到属性(AppendLocaitonAttribute)"));
+    connect(LocationAttribute, &QAction::triggered, this, [this](bool checked) {
+        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
+        AppendLocationAttribute::Pointer filter = AppendLocationAttribute::New();
+        auto data = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+        filter->SetInput(data);
+        filter->SetAttributeByIndex(data->GetAttributeIndex());
+        int index = data->GetAttributeIndex();
+        if (filter->Execute()) {
+            modelTreeWidget->updateAllAttriubute(data);
+            auto drawObject = DynamicCast<DrawObject>(data);
+            if (drawObject) {
+                auto item = modelTreeWidget->getItemFromObject(data);
+                if (item && item->childCount() > 0) {
+                    item->setExpanded(true);
+                    auto child = item->child(index);
+                    if (child) {
+                        item->setCurrentChild(child);
+                        item->setSelected(false);
+                        item->viewAttribute(index, -1);
+                        child->setSelected(true);
+                        modelTreeWidget->setCurrentItem(child);
+                    }
+                }
+            }
+        } else {
+            std::string message = filter->GetMessage();
+            showDarkFramelessMessage(QStringLiteral("Warning"), QString::fromStdString(message));
+        }
+    });
 }
 
 void igQtMainWindow::initAllDockWidgetConnectWithAction() {
@@ -2174,8 +2208,7 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
     };
 
     connect(ui->action_IsShowColorBar, &QAction::triggered, this, &igQtMainWindow::updateColorBarShow);
-    connect(ui->action_ExportAnimation, &QAction::triggered, this,
-            [&](bool checked) { showAndRaiseDock(ui->dockWidget_Animation); });
+    connect(ui->action_ExportAnimation, &QAction::triggered, this, [&](bool checked) { showAndRaiseDock(ui->dockWidget_Animation); });
     connect(ui->action_SearchInfo, &QAction::triggered, this, [&](bool checked) {
         if (ui->dockWidget_SearchInfo) {
             ui->dockWidget_SearchInfo->show();
@@ -2191,10 +2224,14 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
             ui->widget_SearchInfo->setCurrentModel(rendererWidget->GetScene()->GetCurrentModel());
         });
     });
-    connect(ui->action_Scalar, &QAction::triggered, this, [this](bool) { openLeftToolPanel(LeftToolPanelId::Scalar); });
-    connect(ui->action_Vector, &QAction::triggered, this, [this](bool) { openLeftToolPanel(LeftToolPanelId::Vector); });
-    connect(ui->action_Glyph, &QAction::triggered, this, [this](bool) { openLeftToolPanel(LeftToolPanelId::Vector); });
-    connect(ui->action_Tensor, &QAction::triggered, this, [this](bool) { openLeftToolPanel(LeftToolPanelId::Tensor); });
+    connect(ui->action_Scalar, &QAction::triggered, this,
+            [this](bool) { openLeftToolPanel(LeftToolPanelId::Scalar); });
+    connect(ui->action_Vector, &QAction::triggered, this,
+            [this](bool) { openLeftToolPanel(LeftToolPanelId::Vector); });
+    connect(ui->action_Glyph, &QAction::triggered, this,
+            [this](bool) { openLeftToolPanel(LeftToolPanelId::Vector); });
+    connect(ui->action_Tensor, &QAction::triggered, this,
+            [this](bool) { openLeftToolPanel(LeftToolPanelId::Tensor); });
     connect(ui->action_ParallelCoordinates, &QAction::triggered, this, [&](bool checked) {
         auto model = rendererWidget->GetScene()->GetCurrentModel();
         if (model == nullptr) return;
@@ -2299,7 +2336,7 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
             // 弹出 IP/Port 配置对话框
             QSettings settings("iGame", "iGameVis");
             QString savedHost = settings.value("P3SAM/host", "127.0.0.1").toString();
-            int savedPort = settings.value("P3SAM/port", 8765).toInt();
+            int     savedPort = settings.value("P3SAM/port", 8765).toInt();
 
             igQtChromeFramelessDialog cfgDlg(this);
             cfgDlg.setDialogTitle(QStringLiteral("零件分割 - 服务器配置"));
@@ -2307,15 +2344,16 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
 
             auto* body = new QWidget(cfgDlg.contentHost());
             body->setAttribute(Qt::WA_StyledBackground, true);
-            body->setStyleSheet("QWidget { background-color: transparent; color: #EAEAEA; }"
-                                "QLabel { color: #D8D8D8; }"
-                                "QLineEdit { background-color: #2A2A2A; color: #EAEAEA; border: 1px solid #3A3A3A;"
-                                "            padding: 4px 6px; border-radius: 3px; }"
-                                "QLineEdit:focus { border: 1px solid #5A7FA8; }"
-                                "QPushButton { background-color: #2A2A2A; color: #EAEAEA; border: 1px solid #3A3A3A;"
-                                "              padding: 6px 16px; border-radius: 4px; }"
-                                "QPushButton:hover { background-color: #3A3A3A; }"
-                                "QPushButton:pressed { background-color: #252526; }");
+            body->setStyleSheet(
+                "QWidget { background-color: transparent; color: #EAEAEA; }"
+                "QLabel { color: #D8D8D8; }"
+                "QLineEdit { background-color: #2A2A2A; color: #EAEAEA; border: 1px solid #3A3A3A;"
+                "            padding: 4px 6px; border-radius: 3px; }"
+                "QLineEdit:focus { border: 1px solid #5A7FA8; }"
+                "QPushButton { background-color: #2A2A2A; color: #EAEAEA; border: 1px solid #3A3A3A;"
+                "              padding: 6px 16px; border-radius: 4px; }"
+                "QPushButton:hover { background-color: #3A3A3A; }"
+                "QPushButton:pressed { background-color: #252526; }");
 
             auto* form = new QFormLayout(body);
             form->setContentsMargins(12, 12, 12, 12);
@@ -2332,16 +2370,13 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
             cfgDlg.resize(300, 160);
 
             bool accepted = false;
-            QObject::connect(btns, &QDialogButtonBox::accepted, &cfgDlg, [&]() {
-                accepted = true;
-                cfgDlg.accept();
-            });
+            QObject::connect(btns, &QDialogButtonBox::accepted, &cfgDlg, [&]() { accepted = true; cfgDlg.accept(); });
             QObject::connect(btns, &QDialogButtonBox::rejected, &cfgDlg, &QDialog::reject);
             cfgDlg.exec();
             if (!accepted) return;
 
             QString host = hostEdit->text().trimmed();
-            int port = portEdit->text().toInt();
+            int     port = portEdit->text().toInt();
             if (host.isEmpty()) host = "127.0.0.1";
             settings.setValue("P3SAM/host", host);
             settings.setValue("P3SAM/port", port);
@@ -2362,15 +2397,17 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
             segmenter->SetInput(dataObj);
             segmenter->SetSimplificationRatio(0.1f);
             segmenter->SetPostProcess(false);
-            segmenter->SetTimeout(300000); // 5分钟超时
+            segmenter->SetTimeout(300000);  // 5分钟超时
 
             if (!segmenter->Execute()) {
-                std::cout << "[PartSegmentation] Segmentation failed: " << segmenter->GetErrorMessage() << std::endl;
+                std::cout << "[PartSegmentation] Segmentation failed: "
+                          << segmenter->GetErrorMessage() << std::endl;
                 return;
             }
 
             modelTreeWidget->updateAllAttriubute(dataObj);
-            std::cout << "[PartSegmentation] Segmentation complete! Parts: " << segmenter->GetPartCount() << std::endl;
+            std::cout << "[PartSegmentation] Segmentation complete! Parts: "
+                      << segmenter->GetPartCount() << std::endl;
         });
     }
     // 零件聚焦弹窗
@@ -2495,10 +2532,10 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
     connect(ui->action_FlowField, &QAction::triggered, this,
             [this](bool) { openLeftToolPanel(LeftToolPanelId::Flow); });
 
-    //    connect(ui->action_FlowField_2, &QAction::triggered, this, [&](bool checked) {
-    //        ui->dockWidget_FlowField->show();
-    //        ui->widget_FlowField->updateVectorNameList();
-    //    });
+//    connect(ui->action_FlowField_2, &QAction::triggered, this, [&](bool checked) {
+//        ui->dockWidget_FlowField->show();
+//        ui->widget_FlowField->updateVectorNameList();
+//    });
 
     //  connect(ui->action_EditMode, &QAction::triggered, this, [&](bool checked)
     //  {
@@ -2582,7 +2619,7 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         const float OVColor[3]{1.f, 1.f, 1.f};
         const float IVColor[3]{1.f, 1.f, 0.f};
         const float OIVColor[3]{1.f, 1.f, 1.f};
-        const float OIVAlpha = 0.2f;
+        const float OIVAlpha = 0.2f; 
 
         SurfaceMesh::Pointer IV = SurfaceMesh::New();
         OV->SetName(OVName);
@@ -2622,7 +2659,7 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         DrawSurfaceMeshByPointer(t_IV, IVModel->GetPainter3D(), IVColor);
 
         //OV->SetFaceColor(OVColor);
-        OV->SetViewStyle(IG_SURFACE | IG_WIREFRAME);
+        OV->SetViewStyle(IG_SURFACE | IG_WIREFRAME); 
         //IV->SetFaceColor(IVColor);
         //IV->SetViewStyle(IG_SURFACE | IG_WIREFRAME);
         //OIV->SetFaceColor(OIVColor);
@@ -2789,7 +2826,8 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         }
     });
     connect(ui->action_deformation, &QAction::triggered, this, [this](bool checked) {
-        if (checked) openLeftToolPanel(LeftToolPanelId::Deformation);
+        if (checked)
+            openLeftToolPanel(LeftToolPanelId::Deformation);
         else
             closeLeftToolPanel(LeftToolPanelId::Deformation);
     });
@@ -2797,28 +2835,17 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
 
 QDockWidget* igQtMainWindow::shellDockForLeftPanel(LeftToolPanelId id) const {
     switch (id) {
-        case LeftToolPanelId::Scalar:
-            return ui->dockWidget_ScalarField;
-        case LeftToolPanelId::Vector:
-            return ui->dockWidget_VectorField;
-        case LeftToolPanelId::Tensor:
-            return ui->dockWidget_TensorField;
-        case LeftToolPanelId::Flow:
-            return ui->dockWidget_FlowField;
-        case LeftToolPanelId::ContourExtract:
-            return ui->dockWidget_ContourExtract;
-        case LeftToolPanelId::Slice:
-            return SliceDockWidget;
-        case LeftToolPanelId::Deformation:
-            return DeformationDockWidget;
-        case LeftToolPanelId::Selection:
-            return ui->dockWidget_SelectionField;
-        case LeftToolPanelId::VariableDensity:
-            return ui->dockWidget_VariableDensityField;
-        case LeftToolPanelId::DataChange:
-            return ui->dockWidget_DataChangeField;
-        case LeftToolPanelId::Count:
-            return nullptr;
+    case LeftToolPanelId::Scalar: return ui->dockWidget_ScalarField;
+    case LeftToolPanelId::Vector: return ui->dockWidget_VectorField;
+    case LeftToolPanelId::Tensor: return ui->dockWidget_TensorField;
+    case LeftToolPanelId::Flow: return ui->dockWidget_FlowField;
+    case LeftToolPanelId::ContourExtract: return ui->dockWidget_ContourExtract;
+    case LeftToolPanelId::Slice: return SliceDockWidget;
+    case LeftToolPanelId::Deformation: return DeformationDockWidget;
+    case LeftToolPanelId::Selection: return ui->dockWidget_SelectionField;
+    case LeftToolPanelId::VariableDensity: return ui->dockWidget_VariableDensityField;
+    case LeftToolPanelId::DataChange: return ui->dockWidget_DataChangeField;
+    case LeftToolPanelId::Count: return nullptr;
     }
     return nullptr;
 }
@@ -2846,8 +2873,8 @@ void igQtMainWindow::applyLeftToolStackVerticalSplit() {
     resizeDocks({m_leftFieldDock, props}, {1, 1}, Qt::Vertical);
 }
 
-void igQtMainWindow::relocateContentToLeftTab(QDockWidget* shell, QWidget* inner, const QString& title,
-                                              LeftToolPanelId id, bool centerFlowField) {
+void igQtMainWindow::relocateContentToLeftTab(QDockWidget* shell, QWidget* inner, const QString& title, LeftToolPanelId id,
+                                              bool centerFlowField) {
     const int pid = static_cast<int>(id);
     if (!m_leftFieldTabs || !m_leftFieldDock || !inner) return;
     if (m_leftToolTabByPanel[static_cast<size_t>(pid)] >= 0) {
@@ -2887,48 +2914,43 @@ void igQtMainWindow::relocateContentToLeftTab(QDockWidget* shell, QWidget* inner
 
 void igQtMainWindow::openLeftToolPanel(LeftToolPanelId id) {
     switch (id) {
-        case LeftToolPanelId::Scalar:
-            relocateContentToLeftTab(ui->dockWidget_ScalarField, ui->widget_ScalarField, QStringLiteral("标量场"), id,
-                                     false);
-            break;
-        case LeftToolPanelId::Vector:
-            relocateContentToLeftTab(ui->dockWidget_VectorField, ui->widget_VectorField, QStringLiteral("矢量场"), id,
-                                     false);
-            ui->widget_VectorField->updateVectorNameList();
-            break;
-        case LeftToolPanelId::Tensor:
-            relocateContentToLeftTab(ui->dockWidget_TensorField, ui->widget_TensorField, QStringLiteral("张量场"), id,
-                                     false);
-            ui->widget_TensorField->InitTensorWidget();
-            break;
-        case LeftToolPanelId::Flow:
-            relocateContentToLeftTab(ui->dockWidget_FlowField, ui->widget_FlowField, QStringLiteral("流场"), id, true);
-            ui->widget_FlowField->updateVectorNameList();
-            break;
-        case LeftToolPanelId::ContourExtract:
-            relocateContentToLeftTab(ui->dockWidget_ContourExtract, ui->widget_ContourExtract,
-                                     QStringLiteral("轮廓提取"), id, false);
-            break;
-        case LeftToolPanelId::Slice:
-            relocateContentToLeftTab(SliceDockWidget, SliceWidget, QStringLiteral("网格切面"), id, false);
-            break;
-        case LeftToolPanelId::Deformation:
-            relocateContentToLeftTab(DeformationDockWidget, DeformationWidget, QStringLiteral("结构形变"), id, false);
-            break;
-        case LeftToolPanelId::Selection:
-            relocateContentToLeftTab(ui->dockWidget_SelectionField, ui->widget_SelectionField, QStringLiteral("选择"),
-                                     id, false);
-            break;
-        case LeftToolPanelId::VariableDensity:
-            relocateContentToLeftTab(ui->dockWidget_VariableDensityField, ui->widget_VariableDensityField,
-                                     QStringLiteral("变量数据密度"), id, false);
-            break;
-        case LeftToolPanelId::DataChange:
-            relocateContentToLeftTab(ui->dockWidget_DataChangeField, ui->widget_DataChangeField,
-                                     QStringLiteral("路径图"), id, false);
-            break;
-        case LeftToolPanelId::Count:
-            break;
+    case LeftToolPanelId::Scalar:
+        relocateContentToLeftTab(ui->dockWidget_ScalarField, ui->widget_ScalarField, QStringLiteral("标量场"), id, false);
+        break;
+    case LeftToolPanelId::Vector:
+        relocateContentToLeftTab(ui->dockWidget_VectorField, ui->widget_VectorField, QStringLiteral("矢量场"), id, false);
+        ui->widget_VectorField->updateVectorNameList();
+        break;
+    case LeftToolPanelId::Tensor:
+        relocateContentToLeftTab(ui->dockWidget_TensorField, ui->widget_TensorField, QStringLiteral("张量场"), id, false);
+        ui->widget_TensorField->InitTensorWidget();
+        break;
+    case LeftToolPanelId::Flow:
+        relocateContentToLeftTab(ui->dockWidget_FlowField, ui->widget_FlowField, QStringLiteral("流场"), id, true);
+        ui->widget_FlowField->updateVectorNameList();
+        break;
+    case LeftToolPanelId::ContourExtract:
+        relocateContentToLeftTab(ui->dockWidget_ContourExtract, ui->widget_ContourExtract, QStringLiteral("轮廓提取"), id, false);
+        break;
+    case LeftToolPanelId::Slice:
+        relocateContentToLeftTab(SliceDockWidget, SliceWidget, QStringLiteral("网格切面"), id, false);
+        break;
+    case LeftToolPanelId::Deformation:
+        relocateContentToLeftTab(DeformationDockWidget, DeformationWidget, QStringLiteral("结构形变"), id, false);
+        break;
+    case LeftToolPanelId::Selection:
+        relocateContentToLeftTab(ui->dockWidget_SelectionField, ui->widget_SelectionField, QStringLiteral("选择"), id, false);
+        break;
+    case LeftToolPanelId::VariableDensity:
+        relocateContentToLeftTab(ui->dockWidget_VariableDensityField, ui->widget_VariableDensityField,
+                                 QStringLiteral("变量数据密度"), id, false);
+        break;
+    case LeftToolPanelId::DataChange:
+        relocateContentToLeftTab(ui->dockWidget_DataChangeField, ui->widget_DataChangeField, QStringLiteral("路径图"), id,
+                                 false);
+        break;
+    case LeftToolPanelId::Count:
+        break;
     }
 }
 
@@ -2956,7 +2978,8 @@ void igQtMainWindow::closeLeftToolPanel(LeftToolPanelId id) {
     QDockWidget* shell = shellDockForLeftPanel(id);
     if (shell && inner) {
         shell->setWidget(inner);
-        if (id == LeftToolPanelId::Deformation) addDockWidget(Qt::RightDockWidgetArea, shell);
+        if (id == LeftToolPanelId::Deformation)
+            addDockWidget(Qt::RightDockWidgetArea, shell);
         else
             addDockWidget(Qt::LeftDockWidgetArea, shell);
         shell->hide();
@@ -2967,8 +2990,7 @@ void igQtMainWindow::closeLeftToolPanel(LeftToolPanelId id) {
     for (size_t i = 0; i < m_leftToolTabByPanel.size(); ++i) {
         int& t = m_leftToolTabByPanel[i];
         if (t == idx) t = -1;
-        else if (t > idx)
-            --t;
+        else if (t > idx) --t;
     }
     if (id == LeftToolPanelId::Slice && rendererWidget && rendererWidget->getInteractor() &&
         !rendererWidget->getInteractor()->IsBasicStyle()) {
@@ -2987,7 +3009,7 @@ void igQtMainWindow::initAllMySignalConnections() {
     connect(fileLoader, &igQtFileLoader::FinishReading, this, &igQtMainWindow::updateRecentFilePaths);
     connect(ui->action_DeleteMesh, &QAction::triggered, modelTreeWidget, &igQtModelDialogWidget::deleteCurrentModel);
 
-    connect(ui->action_DeleteMesh, &QAction::triggered, this, [&](bool) {
+    connect(ui->action_DeleteMesh, &QAction::triggered, this, [&](bool){
         if (vortexMetricsLabel) {
             vortexMetricsLabel->clear();
             vortexMetricsLabel->hide();
@@ -2999,8 +3021,9 @@ void igQtMainWindow::initAllMySignalConnections() {
     // &igQtFileLoader::FinishReading, this,
     // &igQtMainWindow::updateCurrentSceneWidget);
 
-    connect(fileLoader, &igQtFileLoader::FinishReading, ui->widget_Animation,
-            [&]() { ui->widget_Animation->initAnimationComponents(); });
+    connect(fileLoader, &igQtFileLoader::FinishReading, ui->widget_Animation, [&](){
+        ui->widget_Animation->initAnimationComponents();
+    });
     connect(fileLoader, &igQtFileLoader::FinishReading, DeformationWidget, &igQtDeformationWidget::updateInfo);
 
     connect(fileLoader, &igQtFileLoader::FinishReading, this, [&]() {
@@ -3035,14 +3058,16 @@ void igQtMainWindow::initAllMySignalConnections() {
     });
 
     connect(ui->widget_FlowField, &igQtStreamTracerWidget::AddStreamObject, this, [&](iGame::DataObject::Pointer res) {
-        streamTreeIndex = modelTreeWidget->addDataObjectToModelTree(res, ItemSource::Algorithm);
+        streamTreeIndex=modelTreeWidget->addDataObjectToModelTree(res, ItemSource::Algorithm);
         auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
         scene->GetCurrentModel()->SetViewWireframeSwitch(true);
     });
     connect(ui->widget_FlowField, &igQtStreamTracerWidget::UpdateStreamObject, this,
             [&](iGame::DataObject::Pointer res) {
                 auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
-                if (scene->GetCurrentModelID() == streamTreeIndex) { modelTreeWidget->updateCurrentModelProperty(); }
+                if (scene->GetCurrentModelID() == streamTreeIndex) {
+                    modelTreeWidget->updateCurrentModelProperty();
+                }
                 modelTreeWidget->updateAllAttriubute(res);
                 rendererWidget->update();
                 auto drawObject = DynamicCast<DrawObject>(res);
@@ -3065,20 +3090,23 @@ void igQtMainWindow::initAllMySignalConnections() {
 
 
     /* Animation signal connect BEGIN.*/
-    connect(ui->widget_Animation, &igQtAnimationWidget::UpdateScene, this, &igQtMainWindow::UpdateRenderingWidget);
+    connect(ui->widget_Animation, &igQtAnimationWidget::UpdateScene,
+            this, &igQtMainWindow::UpdateRenderingWidget);
     // Update scalar view UI when animation frame changes (updates DataRange slider and info label)
-    connect(ui->widget_Animation, &igQtAnimationWidget::AnimationFrameChanged, ui->widget_ScalarField,
-            &igQtScalarViewWidget::showScalarView);
+    connect(ui->widget_Animation, &igQtAnimationWidget::AnimationFrameChanged,
+            ui->widget_ScalarField, &igQtScalarViewWidget::showScalarView);
 
-    connect(ui->widget_Animation, &igQtAnimationWidget::AnimationFrameChanged, this,
-            [&]() { ui->widget_VectorField->drawV(); });
+    connect(ui->widget_Animation, &igQtAnimationWidget::AnimationFrameChanged,
+            this, [&](){
+                ui->widget_VectorField->drawV();
+            });
 
-    connect(ui->widget_Animation, &igQtAnimationWidget::AnimationFrameChanged, this, [&]() {
+    connect(ui->widget_Animation, &igQtAnimationWidget::AnimationFrameChanged, this, [&](){
         SliceWidget->ClipModel();
-        //        SliceWidget->UpdateOriginDataObject()
+//        SliceWidget->UpdateOriginDataObject()
     });
-    //    connect(ui->widget_Animation, &igQtAnimationWidget::AnimationFrameChanged,
-    //            DeformationWidget, &igQtDeformationWidget::updateInfo);
+//    connect(ui->widget_Animation, &igQtAnimationWidget::AnimationFrameChanged,
+//            DeformationWidget, &igQtDeformationWidget::updateInfo);
 
     //connect(ui->widget_QualityDetection,
     //&igQtQualityDetectionWidget::updateCurrentModelColor, rendererWidget,
@@ -3092,17 +3120,17 @@ void igQtMainWindow::initAllMySignalConnections() {
     connect(this->modelTreeWidget, &igQtModelDialogWidget::CloudPictureChanged, ui->widget_ScalarField,
             &igQtScalarViewWidget::showScalarView);
     // Update Deformation Info when model is deleted
-    connect(this->modelTreeWidget, &igQtModelDialogWidget::ModelDeleted, DeformationWidget,
-            &igQtDeformationWidget::updateInfo);
-    connect(this->modelTreeWidget, &igQtModelDialogWidget::ModelDeleted, ui->widget_Animation,
-            &igQtAnimationWidget::initAnimationComponents);
+    connect(this->modelTreeWidget, &igQtModelDialogWidget::ModelDeleted,
+            DeformationWidget, &igQtDeformationWidget::updateInfo);
+    connect(this->modelTreeWidget, &igQtModelDialogWidget::ModelDeleted,
+            ui->widget_Animation, &igQtAnimationWidget::initAnimationComponents);
 
     // Update animation controls when model changes
-    connect(this->modelTreeWidget, &igQtModelDialogWidget::CurrendModelChanged, ui->widget_Animation,
-            &igQtAnimationWidget::initAnimationComponents);
+    connect(this->modelTreeWidget, &igQtModelDialogWidget::CurrendModelChanged,
+            ui->widget_Animation, &igQtAnimationWidget::initAnimationComponents);
     // Update Deformation Info when model changes
-    connect(this->modelTreeWidget, &igQtModelDialogWidget::CurrendModelChanged, DeformationWidget,
-            &igQtDeformationWidget::updateInfo);
+    connect(this->modelTreeWidget, &igQtModelDialogWidget::CurrendModelChanged,
+            DeformationWidget, &igQtDeformationWidget::updateInfo);
 
     /* Model Tree signal connect END.*/
 
@@ -3478,7 +3506,7 @@ void igQtMainWindow::initAllInteractor() {
         auto currentAttributeDim = dataObj->GetCurrentAttributeDimension();
         int variableIndex = 0;
         for (int attrIndex = 0; attrIndex < currentAttributeIndex; attrIndex++) {
-            //for (int attrIndex = 0; attrIndex < allAttr->Size(); attrIndex++) {
+        //for (int attrIndex = 0; attrIndex < allAttr->Size(); attrIndex++) {
             auto& attr = allAttr->GetElement(attrIndex);
             if (attr.attachmentType != dataType) continue;
             auto dim = attr.pointer->GetDimension();
@@ -3491,8 +3519,8 @@ void igQtMainWindow::initAllInteractor() {
         ui->widget_SelectionField->SetVariableNames(variableNames);
 
         ui->widget_SelectionField->SetCurrentVariable(dataType, variableIndex);
-    });
-
+        });
+    
     //######### View Cloud Change ED #########
     connect(ui->widget_FlowField, &igQtStreamTracerWidget::SetSelectItemShow, this, [&](bool visiable) {
         auto model = rendererWidget->GetScene()->GetCurrentModel();
@@ -3558,22 +3586,20 @@ void igQtMainWindow::initAllInteractor() {
             case IG_SURFACE_MESH: {
                 auto mesh = DynamicCast<SurfaceMesh>(dataObj);
                 mesh->RequestEditStatus();
-                auto pointIds = iGame::SingleSelectionStyle::GetPointsInBox(
-                        faces, mesh, SelectionParameter::Instance().GetSelectOnlySelectSeeAbleCells());
-                selection->SelectionCallBackEvent(IG_POINT, pointIds, Selection::Operate::Add);
+                auto pointIds = iGame::SingleSelectionStyle::GetPointsInBox(faces, mesh, SelectionParameter::Instance().GetSelectOnlySelectSeeAbleCells());
+                selection->SelectionCallBackEvent(IG_POINT, pointIds,  Selection::Operate::Add);
             } break;
             case IG_VOLUME_MESH: {
                 auto mesh = DynamicCast<VolumeMesh>(dataObj);
                 mesh->RequestEditStatus();
-                auto pointIds = iGame::SingleSelectionStyle::GetPointsInBox(
-                        faces, mesh, SelectionParameter::Instance().GetSelectOnlySelectSeeAbleCells());
-                selection->SelectionCallBackEvent(IG_POINT, pointIds, Selection::Operate::Add);
+                auto pointIds = iGame::SingleSelectionStyle::GetPointsInBox(faces, mesh, SelectionParameter::Instance().GetSelectOnlySelectSeeAbleCells());
+                selection->SelectionCallBackEvent(IG_POINT, pointIds,Selection::Operate::Add);
             } break;
             case IG_UNSTRUCTURED_MESH: {
                 auto mesh = DynamicCast<UnstructuredMesh>(dataObj);
-                auto pointIds = iGame::SingleSelectionStyle::GetPointsInBox(
-                        faces, mesh, SelectionParameter::Instance().GetSelectOnlySelectSeeAbleCells());
-                selection->SelectionCallBackEvent(IG_POINT, pointIds, Selection::Operate::Add);
+                    auto pointIds = iGame::SingleSelectionStyle::GetPointsInBox(
+                            faces, mesh, SelectionParameter::Instance().GetSelectOnlySelectSeeAbleCells());
+                    selection->SelectionCallBackEvent(IG_POINT, pointIds, Selection::Operate::Add );
             } break;
             default:
                 return;
@@ -3789,20 +3815,22 @@ QString igQtMainWindow::LoadExternalFonts() {
     const QString family = families.first();
     qDebug() << "Loaded font family:" << family;
 
-    QFont appFont(family);
+    QFont     appFont(family);
     appFont.setPointSize(12);
 
     QApplication::setFont(appFont);
 
     return family;
 }
-void igQtMainWindow::rebuildActionsAsTwoRowWidget(QToolBar* toolbar, const QList<QAction*>& targetActions, int columns,
-                                                  QAction* insertBefore) {
-    if (!toolbar || targetActions.isEmpty()) return;
+void igQtMainWindow::rebuildActionsAsTwoRowWidget(QToolBar* toolbar, const QList<QAction*>& targetActions,
+                                                  int columns, QAction* insertBefore) {
+    if (!toolbar || targetActions.isEmpty())
+        return;
 
     // 1. 先移除目标action（原逻辑保留）
-    for (QAction* act: targetActions) {
-        if (act) toolbar->removeAction(act);
+    for (QAction* act : targetActions) {
+        if (act)
+            toolbar->removeAction(act);
     }
 
     // 2. 创建容器和布局（原逻辑保留，微调尺寸计算）
@@ -3826,8 +3854,9 @@ void igQtMainWindow::rebuildActionsAsTwoRowWidget(QToolBar* toolbar, const QList
 
     // 3. 构建两行按钮（原逻辑保留）
     int row = 0, col = 0;
-    for (QAction* act: targetActions) {
-        if (!act) continue;
+    for (QAction* act : targetActions) {
+        if (!act)
+            continue;
         QToolButton* btn = new QToolButton(container);
         btn->setDefaultAction(act);
         btn->setToolButtonStyle(Qt::ToolButtonIconOnly);
@@ -3852,7 +3881,8 @@ void igQtMainWindow::rebuildActionsAsTwoRowWidget(QToolBar* toolbar, const QList
     // 4. 添加QWidgetAction到toolbar（原逻辑保留）
     QWidgetAction* widgetAction = new QWidgetAction(toolbar);
     widgetAction->setDefaultWidget(container);
-    if (insertBefore && toolbar->actions().contains(insertBefore)) toolbar->insertAction(insertBefore, widgetAction);
+    if (insertBefore && toolbar->actions().contains(insertBefore))
+        toolbar->insertAction(insertBefore, widgetAction);
     else
         toolbar->addAction(widgetAction); // 【修改2】改用addAction，避免insert位置异常
 
@@ -3861,11 +3891,13 @@ void igQtMainWindow::rebuildActionsAsTwoRowWidget(QToolBar* toolbar, const QList
 }
 
 void igQtMainWindow::addToolbarTitle(QToolBar* toolbar, const QString& title) {
-    if (!toolbar) return;
+    if (!toolbar)
+        return;
 
     Qt::ToolBarArea area = this->toolBarArea(toolbar);
     QSize iconSize = toolbar->iconSize();
-    if (iconSize.width() <= 0) iconSize = QSize(60, 60);
+    if (iconSize.width() <= 0)
+        iconSize = QSize(60, 60);
     const ToolbarSpacingMetrics spacing = metricsForIconSize(iconSize.width());
     Qt::ToolButtonStyle btnStyle = toolbar->toolButtonStyle();
     const QList<QAction*> actions = toolbar->actions();
@@ -3888,7 +3920,7 @@ void igQtMainWindow::addToolbarTitle(QToolBar* toolbar, const QString& title) {
     hLayout->setSpacing(spacing.btnGap);
     hLayout->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
 
-    for (QAction* act: actions) {
+    for (QAction* act : actions) {
         if (!act) continue;
 
         if (QWidgetAction* wa = qobject_cast<QWidgetAction*>(act)) {
@@ -3914,11 +3946,14 @@ void igQtMainWindow::addToolbarTitle(QToolBar* toolbar, const QString& title) {
         b->setIconSize(iconSize);
         b->setToolButtonStyle(btnStyle);
         b->setAutoRaise(true);
-        b->setMinimumSize(iconSize.width() + 2 * spacing.buttonPadding, iconSize.height() + 2 * spacing.buttonPadding);
+        b->setMinimumSize(iconSize.width() + 2 * spacing.buttonPadding,
+                          iconSize.height() + 2 * spacing.buttonPadding);
         b->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
-        b->setStyleSheet("QToolButton { border: none; margin: 0; padding: 1px; }"
-                         "QToolButton:hover { background-color: #3A3A3A; border-radius: 2px; }"
-                         "QToolButton:pressed { background-color: #4A4A4A; }");
+        b->setStyleSheet(
+                "QToolButton { border: none; margin: 0; padding: 1px; }"
+                "QToolButton:hover { background-color: #3A3A3A; border-radius: 2px; }"
+                "QToolButton:pressed { background-color: #4A4A4A; }"
+        );
         hLayout->addWidget(b, 0, Qt::AlignLeft | Qt::AlignVCenter);
     }
 
@@ -3937,8 +3972,10 @@ void igQtMainWindow::addToolbarTitle(QToolBar* toolbar, const QString& title) {
     titleLabel->setFont(titleFont);
     titleLabel->setAlignment(Qt::AlignHCenter | Qt::AlignVCenter);
     // 不再在 CSS 里硬写 font-size，让 setFont(titleFont) 生效并可被响应式重排刷新
-    titleLabel->setStyleSheet("QLabel { color: #6B6B6B; padding: 0; "
-                              "background-color: transparent; border: none; font-family: 'PingFang SC'; }");
+    titleLabel->setStyleSheet(
+            "QLabel { color: #6B6B6B; padding: 0; "
+            "background-color: transparent; border: none; font-family: 'PingFang SC'; }"
+    );
     vLayout->addWidget(titleLabel, 0);
 
     QToolBar* wrapper = new QToolBar(this);
@@ -3958,16 +3995,24 @@ void igQtMainWindow::addToolbarTitle(QToolBar* toolbar, const QString& title) {
 
 void igQtMainWindow::relayoutToolbarWrappers() {
     QList<QToolBar*> wrappers;
-    const QStringList orderedNames = {"wrapper_toolBar_meshfile", "wrapper_toolBar_3", "wrapper_toolBar_2",
-                                      "wrapper_toolBar_4"};
+    const QStringList orderedNames = {
+            "wrapper_toolBar_meshfile",
+            "wrapper_toolBar_3",
+            "wrapper_toolBar_2",
+            "wrapper_toolBar_4"
+    };
 
-    for (const QString& name: orderedNames) {
-        if (QToolBar* tb = this->findChild<QToolBar*>(name)) { wrappers.push_back(tb); }
+    for (const QString& name : orderedNames) {
+        if (QToolBar* tb = this->findChild<QToolBar*>(name)) {
+            wrappers.push_back(tb);
+        }
     }
     if (wrappers.isEmpty()) return;
 
     // 每次重排前先清掉舊分行點，避免重複斷行導致排版漂移
-    for (QToolBar* tb: wrappers) { this->removeToolBarBreak(tb); }
+    for (QToolBar* tb : wrappers) {
+        this->removeToolBarBreak(tb);
+    }
 
     const int availableWidth = qMax(320, this->width() - 40);
     const int iconSize = resolveToolbarIconSizeForWidget(this);
@@ -3976,7 +4021,7 @@ void igQtMainWindow::relayoutToolbarWrappers() {
     const int rowGap = spacing.rowGap;
     int usedWidth = 0;
 
-    for (QToolBar* tb: wrappers) {
+    for (QToolBar* tb : wrappers) {
         if (!tb) continue;
         const int needWidth = qMax(tb->minimumWidth(), tb->sizeHint().width());
         bool startsNewRow = false;
@@ -3992,15 +4037,19 @@ void igQtMainWindow::relayoutToolbarWrappers() {
     }
 }
 
-void igQtMainWindow::UpdateIcons() {
+void igQtMainWindow::UpdateIcons()
+{
     // 依螢幕寬度與 DPI 動態縮放，避免高縮放或低解析度下 toolbar 後段按鈕被擠壓。
     const int iconSize = resolveToolbarIconSizeForWidget(this);
 
-    for (QToolBar* tb: this->findChildren<QToolBar*>()) {
-        if (tb->objectName().startsWith("wrapper_")) continue;
+    for (QToolBar* tb : this->findChildren<QToolBar*>()) {
+        if (tb->objectName().startsWith("wrapper_"))
+            continue;
         tb->setIconSize(QSize(iconSize, iconSize));
         tb->setMinimumHeight(iconSize + qMax(6, iconSize / 6));
     }
+
+
 }
 
 void igQtMainWindow::hookResponsiveEvents() {
@@ -4010,17 +4059,19 @@ void igQtMainWindow::hookResponsiveEvents() {
     // 防抖 timer：合并 100ms 内的多次 resize 触发。
     m_ResizeDebounceTimer = new QTimer(this);
     m_ResizeDebounceTimer->setSingleShot(true);
-    connect(m_ResizeDebounceTimer, &QTimer::timeout, this, [this]() { applyResponsiveToolbarLayout(); });
+    connect(m_ResizeDebounceTimer, &QTimer::timeout, this,
+            [this]() { applyResponsiveToolbarLayout(); });
 
     // 屏幕切换（拖到不同显示器）→ 重新排。
     if (auto wh = this->windowHandle()) {
-        connect(wh, &QWindow::screenChanged, this, [this](QScreen*) { applyResponsiveToolbarLayout(); });
+        connect(wh, &QWindow::screenChanged, this,
+                [this](QScreen*) { applyResponsiveToolbarLayout(); });
     }
 }
 
 int igQtMainWindow::totalWrapperWidth() const {
     int total = 0;
-    for (QToolBar* tb: this->findChildren<QToolBar*>()) {
+    for (QToolBar* tb : this->findChildren<QToolBar*>()) {
         if (!tb->objectName().startsWith("wrapper_")) continue;
         total += qMax(tb->minimumWidth(), tb->sizeHint().width());
     }
@@ -4039,8 +4090,9 @@ void igQtMainWindow::applyToolbarIconSize(int iconSize) {
     const ToolbarSpacingMetrics spacing = metricsForIconSize(iconSize);
 
     // 1) 普通 toolbar（非 wrapper_ 前缀）——只需 setIconSize，Qt 会级联到其中的 QToolButton。
-    for (QToolBar* tb: this->findChildren<QToolBar*>()) {
-        if (tb->objectName().startsWith("wrapper_")) continue;
+    for (QToolBar* tb : this->findChildren<QToolBar*>()) {
+        if (tb->objectName().startsWith("wrapper_"))
+            continue;
         tb->setIconSize(iconQSize);
         tb->setMinimumHeight(iconSize + qMax(6, iconSize / 6));
     }
@@ -4051,8 +4103,9 @@ void igQtMainWindow::applyToolbarIconSize(int iconSize) {
     const int targetIcon = qMax(20, static_cast<int>(iconSize * 0.65));
     const int rowHeight = targetIcon + 8;
     const QSize btnSize(rowHeight, rowHeight);
-    for (QWidget* container: this->findChildren<QWidget*>("twoRowViewGrid")) {
-        for (QToolButton* btn: container->findChildren<QToolButton*>(QString(), Qt::FindDirectChildrenOnly)) {
+    for (QWidget* container : this->findChildren<QWidget*>("twoRowViewGrid")) {
+        for (QToolButton* btn : container->findChildren<QToolButton*>(
+                     QString(), Qt::FindDirectChildrenOnly)) {
             btn->setIconSize(QSize(targetIcon, targetIcon));
             btn->setMinimumSize(btnSize);
             btn->setMaximumSize(btnSize);
@@ -4068,9 +4121,10 @@ void igQtMainWindow::applyToolbarIconSize(int iconSize) {
     //    需要显式刷一遍，同时更新最小尺寸/间距。
     //    注意：twoRowViewGrid 可能被 addToolbarTitle 迁移到 toolbarContainer_ 下面，
     //    这里必须跳过其中的按钮，否则会把上一步刷成 targetIcon 的又改回 iconSize。
-    for (QWidget* container: this->findChildren<QWidget*>()) {
-        if (!container->objectName().startsWith("toolbarContainer_")) continue;
-        for (QToolButton* b: container->findChildren<QToolButton*>()) {
+    for (QWidget* container : this->findChildren<QWidget*>()) {
+        if (!container->objectName().startsWith("toolbarContainer_"))
+            continue;
+        for (QToolButton* b : container->findChildren<QToolButton*>()) {
             bool insideTwoRow = false;
             for (QWidget* p = b->parentWidget(); p && p != container; p = p->parentWidget()) {
                 if (p->objectName() == "twoRowViewGrid") {
@@ -4080,7 +4134,8 @@ void igQtMainWindow::applyToolbarIconSize(int iconSize) {
             }
             if (insideTwoRow) continue;
             b->setIconSize(iconQSize);
-            b->setMinimumSize(iconSize + 2 * spacing.buttonPadding, iconSize + 2 * spacing.buttonPadding);
+            b->setMinimumSize(iconSize + 2 * spacing.buttonPadding,
+                              iconSize + 2 * spacing.buttonPadding);
         }
         // 顶部按钮行 layout 间距同步刷新
         if (auto topRow = container->findChild<QWidget*>(QString(), Qt::FindDirectChildrenOnly)) {
@@ -4091,8 +4146,9 @@ void igQtMainWindow::applyToolbarIconSize(int iconSize) {
         }
         // 标题标签字号也跟着 iconSize 缩放
         const int titlePt = titlePointSizeForIcon(iconSize);
-        for (QLabel* lbl: container->findChildren<QLabel*>()) {
-            if (!lbl->objectName().startsWith("toolbarTitle_")) continue;
+        for (QLabel* lbl : container->findChildren<QLabel*>()) {
+            if (!lbl->objectName().startsWith("toolbarTitle_"))
+                continue;
             QFont f = lbl->font();
             f.setPointSize(titlePt);
             lbl->setFont(f);
@@ -4111,8 +4167,9 @@ void igQtMainWindow::applyToolbarIconSize(int iconSize) {
     }
 
     // 4) 包装 toolbar 也刷新最小高度/宽度（保证 sizeHint 用得上新尺寸）
-    for (QToolBar* tb: this->findChildren<QToolBar*>()) {
-        if (!tb->objectName().startsWith("wrapper_")) continue;
+    for (QToolBar* tb : this->findChildren<QToolBar*>()) {
+        if (!tb->objectName().startsWith("wrapper_"))
+            continue;
         if (auto* container = tb->findChild<QWidget*>()) {
             tb->setMinimumHeight(container->minimumSizeHint().height());
             tb->setMinimumWidth(container->minimumSizeHint().width());
