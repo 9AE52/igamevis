@@ -1,5 +1,7 @@
 #include <iostream>
+#include <iGameCellArray.h>
 #include <iGameFileIO.h>
+#include <iGamePoints.h>
 #include <iGamePointSet.h>
 #include <iGameSurfaceMesh.h>
 #include <iGameUnstructuredMesh.h>
@@ -142,25 +144,34 @@ iGame::UnstructuredMesh::Pointer CreateMesh(int argc, char* argv[]) {
 
 iGame::SurfaceMesh::Pointer CreateSurfaceMesh() {
     auto mesh = iGame::SurfaceMesh::New();
-    mesh->AddPoint(iGame::Point(0.f, 0.f, 0.f));
-    mesh->AddPoint(iGame::Point(1.f, 0.f, 0.f));
-    mesh->AddPoint(iGame::Point(0.f, 1.f, 0.f));
-    mesh->AddPoint(iGame::Point(0.f, 0.f, 1.f));
-    igIndex tri[3]{0, 1, 2};
-    mesh->AddFace(tri, 3);
-    igIndex face[4] = {0, 1, 2, 3};
-    mesh->AddFace(face, 4);
+    auto points = iGame::Points::New();
+    points->AddPoint(0.f, 0.f, 0.f);
+    points->AddPoint(1.f, 0.f, 0.f);
+    points->AddPoint(0.f, 1.f, 0.f);
+    points->AddPoint(0.f, 0.f, 1.f);
+    mesh->SetPoints(points);
+    // 与 FileIO 一致：直接注入 CellArray，不走 AddFace（AddFace 依赖未初始化的 m_Edges 等成员，会崩溃）
+    auto faces = iGame::CellArray::New();
+    igIndex tri1[3]{0, 1, 2};
+    igIndex tri2[3]{0, 2, 3};
+    faces->AddCellIds(tri1, 3);
+    faces->AddCellIds(tri2, 3);
+    mesh->SetFaces(faces);
     return mesh;
 }
 
 iGame::VolumeMesh::Pointer CreateVolumeMesh() {
     auto mesh = iGame::VolumeMesh::New();
-    mesh->AddPoint(iGame::Point(0.f, 0.f, 0.f));
-    mesh->AddPoint(iGame::Point(1.f, 0.f, 0.f));
-    mesh->AddPoint(iGame::Point(0.f, 1.f, 0.f));
-    mesh->AddPoint(iGame::Point(0.f, 0.f, 1.f));
+    auto points = iGame::Points::New();
+    points->AddPoint(0.f, 0.f, 0.f);
+    points->AddPoint(1.f, 0.f, 0.f);
+    points->AddPoint(0.f, 1.f, 0.f);
+    points->AddPoint(0.f, 0.f, 1.f);
+    mesh->SetPoints(points);
+    auto volumes = iGame::CellArray::New();
     igIndex volume[4] = {0, 1, 2, 3};
-    mesh->AddVolume(volume, 4);
+    volumes->AddCellIds(volume, 4);
+    mesh->SetVolumes(volumes);
     return mesh;
 }
 
