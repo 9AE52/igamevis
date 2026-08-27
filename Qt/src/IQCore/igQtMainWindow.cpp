@@ -1932,63 +1932,76 @@ void igQtMainWindow::initAllFilters() {
         }
     });
 
-    QAction* cellMeshMetrics = view->addAction(QStringLiteral("单元网格指标 (CellMeshMetrics)"));
+
+    QAction* lagrangeUnstructedMesh_visualization = ui->menu_filters->addAction(
+            QStringLiteral("拉格朗日非结构网格可视化 (LagrangeUnstructedMesh Visualization)"));
+    connect(lagrangeUnstructedMesh_visualization, &QAction::triggered, this, [&](bool checked) {
+        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
+        ConvertToLagrangeUnstructuredMeshFilter::Pointer filter = ConvertToLagrangeUnstructuredMeshFilter::New();
+        auto data = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+        filter->SetInput(data);
+        if (filter->Execute()) {
+            DataObject::Pointer res = filter->GetOutput(0);
+            res->SetName(data->GetName());
+            modelTreeWidget->addDataObjectToModelTree(res, Algorithm);
+        }
+    });
+    
+    QAction* cellMeshMetrics = ui->menu_filters->addAction(QStringLiteral("单元网格指标 (CellMeshMetrics)"));
     connect(cellMeshMetrics, &QAction::triggered, this, [&](bool checked) {
         // 1. 创建对话框
         igQtFilterDialogDockWidget* dialog = new igQtFilterDialogDockWidget(this, true);
         dialog->setFilterTitle(QStringLiteral("单元网格指标 (Cell Mesh Metrics)"));
 
         // 2. 创建下拉框
-        std::vector<QString> metricNames = {
-            QStringLiteral("四面体: 边长比 (Edge Ratio)"),
-            QStringLiteral("四面体: 单元体积 (Volume)"),
-            QStringLiteral("四面体: 纵横比 (Aspect Ratio)"),
-            QStringLiteral("四面体: 雅可比 (Jacobian)"),
-            QStringLiteral("四面体: 塌陷率 (Collapse Ratio)"),
-            QStringLiteral("四面体: 体积歪斜度 (Vol Skew)"),
-            QStringLiteral("四面体: 最小内角 (Min Angle)"),
-            QStringLiteral("四面体: 等角斜率 (Equiangle Skewness)"),
-            QStringLiteral("四面体: 内切球半径 (Inradius)"),
-            QStringLiteral("四面体: 外接球半径 (Circumradius)"),
-            QStringLiteral("四面体: 体长宽比 (Vol Aspect Ratio)"),
-            QStringLiteral("六面体: 单元体积 (Volume)"),
-            QStringLiteral("六面体: 锥度 (Taper)"),
-            QStringLiteral("六面体: 雅可比矩阵 (Jacobian)"),
-            QStringLiteral("六面体: 边长比 (Edge Ratio)"),
-            QStringLiteral("六面体: 最大长宽比 (Max Edge Ratio)"),
-            QStringLiteral("六面体: 歪斜度 (Skew)"),
-            QStringLiteral("六面体: 伸展度 (Stretch)"),
-            QStringLiteral("六面体: 对角线比值 (Diagonal)"),
-            QStringLiteral("六面体: 相对大小平方 (Relative Size)"),
-            QStringLiteral("六面体: 最小标量雅可比 (Min Scaled Jacobian)"),
-            QStringLiteral("六面体: 平均标量雅可比 (Avg Scaled Jacobian)")
-        };
+        std::vector<QString> metricNames = {QStringLiteral("四面体: 边长比 (Edge Ratio)"),
+                                            QStringLiteral("四面体: 单元体积 (Volume)"),
+                                            QStringLiteral("四面体: 纵横比 (Aspect Ratio)"),
+                                            QStringLiteral("四面体: 雅可比 (Jacobian)"),
+                                            QStringLiteral("四面体: 塌陷率 (Collapse Ratio)"),
+                                            QStringLiteral("四面体: 体积歪斜度 (Vol Skew)"),
+                                            QStringLiteral("四面体: 最小内角 (Min Angle)"),
+                                            QStringLiteral("四面体: 等角斜率 (Equiangle Skewness)"),
+                                            QStringLiteral("四面体: 内切球半径 (Inradius)"),
+                                            QStringLiteral("四面体: 外接球半径 (Circumradius)"),
+                                            QStringLiteral("四面体: 体长宽比 (Vol Aspect Ratio)"),
+                                            QStringLiteral("六面体: 单元体积 (Volume)"),
+                                            QStringLiteral("六面体: 锥度 (Taper)"),
+                                            QStringLiteral("六面体: 雅可比矩阵 (Jacobian)"),
+                                            QStringLiteral("六面体: 边长比 (Edge Ratio)"),
+                                            QStringLiteral("六面体: 最大长宽比 (Max Edge Ratio)"),
+                                            QStringLiteral("六面体: 歪斜度 (Skew)"),
+                                            QStringLiteral("六面体: 伸展度 (Stretch)"),
+                                            QStringLiteral("六面体: 对角线比值 (Diagonal)"),
+                                            QStringLiteral("六面体: 相对大小平方 (Relative Size)"),
+                                            QStringLiteral("六面体: 最小标量雅可比 (Min Scaled Jacobian)"),
+                                            QStringLiteral("六面体: 平均标量雅可比 (Avg Scaled Jacobian)")};
 
         std::vector<iGame::VolumeMeshMetricsFilter::VolumeMetric> metricEnums = {
-            iGame::VolumeMeshMetricsFilter::TET_EDGE_RATIO,
-            iGame::VolumeMeshMetricsFilter::TET_VOLUME,
-            iGame::VolumeMeshMetricsFilter::TET_ASPECT_RATIO,
-            iGame::VolumeMeshMetricsFilter::TET_JACOBIAN,
-            iGame::VolumeMeshMetricsFilter::TET_COLLAPSE_RATIO,
-            iGame::VolumeMeshMetricsFilter::TET_VOL_SKEW,
-            iGame::VolumeMeshMetricsFilter::TET_MIN_ANGLE,
-            iGame::VolumeMeshMetricsFilter::TET_EQUIANGLE_SKEWNESS,
-            iGame::VolumeMeshMetricsFilter::TET_INRADIUS,
-            iGame::VolumeMeshMetricsFilter::TET_CIRCUMRADIUS,
-            iGame::VolumeMeshMetricsFilter::TET_VOL_ASPECT_RATIO,
-            iGame::VolumeMeshMetricsFilter::HEX_VOLUME,
-            iGame::VolumeMeshMetricsFilter::HEX_TAPER,
-            iGame::VolumeMeshMetricsFilter::HEX_JACOBIAN,
-            iGame::VolumeMeshMetricsFilter::HEX_EDGE_RATIO,
-            iGame::VolumeMeshMetricsFilter::HEX_MAX_EDGE_RATIO,
-            iGame::VolumeMeshMetricsFilter::HEX_SKEW,
-            iGame::VolumeMeshMetricsFilter::HEX_STRETCH,
-            iGame::VolumeMeshMetricsFilter::HEX_DIAGONAL,
-            iGame::VolumeMeshMetricsFilter::HEX_RELATIVE_SIZE_SQUARED,
-            iGame::VolumeMeshMetricsFilter::HEX_MIN_SCALED_JACOBIAN,
-            iGame::VolumeMeshMetricsFilter::HEX_AVG_SCALED_JACOBIAN
-        };
-        int comboID = dialog->addParameter(igQtFilterDialogDockWidget::QT_COMBO_BOX, QStringLiteral("评估指标"), metricNames);
+                iGame::VolumeMeshMetricsFilter::TET_EDGE_RATIO,
+                iGame::VolumeMeshMetricsFilter::TET_VOLUME,
+                iGame::VolumeMeshMetricsFilter::TET_ASPECT_RATIO,
+                iGame::VolumeMeshMetricsFilter::TET_JACOBIAN,
+                iGame::VolumeMeshMetricsFilter::TET_COLLAPSE_RATIO,
+                iGame::VolumeMeshMetricsFilter::TET_VOL_SKEW,
+                iGame::VolumeMeshMetricsFilter::TET_MIN_ANGLE,
+                iGame::VolumeMeshMetricsFilter::TET_EQUIANGLE_SKEWNESS,
+                iGame::VolumeMeshMetricsFilter::TET_INRADIUS,
+                iGame::VolumeMeshMetricsFilter::TET_CIRCUMRADIUS,
+                iGame::VolumeMeshMetricsFilter::TET_VOL_ASPECT_RATIO,
+                iGame::VolumeMeshMetricsFilter::HEX_VOLUME,
+                iGame::VolumeMeshMetricsFilter::HEX_TAPER,
+                iGame::VolumeMeshMetricsFilter::HEX_JACOBIAN,
+                iGame::VolumeMeshMetricsFilter::HEX_EDGE_RATIO,
+                iGame::VolumeMeshMetricsFilter::HEX_MAX_EDGE_RATIO,
+                iGame::VolumeMeshMetricsFilter::HEX_SKEW,
+                iGame::VolumeMeshMetricsFilter::HEX_STRETCH,
+                iGame::VolumeMeshMetricsFilter::HEX_DIAGONAL,
+                iGame::VolumeMeshMetricsFilter::HEX_RELATIVE_SIZE_SQUARED,
+                iGame::VolumeMeshMetricsFilter::HEX_MIN_SCALED_JACOBIAN,
+                iGame::VolumeMeshMetricsFilter::HEX_AVG_SCALED_JACOBIAN};
+        int comboID =
+                dialog->addParameter(igQtFilterDialogDockWidget::QT_COMBO_BOX, QStringLiteral("评估指标"), metricNames);
         dialog->show();
 
         // 3. 确认回调逻辑
@@ -2031,23 +2044,7 @@ void igQtMainWindow::initAllFilters() {
 
             // 3.4 属性已挂载到原模型上，刷新模型树即可
             modelTreeWidget->updateAllAttriubute(obj);
-            
         });
-        
-    });
-
-    QAction* lagrangeUnstructedMesh_visualization = ui->menu_filters->addAction(
-            QStringLiteral("拉格朗日非结构网格可视化 (LagrangeUnstructedMesh Visualization)"));
-    connect(lagrangeUnstructedMesh_visualization, &QAction::triggered, this, [&](bool checked) {
-        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
-        ConvertToLagrangeUnstructuredMeshFilter::Pointer filter = ConvertToLagrangeUnstructuredMeshFilter::New();
-        auto data = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
-        filter->SetInput(data);
-        if (filter->Execute()) {
-            DataObject::Pointer res = filter->GetOutput(0);
-            res->SetName(data->GetName());
-            modelTreeWidget->addDataObjectToModelTree(res, Algorithm);
-        }
     });
 }
 
