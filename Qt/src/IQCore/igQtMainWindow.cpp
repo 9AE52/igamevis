@@ -105,7 +105,7 @@
 #include <QFormLayout>
 #include <QDialogButtonBox>
 
-#include "iGameAppendLocationAttribute.h"
+#include "AppendLocationAttribute/iGameAppendLocationAttribute.h"
 
 #include "ui_igQtVariableCorrelationWidget.h"
 
@@ -1944,7 +1944,7 @@ void igQtMainWindow::initAllFilters() {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
         AppendLocationAttribute::Pointer filter = AppendLocationAttribute::New();
         auto data = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
-        filter->SetInput(data);
+         ilter->SetInput(data);
         filter->SetAttributeByIndex(data->GetAttributeIndex());
         int index = data->GetAttributeIndex();
         if (filter->Execute()) {
