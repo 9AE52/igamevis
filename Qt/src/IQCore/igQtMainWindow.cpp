@@ -1179,22 +1179,7 @@ void igQtMainWindow::initAllFilters() {
     };
 
     QMenu* mesh_processing = ui->menu_filters->addMenu(QStringLiteral("数据处理 (Data Processing)"));
-    //QAction* shrinkAction = mesh_processing->addAction(QStringLiteral("单元收缩 (Shrink)"));
-    //connect(shrinkAction, &QAction::triggered, this, [this](bool checked) {
-    //    if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
-    //    iGame::ShrinkFilter::Pointer filter = iGame::ShrinkFilter::New();
-    //    auto data = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
-    //    filter->SetShrinkFactor(0.5);
-    //    filter->SetInput(data);
-    //    if (filter->Execute()) {
-    //        auto drawObject = iGame::DynamicCast<iGame::DrawObject>(data);
-    //        if (drawObject) { drawObject->ForceReConvertToDrawableData(); }
-    //        modelTreeWidget->updateAllAttriubute(data);
-    //        rendererWidget->update();
-    //    } else {
-    //        showDarkFramelessMessage(QStringLiteral("Warning"), QStringLiteral("ShrinkFilter 执行失败"));
-    //    }
-    //});
+
     QAction* shrinkAction = ui->menu_filters->addAction(QStringLiteral("单元收缩 (Shrink)"));
     connect(shrinkAction, &QAction::triggered, this, [this](bool checked) {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
@@ -1229,6 +1214,7 @@ void igQtMainWindow::initAllFilters() {
                 showDarkFramelessMessage(QStringLiteral("Warning"), QStringLiteral("读取原始模型失败"));
                 return;
             }
+            base->GetProperties()->AddProperty(iGame::Variant::String, "FilePath")->SetValue(filePath);
             auto filter = iGame::ShrinkFilter::New();
             filter->SetShrinkFactor(factor);
             filter->SetInput(0, base);
@@ -1237,7 +1223,9 @@ void igQtMainWindow::initAllFilters() {
                 auto drawObject = iGame::DynamicCast<iGame::DrawObject>(base);
                 if (drawObject) { drawObject->ForceReConvertToDrawableData(); }
                 model->Update();
+                modelTreeWidget->updateAllAttriubute(base);
                 rendererWidget->update();
+                dialog->close();
             } else {
                 showDarkFramelessMessage(QStringLiteral("Warning"),
                                          QStringLiteral("Shrink 执行失败：不支持的网格类型"));
