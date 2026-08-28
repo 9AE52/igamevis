@@ -225,8 +225,29 @@ void igQtProbeWidget::ensureQueryPointSet() {
     if (!m_queryPoints.IsNull() || m_modelTree == nullptr) return;
     m_queryPoints = PointSet::New();
     m_queryPoints->SetName("Probe 查询点");
-    m_modelTree->addDataObjectToModelTreeKeepCurrent(
-            m_queryPoints, ItemSource::Algorithm);
+
+    // addDataObjectToModelTree 会把新模型设为当前模型（Scene::AddModel
+    // 本身也会改 m_CurrentModelID），这里先记住原当前模型，挂完树后再切回，
+    // 避免打断用户当前选中模型。
+    auto* scene = currentScene();
+    iGame::Model* previousModel =
+            scene ? scene->GetCurrentModel().get() : nullptr;
+    ModelTreeWidgetItem* previousItem = nullptr;
+    if (previousModel) {
+        previousItem = m_modelTree->getItemFromObject(
+                previousModel->GetDataObject());
+    }
+
+    m_modelTree->addDataObjectToModelTree(m_queryPoints, ItemSource::Algorithm);
+
+    if (previousModel) {
+        if (previousItem) m_modelTree->setCurrentItem(previousItem);
+        // 该重载内部会 scene->SetCurrentModel(previousModel)，
+        // 再刷新一次模型信息面板，回到挂树前的状态。
+        m_modelTree->updateCurrentModelProperty(previousModel);
+        m_modelTree->updateCurrentModelInfo();
+    }
+
     // 挂树后直接打开点显示开关，方便查看探测点
     if (auto* item = m_modelTree->getItemFromObject(m_queryPoints)) {
         if (iGame::Model* model = item->getModel()) {

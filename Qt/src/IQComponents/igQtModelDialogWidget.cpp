@@ -379,31 +379,15 @@ void igQtModelDialogWidget::updateAllAttriubute(iGame::DataObject::Pointer obj) 
     iGame::DynamicCast<iGame::DrawObject>(obj)->ForceReConvertToDrawableData();
 }
 
-int igQtModelDialogWidget::addDataObjectToModelTree(
-        iGame::DataObject::Pointer obj, ItemSource source) {
-    return addDataObjectToModelTreeImpl(obj, source, /*setCurrent=*/true);
-}
-
-int igQtModelDialogWidget::addDataObjectToModelTreeKeepCurrent(
-        iGame::DataObject::Pointer obj, ItemSource source) {
-    return addDataObjectToModelTreeImpl(obj, source, /*setCurrent=*/false);
-}
-
-int igQtModelDialogWidget::addDataObjectToModelTreeImpl(
-        iGame::DataObject::Pointer obj, ItemSource source, bool setCurrent) {
+int igQtModelDialogWidget::addDataObjectToModelTree(iGame::DataObject::Pointer obj, ItemSource source) {
     ModelTreeWidgetItem* item = new ModelTreeWidgetItem(modelTreeWidget);
     //modelTreeWidget->setCurrentModelItem(item);
     auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
-    auto previousModel = scene->GetCurrentModel();
     unsigned int id = scene->AddModel(obj);
     iGame::Model* model = scene->GetModelById(id).get();
 
     //currentModel = model;
-    if (setCurrent) {
-        scene->SetCurrentModel(model);
-    } else if (!previousModel.IsNull()) {
-        scene->SetCurrentModel(previousModel);
-    }
+    scene->SetCurrentModel(model);
 
     item->setModelId(id);
     item->setName(QString::fromStdString(obj->GetName()));
@@ -428,11 +412,10 @@ int igQtModelDialogWidget::addDataObjectToModelTreeImpl(
     BuildSubObjectTreeSkeleton(item, obj);
 
     modelTreeWidget->addTopLevelItem(item);
-    if (setCurrent) {
-        modelTreeWidget->setCurrentItem(item);
-        updateCurrentModelProperty(model);
-        updateCurrentModelInfo();
-    }
+    modelTreeWidget->setCurrentItem(item);
+
+    updateCurrentModelProperty(model);
+    updateCurrentModelInfo();
     //QTreeWidgetItem* currentItem = modelTreeWidget->getCurrentModelItem();
     //std::cout << "add current model: " << currentItem << std::endl;
     return id;

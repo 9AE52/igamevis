@@ -37,10 +37,6 @@ public slots:
     void updateAllAttriubute(iGame::DataObject::Pointer obj);
     void updateItemName(iGame::DataObject::Pointer obj);
     int addDataObjectToModelTree(iGame::DataObject::Pointer obj, ItemSource source);
-    // 与上面相同，但挂到模型树后保持当前模型不变（用于探测输出点集等
-    // 只作为输入/输出数据、不打断用户当前选中模型的场景）。
-    int addDataObjectToModelTreeKeepCurrent(iGame::DataObject::Pointer obj,
-                                            ItemSource source);
     int updateCurrentModelInfo();
     void updateCurrentModelProperty(iGame::Model* model);
     void updateCurrentModelProperty();
@@ -60,8 +56,6 @@ signals:
 
 private:
     //iGame::Model* currentModel;
-    int addDataObjectToModelTreeImpl(iGame::DataObject::Pointer obj,
-                                     ItemSource source, bool setCurrent);
 
     igQtModelTreeWidget* modelTreeWidget;
     QtTreePropertyBrowser* propertyWidget;
