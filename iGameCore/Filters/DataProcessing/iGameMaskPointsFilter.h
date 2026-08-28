@@ -5,77 +5,48 @@
 
 IGAME_NAMESPACE_BEGIN
 
-/**
- * @class MaskPointsFilter
- * @brief Selects a subset of input points and outputs them as vertex cells.
- *
- * The filter supports fixed-stride sampling and random sampling.
- * Point attributes associated with selected points are preserved.
- */
 class MaskPointsFilter : public Filter {
 public:
     I_OBJECT(MaskPointsFilter);
     static Pointer New() { return new MaskPointsFilter; }
 
-    /**
-     * @brief Executes the point masking operation.
-     * @return true if execution succeeds; otherwise false.
-     */
+    enum RandomModeType {
+        RANDOMIZED_ID_STRIDES = 0,
+        RANDOM_SAMPLING = 1,
+        SPATIALLY_STRATIFIED = 2,
+        UNIFORM_SPATIAL_BOUNDS = 3,
+        UNIFORM_SPATIAL_SURFACE = 4,
+        UNIFORM_SPATIAL_VOLUME = 5
+    };
+
     bool Execute() override;
 
-    /**
-     * @brief Sets the stride used in fixed-stride sampling.
-     *
-     * For example, OnRatio = 2 selects every second point.
-     */
     void SetOnRatio(int ratio);
-
-    /**
-     * @brief Returns the current sampling stride.
-     */
     int GetOnRatio() const;
 
-    /**
-     * @brief Sets the maximum number of output points.
-     *
-     * A value of 0 means that no additional maximum limit is applied.
-     */
     void SetMaximumNumberOfPoints(IGsize maxPoints);
-
-    /**
-     * @brief Returns the maximum number of output points.
-     */
     IGsize GetMaximumNumberOfPoints() const;
 
-    /**
-     * @brief Sets the first input point index considered for sampling.
-     */
-    void SetOffset(IGsize offset);
+    void SetProportionalMaximumNumberOfPoints(bool enabled);
+    bool GetProportionalMaximumNumberOfPoints() const;
 
-    /**
-     * @brief Returns the current sampling offset.
-     */
+    void SetOffset(IGsize offset);
     IGsize GetOffset() const;
 
-    /**
-     * @brief Enables or disables random point sampling.
-     */
     void SetRandomMode(bool enabled);
-
-    /**
-     * @brief Returns whether random sampling is enabled.
-     */
     bool GetRandomMode() const;
 
-    /**
-     * @brief Sets the seed used by the random number generator.
-     */
-    void SetRandomSeed(unsigned int seed);
+    void SetRandomModeType(int mode);
+    int GetRandomModeType() const;
 
-    /**
-     * @brief Returns the current random seed.
-     */
+    void SetRandomSeed(unsigned int seed);
     unsigned int GetRandomSeed() const;
+
+    void SetGenerateVertices(bool enabled);
+    bool GetGenerateVertices() const;
+
+    void SetSingleVertexPerCell(bool enabled);
+    bool GetSingleVertexPerCell() const;
 
 protected:
     MaskPointsFilter();
@@ -84,9 +55,13 @@ protected:
 private:
     int m_OnRatio{2};
     IGsize m_MaximumNumberOfPoints{0};
+    bool m_ProportionalMaximumNumberOfPoints{false};
     IGsize m_Offset{0};
     bool m_RandomMode{false};
+    int m_RandomModeType{RANDOMIZED_ID_STRIDES};
     unsigned int m_RandomSeed{1};
+    bool m_GenerateVertices{false};
+    bool m_SingleVertexPerCell{false};
 };
 
 IGAME_NAMESPACE_END
