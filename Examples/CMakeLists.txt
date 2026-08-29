@@ -249,6 +249,9 @@ igame_add_example(testCellCenterFilter Filter/MyFilter/TestCellCenterFilter.cpp)
 # IO (optional modules)
 igame_add_example(testSplineReaderCPU IO/SplineReaderCPU.cpp)
 
+#Data Processing
+igame_add_example(testVolumeMeshSimplification Filter/TestVolumeMeshSimplification.cpp)
+
 if (ENABLE_CGNS_MODULE)
     igame_add_example(testCGNS IO/CGNSReader.cpp)
     target_compile_definitions(testCGNS PUBLIC CGNS_ENABLE)
@@ -283,6 +286,7 @@ endif ()
 
 igame_add_example(testClip Filter/TestClip.cpp)
 igame_add_example(testSlice Filter/TestSlice.cpp)
+igame_add_example(testIsoVolume Filter/TestIsoVolume.cpp)
 igame_add_example(testDeformation Filter/Deformation/TestStressDeformationFilter.cpp)
 igame_add_example(testDeformationCode Filter/Deformation/TestStressDeformationFilterCode.cpp)
 igame_add_example(testContourLine Filter/TestContourLine.cpp)
@@ -302,6 +306,17 @@ igame_add_example(testLaplacianExtraction Filter/FeatureExtraction/LaplacianExtr
 igame_add_example(TestValidateCellsFilter Filter/MyFilter/TestValidateCellsFilter.cpp)
 
 
+# Feature edges console test
+igame_add_example(
+    testFeatureEdges
+    Filter/FeatureExtraction/FeatureEdges.cpp
+)
+
+# Feature edges GUI visualization
+igame_add_example(
+    testFeatureEdgesVisualization
+    Filter/FeatureExtraction/FeatureEdgesVisualization.cpp
+)
 
 if (ENABLE_LIBTORCH_MODULE)
     igame_add_example(testVortexDetection Filter/FeatureExtraction/VortexDetection.cpp)
