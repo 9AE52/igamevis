@@ -16,6 +16,8 @@
 #include "DataProcessing/iGameMeshTriangulationFilter.h"
 #include "DataProcessing/Simplification/iGameMeshSaliency.h"
 #include "DataProcessing/Simplification/iGameMeshSimplificationWithAttributes.h"
+#include "DataProcessing/iGameVolumeMeshSimplification.h"
+#include "DataProcessing/iGameMeshTetrahedralize.h"
 
 #include "Convert/iGameConvertPolyhedralCellsFilter.h"
 #include "Convert/iGameConvertToCellDataFilter.h"
@@ -2149,6 +2151,132 @@ void igQtMainWindow::initAllFilters() {
         }
     });
 
+    connect(ui->menu_filters->addAction(QStringLiteral("体网格简化 (Volume Mesh Simplification)")), &QAction::triggered,
+            this, [&](bool checked) {
+                if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
+                auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+                auto tetraFilter = MeshTetrahedralize::New();
+                tetraFilter->SetInput(obj);
+                if (!tetraFilter->Execute()) {
+                    showDarkFramelessMessage(QStringLiteral("四面体化失败"), QStringLiteral("当前数据不支持该算法。"));
+                    return;
+                }
+                auto tetInput = tetraFilter->GetOutput();
+                if (tetInput == nullptr) {
+                    showDarkFramelessMessage(QStringLiteral("四面体化失败"), QStringLiteral("当前数据不支持该算法。"));
+                    return;
+                }
+
+                auto dialog = new igQtFilterDialogDockWidget(this, true);
+                dialog->setFilterTitle(QStringLiteral("体网格简化"));
+                dialog->setFixedWidth(460);
+                int SimplificationMethodId = dialog->addParameter(
+                        igQtFilterDialogDockWidget::QT_COMBO_BOX, QStringLiteral("简化方法"),
+                        std::vector<QString>{QStringLiteral("四面体塌缩"), QStringLiteral("边塌缩")});
+                int TargetReductionId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT,
+                                                             QStringLiteral("目标保留比例(0..1)"), "0.5");
+                int TargetTetraCountId =
+                        dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT,
+                                             QStringLiteral("目标顶点数量（非必填，0表示不指定）"), "0");
+                int PreserveBoundaryId = dialog->addParameter(igQtFilterDialogDockWidget::QT_CHECK_BOX,
+                                                              QStringLiteral("是否保护边界"), "true");
+                int UseAllPointAttributesId =
+                        dialog->addParameter(igQtFilterDialogDockWidget::QT_CHECK_BOX,
+                                             QStringLiteral("是否使用所有点属性参与简化误差计算"), "true");
+
+                dialog->show();
+
+                dialog->setApplyFunctor([=, this]() {
+                    bool ok = false;
+                    float TargetReduction = dialog->getDouble(TargetReductionId, ok);
+                    if (!ok) {
+                        showDarkFramelessMessage(QStringLiteral("参数错误"),
+                                                 QStringLiteral("请输入有效的数字或勾选项。"));
+                        return;
+                    }
+                    int TargetTetraCount = dialog->getInt(TargetTetraCountId, ok);
+                    if (!ok) {
+                        showDarkFramelessMessage(QStringLiteral("参数错误"),
+                                                 QStringLiteral("请输入有效的数字或勾选项。"));
+                        return;
+                    }
+                    bool PreserveBoundary = dialog->getChecked(PreserveBoundaryId, ok);
+                    if (!ok) {
+                        showDarkFramelessMessage(QStringLiteral("参数错误"),
+                                                 QStringLiteral("请输入有效的数字或勾选项。"));
+                        return;
+                    }
+                    bool UseAllPointAttributes = dialog->getChecked(UseAllPointAttributesId, ok);
+                    if (!ok) {
+                        showDarkFramelessMessage(QStringLiteral("参数错误"),
+                                                 QStringLiteral("请输入有效的数字或勾选项。"));
+                        return;
+                    }
+
+                    auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+                    if (!obj) return;
+                    if (SimplificationMethodId == 0) { //选择四面体塌缩
+                        auto filter = TetraSimplification::New();
+                        filter->SetInput(tetInput);
+                        filter->SetTargetReduction(TargetReduction);
+                        filter->SetTargetTetraCount(TargetTetraCount);
+                        filter->SetPreserveBoundary(PreserveBoundary);
+                        filter->SetUseAllPointAttributes(UseAllPointAttributes);
+
+                        filter->SetInput(tetInput);
+                        if (!filter->Execute()) {
+                            showDarkFramelessMessage(QStringLiteral("执行失败"),
+                                                     QStringLiteral("当前数据不支持该算法。"));
+                            dialog->close();
+                            return;
+                        }
+
+                        auto output = filter->GetOutput();
+
+                        modelTreeWidget->addDataObjectToModelTree(output, Algorithm);
+                        rendererWidget->update();
+
+                        dialog->close();
+                    } else { //选择边塌缩
+                        auto filter = TetraEdgeSimplification::New();
+                        filter->SetInput(obj);
+                        filter->SetTargetReduction(TargetReduction);
+                        filter->SetTargetTetraCount(TargetTetraCount);
+                        filter->SetPreserveBoundary(PreserveBoundary);
+                        filter->SetUseAllPointAttributes(UseAllPointAttributes);
+
+                        filter->SetInput(obj);
+                        if (!filter->Execute()) {
+                            showDarkFramelessMessage(QStringLiteral("执行失败"),
+                                                     QStringLiteral("当前数据不支持该算法。"));
+                            dialog->close();
+                            return;
+                        }
+
+                        auto output = filter->GetOutput();
+
+                        modelTreeWidget->addDataObjectToModelTree(output, Algorithm);
+                        rendererWidget->update();
+
+                        dialog->close();
+                    }
+                });
+            });
+
+    connect(ui->menu_filters->addAction(QStringLiteral("四面体化(Mesh Tetrahedralize)")), &QAction::triggered, this,
+            [&](bool checked) {
+        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
+        auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+        if (!obj) return;
+        auto filter = MeshTetrahedralize::New();
+        filter->SetInput(obj);
+        if (!filter->Execute()) {
+            showDarkFramelessMessage(QStringLiteral("执行失败"), QStringLiteral("当前数据不支持四面体化。"));
+            return;
+        }
+        auto output = filter->GetOutput();
+        modelTreeWidget->addDataObjectToModelTree(output, Algorithm);
+        rendererWidget->update();
     QAction* LocationAttribute = ui->menu_filters->addAction(QStringLiteral("附加点坐标到属性(AppendLocaitonAttribute)"));
     connect(LocationAttribute, &QAction::triggered, this, [this](bool checked) {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
