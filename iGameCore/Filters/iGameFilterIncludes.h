@@ -3,9 +3,8 @@
 #include "Convert/iGameConvertToPointCloudFilter.h"
 #include "Convert/iGameConvertToSurfaceMeshFilter.h"
 #include "Convert/iGameConvertToVolumeMeshFilter.h"
-
 #include "DataProcessing/iGameMaskPointsFilter.h"
-
+#include "IsoVolume/iGameIsoVolumeFilter.h"
 #include "MeshCodec/iGameMeshDecoderFilter.h"
 #include "MeshCodec/iGameMeshEncoderFilter.h"
 #include "ModelSurface/iGameModelGeometryFilter.h"
@@ -31,8 +30,9 @@
 #include "VariableCorrelation/iGameGenerateVariableCorrelationDataFilter.h"
 #include "VariableDensity/iGameGenerateVariableDensityDataFilter.h"
 #include "VolumeMeshAlgorithm/iGameTetraDecimation.h"
-
+#include "GlobalIds/iGameGenerateGlobalIdsFilter.h"
 #include "FeatureExtraction/iGameCurvatureFilter.h"
+#include "FeatureExtraction/iGameFeatureEdgesFilter.h"
 #include "FeatureExtraction/iGameGradientFilter.h"
 #include "FeatureExtraction/iGameLaplacianFilter.h"
 #include "FeatureExtraction/iGameVortexDetectionFilter.h"
