@@ -172,11 +172,12 @@ bool CountCellFacesFilter::ExecuteInternal() {
         m_FaceCounts->Resize(cellCount);
         for (IGsize cellId = 0; cellId < cellCount; ++cellId) {
             if (mesh->GetIsPolyhedronType()) {
-                // VolumeMesh does not expose a nullable face-connectivity accessor.
-                // Avoid GetVolume(), which asserts on malformed connectivity.
-                ++unsupportedCellCount;
-                m_FaceCounts->SetValue(cellId, 0);
-                continue;
+                igIndex faceIds[IGAME_CELL_MAX_SIZE]{};
+                const int faceCount = mesh->GetVolumeFaceIds(cellId, faceIds);
+                if (faceCount > 0) {
+                    m_FaceCounts->SetValue(cellId, static_cast<unsigned int>(faceCount));
+                    continue;
+                }
             } else {
                 const IGuint pointCount = volumes->GetCellSize(cellId);
                 unsigned int faceCount = 0;
