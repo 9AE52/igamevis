@@ -1,18 +1,30 @@
 #include "FeatureExtraction/iGameOutlineCornerFilter.h"
 #include "iGameFileIO.h"
+#include "iGamePointSet.h"
 
 #include <exception>
 #include <iostream>
 #include <string>
 
+namespace {
+iGame::PointSet::Pointer CreateTestInput() {
+    auto input = iGame::PointSet::New();
+    input->AddPoint(iGame::Point(-1.0, -2.0, -3.0));
+    input->AddPoint(iGame::Point(4.0, 5.0, 6.0));
+    return input;
+}
+} // namespace
+
 int main(int argc, char* argv[]) {
-    if (argc < 2 || argc > 3) {
+    if (argc > 3) {
         std::cerr << "Usage: testOutlineCorners <input-model> [corner-factor]\n";
         return 1;
     }
 
-    const std::string inputFile = argv[1];
-    auto input = iGame::FileIO::ReadFile(inputFile);
+    const std::string inputFile = argc >= 2 ? argv[1] : "built-in bounding box";
+    iGame::DataObject::Pointer input = argc >= 2
+            ? iGame::FileIO::ReadFile(inputFile)
+            : CreateTestInput();
     if (input.IsNull()) {
         std::cerr << "Failed to read input model: " << inputFile << '\n';
         return 2;
@@ -20,7 +32,7 @@ int main(int argc, char* argv[]) {
 
     auto filter = iGame::OutlineCornerFilter::New();
     filter->SetInput(input);
-    if (argc == 3) {
+    if (argc >= 3) {
         try {
             filter->SetCornerFactor(std::stof(argv[2]));
         } catch (const std::exception&) {
