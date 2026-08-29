@@ -1457,6 +1457,196 @@ void igQtMainWindow::initAllFilters() {
 
     QMenu* mesh_processing = ui->menu_filters->addMenu(QStringLiteral("数据处理 (Data Processing)"));
 
+    connect(mesh_processing->addAction(QStringLiteral("点抽样 (Mask Points)")), &QAction::triggered, this,
+            [&](bool checked) {
+                if (rendererWidget->GetScene() == nullptr || rendererWidget->GetScene()->GetCurrentModel() == nullptr) {
+                    return;
+                }
+
+                igQtFilterDialogDockWidget* dialog = new igQtFilterDialogDockWidget(this, true);
+                dialog->setFilterTitle(QStringLiteral("点抽样 (Mask Points)"));
+
+                dialog->setFixedWidth(1050);
+
+                if (auto* scrollArea = dialog->findChild<QScrollArea*>(QStringLiteral("scrollArea"))) {
+                    scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+                }
+
+                int onRatioId =
+                        dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, QStringLiteral("On Ratio"), "2");
+
+                int maximumId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT,
+                                                     QStringLiteral("Maximum Number of Points"), "5000");
+
+                int proportionalId = dialog->addParameter(
+                        igQtFilterDialogDockWidget::QT_CHECK_BOX,
+                        QStringLiteral("Proportionally Distribute Maximum Number Of Points"), "false");
+
+                if (auto* widget = dialog->getWidget(proportionalId)) {
+                    widget->setToolTip(QStringLiteral(
+                            "This option is retained for ParaView compatibility. "
+                            "In the current serial implementation it does not change the sampling result."));
+                }
+
+                int offsetId =
+                        dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, QStringLiteral("Offset"), "0");
+
+                int randomId = dialog->addParameter(igQtFilterDialogDockWidget::QT_CHECK_BOX,
+                                                    QStringLiteral("Random Sampling"), "false");
+
+                int randomModeId = dialog->addParameter(
+                        igQtFilterDialogDockWidget::QT_COMBO_BOX, QStringLiteral("Random Sampling Mode"),
+                        std::vector<QString>{"Randomized Id Strides", "Random Sampling",
+                                             "Spatially Stratified Random Sampling",
+                                             "Uniform Spatial Distribution (Bounds Based)",
+                                             "Uniform Spatial Distribution (Surface Sampling)",
+                                             "Uniform Spatial Distribution (Volume Sampling)"});
+
+                if (auto* comboBox = qobject_cast<QComboBox*>(dialog->getWidget(randomModeId))) {
+                    comboBox->setStyleSheet(QStringLiteral("QComboBox { padding-right: 24px; }"
+                                                           "QComboBox::drop-down {"
+                                                           "    subcontrol-origin: padding;"
+                                                           "    subcontrol-position: top right;"
+                                                           "    border-left: 1px solid #3C3C3C;"
+                                                           "    width: 20px;"
+                                                           "}"
+                                                           "QComboBox::down-arrow {"
+                                                           "    image: url(:/Ticon/Icons/spin_down_silver.svg);"
+                                                           "    width: 10px;"
+                                                           "    height: 10px;"
+                                                           "}"));
+                }
+
+                int randomSeedId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT,
+                                                        QStringLiteral("Random Seed"), "1");
+
+                int generateVerticesId = dialog->addParameter(igQtFilterDialogDockWidget::QT_CHECK_BOX,
+                                                              QStringLiteral("Generate Vertices"), "false");
+
+                int singleVertexId = dialog->addParameter(igQtFilterDialogDockWidget::QT_CHECK_BOX,
+                                                          QStringLiteral("Single Vertex Per Cell"), "false");
+
+                if (auto* widget = dialog->getWidget(singleVertexId)) {
+                    widget->setToolTip(QStringLiteral("When enabled, one vertex cell is generated per sampled point. "
+                                                      "PolyVertex output is currently unavailable in iGameVis."));
+                }
+
+                dialog->show();
+
+                dialog->setApplyFunctor([=, this]() {
+                    if (rendererWidget->GetScene() == nullptr ||
+                        rendererWidget->GetScene()->GetCurrentModel() == nullptr) {
+                        dialog->close();
+                        return;
+                    }
+
+                    bool ok = false;
+
+                    int onRatio = dialog->getInt(onRatioId, ok);
+
+                    if (!ok || onRatio <= 0) {
+                        showDarkFramelessMessage(QStringLiteral("Warning"),
+                                                 QStringLiteral("On Ratio must be greater than 0."));
+                        return;
+                    }
+
+                    int maximum = dialog->getInt(maximumId, ok);
+
+                    if (!ok || maximum < 0) {
+                        showDarkFramelessMessage(
+                                QStringLiteral("Warning"),
+                                QStringLiteral("Maximum Number of Points must be greater than or equal to 0."));
+                        return;
+                    }
+
+                    bool proportionalMaximum = dialog->getChecked(proportionalId, ok);
+
+                    if (!ok) { return; }
+
+                    int offset = dialog->getInt(offsetId, ok);
+
+                    if (!ok || offset < 0) {
+                        showDarkFramelessMessage(QStringLiteral("Warning"),
+                                                 QStringLiteral("Offset must be greater than or equal to 0."));
+                        return;
+                    }
+
+                    bool randomSampling = dialog->getChecked(randomId, ok);
+
+                    if (!ok) { return; }
+
+                    int randomMode = dialog->getComboIndex(randomModeId, ok);
+
+                    if (!ok || randomMode < MaskPointsFilter::RANDOMIZED_ID_STRIDES ||
+                        randomMode > MaskPointsFilter::UNIFORM_SPATIAL_VOLUME) {
+                        showDarkFramelessMessage(QStringLiteral("Warning"),
+                                                 QStringLiteral("Invalid Random Sampling Mode."));
+                        return;
+                    }
+
+                    int randomSeed = dialog->getInt(randomSeedId, ok);
+
+                    if (!ok || randomSeed < 0) {
+                        showDarkFramelessMessage(QStringLiteral("Warning"),
+                                                 QStringLiteral("Random Seed must be greater than or equal to 0."));
+                        return;
+                    }
+
+                    bool generateVertices = dialog->getChecked(generateVerticesId, ok);
+
+                    if (!ok) { return; }
+
+                    bool singleVertexPerCell = dialog->getChecked(singleVertexId, ok);
+
+                    if (!ok) { return; }
+
+                    if (generateVertices && !singleVertexPerCell) {
+                        showDarkFramelessMessage(
+                                QStringLiteral("Warning"),
+                                QStringLiteral(
+                                        "PolyVertex output is currently unavailable in iGameVis. "
+                                        "Please enable Single Vertex Per Cell when Generate Vertices is enabled."));
+                        return;
+                    }
+
+                    auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+
+                    auto input = DynamicCast<UnstructuredMesh>(obj);
+
+                    if (input.IsNull()) {
+                        showDarkFramelessMessage(QStringLiteral("Warning"),
+                                                 QStringLiteral("Mask Points currently supports UnstructuredMesh."));
+                        return;
+                    }
+
+                    MaskPointsFilter::Pointer filter = MaskPointsFilter::New();
+
+                    filter->SetInput(0, input);
+                    filter->SetOnRatio(onRatio);
+                    filter->SetMaximumNumberOfPoints(static_cast<IGsize>(maximum));
+                    filter->SetProportionalMaximumNumberOfPoints(proportionalMaximum);
+                    filter->SetOffset(static_cast<IGsize>(offset));
+                    filter->SetRandomMode(randomSampling);
+                    filter->SetRandomModeType(randomMode);
+                    filter->SetRandomSeed(static_cast<unsigned int>(randomSeed));
+                    filter->SetGenerateVertices(generateVertices);
+                    filter->SetSingleVertexPerCell(singleVertexPerCell);
+
+                    if (!filter->Execute()) {
+                        showDarkFramelessMessage(QStringLiteral("Warning"),
+                                                 QStringLiteral("Mask Points execution failed."));
+                        return;
+                    }
+
+                    auto output = filter->GetOutput();
+                    output->SetName(obj->GetName() + "_mask_points");
+
+                    modelTreeWidget->addDataObjectToModelTree(output, Algorithm);
+                    rendererWidget->update();
+                    dialog->close();
+                });
+            });
+
     connect(mesh_processing->addAction(QStringLiteral("表面网格简化 (Surface Simplification)")), &QAction::triggered, this, [&](bool checked) {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
 
