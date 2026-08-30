@@ -1,11 +1,78 @@
 #include "iGameExtractCellsByTypeFilter.h"
 
 #include "iGameCellArray.h"
+#include "iGameFlatArray.h"
 #include "iGameStructuredMesh.h"
 #include "iGameSurfaceMesh.h"
 #include "iGameVolumeMesh.h"
 
 IGAME_NAMESPACE_BEGIN
+
+namespace {
+// 按输入数组的实际类型创建同类型空数组：
+// 保留 Double/整数/64 位 ID 的类型与精度，避免统一转成 FloatArray 造成降精度。
+ArrayObject::Pointer CreateArrayLike(const ArrayObject::Pointer& src) {
+    switch (src->GetArrayType()) {
+    case IG_FloatArray: return FloatArray::New();
+    case IG_DoubleArray: return DoubleArray::New();
+    case IG_IntArray: return IntArray::New();
+    case IG_UnsignedIntArray: return UnsignedIntArray::New();
+    case IG_CharArray: return CharArray::New();
+    case IG_UnsignedCharArray: return UnsignedCharArray::New();
+    case IG_ShortArray: return ShortArray::New();
+    case IG_UnsignedShortArray: return UnsignedShortArray::New();
+    case IG_LongLongArray: return LongLongArray::New();
+    case IG_UnsignedLongLongArray: return UnsignedLongLongArray::New();
+    default:
+        // 非常规数组类型（如 IdArray）：回退 FloatArray，仅极端情况下触发
+        return FloatArray::New();
+    }
+}
+
+// 类型化拷贝：dst[i] = src[srcIdx[i]]，按底层值类型逐分量复制（不经 double 中转，完全保真）
+template <typename TArray, typename TValue>
+void CopyArrayElements(ArrayObject::Pointer& dst, const ArrayObject::Pointer& src,
+                       const std::vector<IGsize>& srcIdx) {
+    auto s = DynamicCast<TArray>(src);
+    auto d = DynamicCast<TArray>(dst);
+    if (!s || !d) return;
+    const int dim = src->GetDimension();
+    const TValue* sRaw = s->RawPointer();
+    TValue* dRaw = d->RawPointer();
+    const IGsize n = static_cast<IGsize>(srcIdx.size());
+    for (IGsize i = 0; i < n; i++) {
+        const IGsize si = srcIdx[i] * static_cast<IGsize>(dim);
+        const IGsize di = i * static_cast<IGsize>(dim);
+        for (int c = 0; c < dim; c++) { dRaw[di + c] = sRaw[si + c]; }
+    }
+}
+
+// 按源数组类型分发到对应的类型化拷贝
+void CopyArrayByIndex(ArrayObject::Pointer& dst, const ArrayObject::Pointer& src,
+                      const std::vector<IGsize>& srcIdx) {
+    switch (src->GetArrayType()) {
+    case IG_FloatArray: CopyArrayElements<FloatArray, float>(dst, src, srcIdx); break;
+    case IG_DoubleArray: CopyArrayElements<DoubleArray, double>(dst, src, srcIdx); break;
+    case IG_IntArray: CopyArrayElements<IntArray, int>(dst, src, srcIdx); break;
+    case IG_UnsignedIntArray: CopyArrayElements<UnsignedIntArray, unsigned int>(dst, src, srcIdx); break;
+    case IG_CharArray: CopyArrayElements<CharArray, char>(dst, src, srcIdx); break;
+    case IG_UnsignedCharArray: CopyArrayElements<UnsignedCharArray, unsigned char>(dst, src, srcIdx); break;
+    case IG_ShortArray: CopyArrayElements<ShortArray, short>(dst, src, srcIdx); break;
+    case IG_UnsignedShortArray: CopyArrayElements<UnsignedShortArray, unsigned short>(dst, src, srcIdx); break;
+    case IG_LongLongArray: CopyArrayElements<LongLongArray, long long>(dst, src, srcIdx); break;
+    case IG_UnsignedLongLongArray: CopyArrayElements<UnsignedLongLongArray, unsigned long long>(dst, src, srcIdx); break;
+    default: {
+        // 回退：double 中转（与旧行为一致，仅非常规数组类型触发）
+        const int dim = src->GetDimension();
+        double buf[IGAME_CELL_MAX_SIZE] = {0};
+        for (IGsize i = 0; i < static_cast<IGsize>(srcIdx.size()); i++) {
+            src->GetElement(srcIdx[i], buf);
+            dst->SetElement(i, buf);
+        }
+    } break;
+    }
+}
+} // namespace
 
 int ExtractCellsByTypeFilter::s_InstanceCounter = 0;
 
@@ -277,7 +344,7 @@ bool ExtractCellsByTypeFilter::Execute() {
 
     out->SetCells(outCells, outTypes);
 
-    // 4. 属性搬运（不丢弃属性）
+    // 4. 属性搬运（不丢弃属性，且保留数组原始类型与精度）
     //    点属性：只保留被使用到的点（按 oldToNew 映射）
     //    单元属性：只保留被选中的单元（按 selectedCells 映射）
     auto inAttr = input->GetAttributeSet();
@@ -286,32 +353,29 @@ bool ExtractCellsByTypeFilter::Execute() {
         auto allAttrs = inAttr->GetAllAttributes();
         const IGsize outPointNum = outPoints->GetNumberOfPoints();
         const IGsize outCellNum = selectedCells.size();
-        double buf[IGAME_CELL_MAX_SIZE] = {0};
+
+        // 输出点 i 对应的源点号（仅被保留的点）
+        std::vector<IGsize> pointSrcIdx(outPointNum);
+        for (IGsize oldId = 0; oldId < inPointNum; oldId++) {
+            if (oldToNew[oldId] >= 0) { pointSrcIdx[static_cast<IGsize>(oldToNew[oldId])] = oldId; }
+        }
 
         for (IGsize i = 0; i < allAttrs->GetNumberOfElements(); i++) {
             auto& attr = allAttrs->GetElement(i);
-            if (attr.attachmentType == IG_POINT) {
-                auto outArray = FloatArray::New();
-                outArray->SetName(attr.pointer->GetName());
-                outArray->SetDimension(attr.pointer->GetDimension());
-                outArray->Resize(outPointNum);
+            if (attr.attachmentType != IG_POINT && attr.attachmentType != IG_CELL) continue;
 
-                for (IGsize oldId = 0; oldId < inPointNum; oldId++) {
-                    if (oldToNew[oldId] < 0) continue;
-                    attr.pointer->GetElement(oldId, buf);
-                    outArray->SetElement(oldToNew[oldId], buf);
-                }
+            // 按输入数组的实际类型创建同类型数组（Double/整数/64 位 ID 均保留）
+            auto outArray = CreateArrayLike(attr.pointer);
+            outArray->SetName(attr.pointer->GetName());
+            outArray->SetDimension(attr.pointer->GetDimension());
+
+            if (attr.attachmentType == IG_POINT) {
+                outArray->Resize(outPointNum);
+                CopyArrayByIndex(outArray, attr.pointer, pointSrcIdx);
                 outAttr->AddAttribute(attr.type, IG_POINT, outArray, attr.GetDataRange());
             } else if (attr.attachmentType == IG_CELL) {
-                auto outArray = FloatArray::New();
-                outArray->SetName(attr.pointer->GetName());
-                outArray->SetDimension(attr.pointer->GetDimension());
                 outArray->Resize(outCellNum);
-
-                for (IGsize k = 0; k < outCellNum; k++) {
-                    attr.pointer->GetElement(selectedCells[k], buf);
-                    outArray->SetElement(k, buf);
-                }
+                CopyArrayByIndex(outArray, attr.pointer, selectedCells);
                 outAttr->AddAttribute(attr.type, IG_CELL, outArray, attr.GetDataRange());
             }
         }

@@ -46,7 +46,7 @@ static iGame::UnstructuredMesh::Pointer buildMixedMesh() {
     ids[4] = 4; ids[5] = 5; ids[6] = 6; ids[7] = 7;
     mesh->AddCell(ids, 8, IG_HEXAHEDRON);            // 六面体 (0..7)
 
-    // 点属性：pid[i] = i * 10
+    // 点属性：pid[i] = i * 10（float 数组）
     auto attrSet = AttributeSet::New();
     auto pArray = FloatArray::New();
     pArray->SetName("pid");
@@ -54,7 +54,14 @@ static iGame::UnstructuredMesh::Pointer buildMixedMesh() {
     pArray->Resize(10);
     for (int i = 0; i < 10; i++) { pArray->SetValue(i, i * 10.0); }
     attrSet->AddAttribute(IG_SCALAR, IG_POINT, pArray, nullptr);
-    // 单元属性：cid[i] = i * 100
+    // 点属性：pid_double[i] = i * 10 + 0.5（double 数组，验证类型与精度保留）
+    auto pdArray = DoubleArray::New();
+    pdArray->SetName("pid_double");
+    pdArray->SetDimension(1);
+    pdArray->Resize(10);
+    for (int i = 0; i < 10; i++) { pdArray->SetValue(i, i * 10.0 + 0.5); }
+    attrSet->AddAttribute(IG_SCALAR, IG_POINT, pdArray, nullptr);
+    // 单元属性：cid[i] = i * 100（float 数组）
     auto cArray = FloatArray::New();
     cArray->SetName("cid");
     cArray->SetDimension(1);
@@ -70,7 +77,7 @@ static int verifyAttributes(iGame::DataObject::Pointer out, IGsize expectPointNu
     using namespace iGame;
     auto attrSet = out->GetAttributeSet();
     if (check(attrSet != nullptr, "output has attribute set")) return 1;
-    if (check(attrSet->GetNumberOfAttributes() == 2, "output attribute count == 2")) return 1;
+    if (check(attrSet->GetNumberOfAttributes() == 3, "output attribute count == 3")) return 1;
 
     auto allAttrs = attrSet->GetAllAttributes();
     bool seenPoint = false, seenCell = false;
@@ -84,6 +91,14 @@ static int verifyAttributes(iGame::DataObject::Pointer out, IGsize expectPointNu
             seenCell = true;
             if (check(attr.pointer->GetNumberOfElements() == expectCellNum,
                       "cell attribute length == output cell count")) return 1;
+        }
+        // 数组原始类型保留：pid 仍是 float，pid_double 仍是 double（不降精度）
+        if (attr.pointer->GetName() == "pid") {
+            if (check(attr.pointer->GetArrayType() == IG_FloatArray,
+                      "attribute 'pid' keeps FloatArray type")) return 1;
+        } else if (attr.pointer->GetName() == "pid_double") {
+            if (check(attr.pointer->GetArrayType() == IG_DoubleArray,
+                      "attribute 'pid_double' keeps DoubleArray type")) return 1;
         }
     }
     if (check(seenPoint, "point attribute kept")) return 1;
@@ -122,7 +137,7 @@ int main(int argc, char** argv) {
 
     // 数值对账：全部点的属性值应原样保留。
     // 注意：输出点序 = "首次使用顺序"（与输入点序不同），但每个点的值都跟着映射走，
-    // 因此校验"值的集合不变"。
+    // 因此校验"值的集合不变"（float 属性与 double 属性各自对账）。
     {
         auto outAttr = out1->GetAttributeSet()->GetAllAttributes();
         for (IGsize i = 0; i < outAttr->GetNumberOfElements(); i++) {
@@ -133,8 +148,13 @@ int main(int argc, char** argv) {
                     vals.push_back(attr.pointer->GetValue(k));
                 }
                 std::sort(vals.begin(), vals.end());
-                const std::vector<double> expect = {0, 10, 20, 30, 40, 50, 60, 70, 80, 90};
-                if (check(vals == expect, "point attribute values preserved (as a set) after remap")) return 1;
+                if (attr.pointer->GetName() == "pid") {
+                    const std::vector<double> expect = {0, 10, 20, 30, 40, 50, 60, 70, 80, 90};
+                    if (check(vals == expect, "point attribute 'pid' values preserved (as a set)")) return 1;
+                } else if (attr.pointer->GetName() == "pid_double") {
+                    const std::vector<double> expect = {0.5, 10.5, 20.5, 30.5, 40.5, 50.5, 60.5, 70.5, 80.5, 90.5};
+                    if (check(vals == expect, "point attribute 'pid_double' values preserved (as a set)")) return 1;
+                }
             }
         }
     }
@@ -166,8 +186,14 @@ int main(int argc, char** argv) {
                 double v3 = attr.pointer->GetValue(1); // 点3 → 30
                 double v8 = attr.pointer->GetValue(2); // 点8 → 80
                 double v9 = attr.pointer->GetValue(3); // 点9 → 90
-                if (check(v0 == 0.0 && v3 == 30.0 && v8 == 80.0 && v9 == 90.0,
-                          "point attribute values map to original points")) return 1;
+                if (attr.pointer->GetName() == "pid_double") {
+                    // double 属性精度保留：0.5 / 30.5 / 80.5 / 90.5 逐值一致（float 中转会丢失精度）
+                    if (check(v0 == 0.5 && v3 == 30.5 && v8 == 80.5 && v9 == 90.5,
+                              "double attribute values keep full precision")) return 1;
+                } else if (attr.pointer->GetName() == "pid") {
+                    if (check(v0 == 0.0 && v3 == 30.0 && v8 == 80.0 && v9 == 90.0,
+                              "point attribute values map to original points")) return 1;
+                }
             } else if (attr.attachmentType == IG_CELL) {
                 double c0 = attr.pointer->GetValue(0); // 第3个单元(四面体) → 2*100=200
                 if (check(c0 == 200.0, "cell attribute value maps to original cell")) return 1;
