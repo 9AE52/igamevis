@@ -41,6 +41,8 @@ class igQtChromeFramelessDialog;
 class igQtPartFocusWidget;
 class igQtGlobalIdWidget;
 class igQtExtractCellsByTypeWidget;
+class igQtPointAndCellIdsWidget;
+
 
 class IG_QT_MODULE_EXPORT igQtMainWindow : public QMainWindow {
     Q_OBJECT
@@ -114,6 +116,10 @@ public:
     // 全局 ID 生成与 Local/Global 对照结果
     QDockWidget* GlobalIdDockWidget{nullptr};
     igQtGlobalIdWidget* GlobalIdWidget{nullptr};
+
+    // 点与单元 ID 参数面板
+    QDockWidget* PointAndCellIdsDockWidget{nullptr};
+    igQtPointAndCellIdsWidget* PointAndCellIdsWidget{nullptr};
 
 private slots:
     void updateRecentFilePaths();
