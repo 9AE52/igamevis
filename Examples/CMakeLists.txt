@@ -203,7 +203,7 @@ igame_add_example(testSetRenderingPressure Rendering/SetRenderingPressure.cpp)
 
 # Attribute
 igame_add_example(testChangeRange Attribute/TestSubDataRangeChangeAndRecollect.cpp)
-igame_add_example(testPointCoordinates Filter/Attribute/TestPointCoordinates.cpp)
+igame_add_example(testPointCoordinates Filter/PointCoordinates/TestPointCoordinates.cpp)
 
 # Vector / Tensor
 igame_add_example(testVector Filter/Vector/TestVector.cpp)

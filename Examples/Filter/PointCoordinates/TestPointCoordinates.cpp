@@ -1,4 +1,4 @@
-#include <Attribute/iGamePointCoordinatesFilter.h>
+#include <PointCoordinates/iGamePointCoordinatesFilter.h>
 #include <iGameDataObject.h>
 #include <iGameUnstructuredMesh.h>
 
