@@ -33,6 +33,7 @@
 #include "VolumeMeshAlgorithm/iGameTetraDecimation.h"
 #include "GlobalIds/iGameGenerateGlobalIdsFilter.h"
 #include "FeatureExtraction/iGameCurvatureFilter.h"
+#include "FeatureExtraction/iGameCountCellFacesFilter.h"
 #include "FeatureExtraction/iGameFeatureEdgesFilter.h"
 #include "FeatureExtraction/iGameGradientFilter.h"
 #include "FeatureExtraction/iGameLaplacianFilter.h"

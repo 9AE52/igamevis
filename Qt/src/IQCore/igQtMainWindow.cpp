@@ -2133,6 +2133,119 @@ void igQtMainWindow::initAllFilters() {
         rendererWidget->update();
     });
 
+    //connect(mesh_processing->addAction("Test"), &QAction::triggered, this, [&](bool checked) {
+    //    auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+
+    //    auto m_StreamBase = iGame::StreamBase::New();
+    //    auto streamtracer = m_StreamBase->streamFilter;
+    //    streamtracer->initStreamTracer(obj);
+    //    //auto seeds=streamtracer->getModelSelect();//当实际已经选中了重点区域时直接调用该函数
+    //    Vector3f boundMax = streamtracer->GetMesh()->GetBoundingBox().max; //包围盒区域
+    //    Vector3f boundMin = streamtracer->GetMesh()->GetBoundingBox().min;
+    //    Vector3f centerMax = (boundMax - boundMin) / 5 + boundMin; //模拟被选中重点区域
+    //    auto seeds = streamtracer->getAllSubBlockCenters(boundMax, boundMin, centerMax, boundMin, 2,
+    //                                                     4); //4，6为划分子块的数量
+    //    float lengthOfStreamLine = 5;
+    //    float lengthOfStep = 0.3;
+    //    float maxSteps = 1000;
+    //    float terminalSpeed = 0.005;
+    //    streamtracer->SetInput(seeds, "V", lengthOfStreamLine, lengthOfStep, terminalSpeed, maxSteps);
+    //    streamtracer->Execute();
+    //    std::cout << seeds.size() << std::endl;
+    //    auto output = streamtracer->GetOutput();
+
+    //    modelTreeWidget->addDataObjectToModelTree(output, Algorithm);
+    //    rendererWidget->update();
+    //});
+
+    //connect(mesh_processing->addAction("Test2"), &QAction::triggered, this, [&](bool checked) { 
+    //    auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+
+    //    auto filter = iGame::VolumeMeshMetricsFilter::New();
+    //    filter->SetVolumeMetric(VolumeMeshMetricsFilter::HEX_VOLUME);
+    //    filter->SetInput(obj);
+    //    filter->Execute();
+
+    //    modelTreeWidget->addDataObjectToModelTree(filter->GetOutput(), Algorithm);
+    //    rendererWidget->update();
+    //    });
+    //connect(mesh_processing->addAction("Test3"), &QAction::triggered, this, [&](bool checked) 
+    //    { 
+    //        CellArray::Pointer cellArray = CellArray::New();
+    //        clock_t start = clock();
+    //        igIndex cell[3]{};
+    //        cellArray->AddCellIds(cell, 2);
+    //        for (int i = 0; i < 10000000; i++) { 
+    //            cellArray->AddCellIds(cell, 3);
+    //        }
+    //        clock_t end = clock();
+    //        std::cout << end - start << std::endl;
+
+    //    });
+    QMenu* convert = ui->menu_filters->addMenu(QStringLiteral("数据转换 (Convert)"));
+    connect(convert->addAction(QStringLiteral("转换为点数据 (Convert To PointData)")), &QAction::triggered, this, [&](bool checked) {
+        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
+        auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+        ConvertToPointDataFilter::Pointer filter = ConvertToPointDataFilter::New();
+        filter->SetInput(obj);
+        if (filter->Execute()) {
+            modelTreeWidget->addDataObjectToModelTree(filter->GetOutput(), Algorithm);
+            rendererWidget->update();
+        }
+    });
+    connect(convert->addAction(QStringLiteral("转换为单元数据 (Convert To CellData)")), &QAction::triggered, this, [&](bool checked) {
+        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
+        auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+        ConvertToCellDataFilter::Pointer filter = ConvertToCellDataFilter::New();
+        filter->SetInput(obj);
+        if (filter->Execute()) {
+            modelTreeWidget->addDataObjectToModelTree(filter->GetOutput(), Algorithm);
+            rendererWidget->update();
+        }
+    });
+
+
+    QMenu* view = ui->menu_filters->addMenu("特征提取");
+
+    QAction* countCellFaces = view->addAction(
+            QStringLiteral("统计单元面数 (Count Cell Faces)"));
+    connect(countCellFaces, &QAction::triggered, this, [this](bool) {
+        auto scene = rendererWidget->GetScene();
+        if (scene == nullptr || scene->GetCurrentModel() == nullptr) {
+            igDebug("[CountCellFaces UI] No imported or selected model; Execute was not called.");
+            showDarkFramelessMessage(QStringLiteral("无可用模型"),
+                                     QStringLiteral("请先加载并在模型树中选择一个模型。"));
+            return;
+        }
+
+        auto input = scene->GetCurrentModel()->GetDataObject();
+        if (input.IsNull()) {
+            igDebug("[CountCellFaces UI] Current model has no data object; Execute was not called.");
+            showDarkFramelessMessage(QStringLiteral("无可用模型"),
+                                     QStringLiteral("当前模型没有可用数据。"));
+            return;
+        }
+
+        const int previousAttributeIndex = input->GetAttributeIndex();
+        CountCellFacesFilter::Pointer filter = CountCellFacesFilter::New();
+        filter->SetInput(input);
+        if (!filter->Execute()) {
+            showDarkFramelessMessage(QStringLiteral("执行失败"),
+                                     QString::fromStdString(filter->GetMessage()));
+            return;
+        }
+
+        modelTreeWidget->updateAllAttriubute(input);
+        if (auto* item = modelTreeWidget->getItemFromObject(input)) {
+            item->setExpanded(true);
+            if (previousAttributeIndex >= 0 && previousAttributeIndex < item->childCount()) {
+                item->viewAttribute(previousAttributeIndex, -1);
+            }
+        }
+        ui->widget_SearchInfo->setCurrentModel(scene->GetCurrentModel());
+        rendererWidget->update();
+    });
+
     QAction* gradient = view->addAction(QStringLiteral("计算梯度 (ComputeGradient)"));
     connect(gradient, &QAction::triggered, this, [this](bool checked) {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
