@@ -2032,6 +2032,64 @@ void igQtMainWindow::initAllFilters() {
         openLeftToolPanel(LeftToolPanelId::GenerateProcessIds);
         ui->widget_GenerateProcessIds->SetOriginDataObject(data);
     });
+    connect(ui->menu_filters->addAction(QStringLiteral("提取点坐标 (Extract Point Coordinates)")), &QAction::triggered, this,
+            [this](bool checked) {
+                auto scene = rendererWidget->GetScene();
+                if (!scene || !scene->GetCurrentModel()) {
+                    showDarkFramelessMessage(QStringLiteral("Warning"), QStringLiteral("请先选择一个模型。"));
+                    return;
+                }
+
+                auto data = scene->GetCurrentModel()->GetDataObject();
+                if (!data || !data->GetPoints()) {
+                    showDarkFramelessMessage(QStringLiteral("Warning"),
+                                             QStringLiteral("当前模型不包含可提取的点坐标。"));
+                    return;
+                }
+
+                PointCoordinatesFilter::Pointer filter = PointCoordinatesFilter::New();
+                filter->SetInput(data);
+                if (!filter->Execute()) {
+                    showDarkFramelessMessage(
+                            QStringLiteral("Warning"),
+                            QStringLiteral("点坐标提取失败，请检查 Coordinates 名称是否已被其他属性占用。"));
+                    return;
+                }
+
+                auto attributes = data->GetAttributeSet();
+                const int coordinatesIndex = attributes ? attributes->GetAttributeIndex(filter->GetArrayName()) : -1;
+                modelTreeWidget->updateAllAttriubute(data);
+
+                auto item = modelTreeWidget->getItemFromObject(data);
+                if (item && coordinatesIndex >= 0) {
+                    item->setExpanded(true);
+                    for (int i = 0; i < item->childCount(); ++i) {
+                        auto child = item->child(i);
+                        if (child && child->data(0, Qt::UserRole).toInt() == coordinatesIndex) {
+                            item->setCurrentChild(child);
+                            item->setSelected(false);
+                            if (auto attributeItem = dynamic_cast<AttribTreeWidgetItem*>(child)) {
+                                attributeItem->get()->setCurrentIndex(0);
+                            }
+                            // Clear the active attribute first so selecting Coordinates
+                            // again cannot be skipped by the rendering cache.
+                            item->viewAttribute(-1, -1);
+                            item->viewAttribute(coordinatesIndex, -1);
+                            child->setSelected(true);
+                            modelTreeWidget->setCurrentItem(child);
+                            break;
+                        }
+                    }
+                }
+
+                if (ui->dockWidget_SearchInfo && ui->widget_SearchInfo) {
+                    ui->dockWidget_SearchInfo->show();
+                    ui->dockWidget_SearchInfo->raise();
+                    ui->widget_SearchInfo->showPointAttributeDetails(
+                            scene->GetCurrentModel(), QString::fromStdString(filter->GetArrayName()));
+                }
+                rendererWidget->update();
+            });
 
     QMenu* view = ui->menu_filters->addMenu("特征提取");
 

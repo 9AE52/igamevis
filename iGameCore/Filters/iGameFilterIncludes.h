@@ -1,3 +1,4 @@
+#include "PointCoordinates/iGamePointCoordinatesFilter.h"
 #include "Clip/iGameClipFilter.h"
 #include "CellSize/iGameCellSizeFilter.h"
 #include "Contour/iGameContourFilter.h"
