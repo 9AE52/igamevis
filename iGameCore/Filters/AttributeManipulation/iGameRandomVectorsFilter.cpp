@@ -45,7 +45,14 @@ iGame::DataObject::Pointer CloneMesh(iGame::DataObject::Pointer input) {
         case IG_SURFACE_MESH: {
             auto src = DynamicCast<SurfaceMesh>(input);
             auto dst = SurfaceMesh::New();
-            dst->DeepCopy(src);
+            dst->SetPoints(copyPoints(src));
+            if (src->GetFaces()) {
+                auto faces = CellArray::New();
+                faces->DeepCopy(src->GetFaces());
+                dst->SetFaces(faces);
+            }
+            dst->SetAttributeSet(copyAttrs(src));
+            dst->SetName(src->GetName());
             return dst;
         }
         case IG_UNSTRUCTURED_MESH: {
