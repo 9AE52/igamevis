@@ -28,6 +28,7 @@
 #include "Convert/iGameConvertToSurfaceMeshFilter.h"
 #include "Convert/iGameConvertToVolumeMeshFilter.h"
 
+#include "MyFilter/iGameExtractCellsByTypeFilter.h"
 #include "FeatureExtraction/iGameFeatureEdgesFilter.h"
 
 #include "Interactor/iGameInteractor.h"
@@ -56,6 +57,7 @@
 #include <IQWidgets/igQtCharts.h>
 #include <IQWidgets/igQtDeformationWidget.h>
 #include <IQWidgets/igQtGlobalIdWidget.h>
+#include <IQWidgets/igQtExtractCellsByTypeWidget.h>
 #include <IQWidgets/igQtModelClipWidget.h>
 #include <IQWidgets/igQtModelDrawWidget.h>
 #include <IQWidgets/igQtModelInformationWidget.h>
@@ -982,6 +984,20 @@ void igQtMainWindow::initAllUnDefinedComponents() {
     DeformationDockWidget->setFeatures(QDockWidget::DockWidgetClosable);
     DeformationDockWidget->hide();
     this->addDockWidget(Qt::RightDockWidgetArea, DeformationDockWidget);
+
+    // 按单元类型提取：左侧工具面板（勾选要提取的单元类型）
+    m_extractCellsByTypeShell = new QDockWidget(this);
+    m_extractCellsByTypeShell->setObjectName("dockWidget_ExtractCellsByType");
+    m_extractCellsByTypeShell->setWindowTitle(QStringLiteral("按单元类型提取"));
+    m_extractCellsByTypeWidget = new igQtExtractCellsByTypeWidget(nullptr);
+    m_extractCellsByTypeWidget->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
+    m_extractCellsByTypeWidget->setMinimumWidth(280);
+    m_extractCellsByTypeShell->setWidget(m_extractCellsByTypeWidget);
+    m_extractCellsByTypeShell->setAllowedAreas(Qt::LeftDockWidgetArea);
+    m_extractCellsByTypeShell->setFeatures(QDockWidget::DockWidgetClosable);
+    this->addDockWidget(Qt::LeftDockWidgetArea, m_extractCellsByTypeShell);
+    makeDockWidgetScrollable(m_extractCellsByTypeShell);
+    m_extractCellsByTypeShell->hide();
 
 }
 void igQtMainWindow::initToolbarComponent() {
@@ -2182,6 +2198,67 @@ void igQtMainWindow::initAllFilters() {
     //        std::cout << end - start << std::endl;
 
     //    });
+    // 按单元类型提取：直接作为【算法处理】一级菜单项（不嵌套子菜单）
+    connect(ui->menu_filters->addAction(QStringLiteral("按单元类型提取 (Extract Cells By Type)")), &QAction::triggered,
+            this, [this](bool) {
+        auto currentModel = rendererWidget->GetScene()->GetCurrentModel();
+        if (!currentModel) return;
+
+        auto obj = currentModel->GetDataObject();
+        if (!obj) return;
+
+        // 每次点菜单 = 一次新的提取会话（输出名 ExtractCellsByType_n，n 递增）
+        m_extractCellsByTypeFilter = ExtractCellsByTypeFilter::New();
+        m_extractCellsByTypeFilter->SetInput(obj);
+        auto types = m_extractCellsByTypeFilter->GetAvailableCellTypes();
+        if (types.empty()) {
+            showDarkFramelessMessage(QStringLiteral("无可提取的单元"),
+                                     QStringLiteral("当前模型没有可提取的单元（点集或空网格）"));
+            return;
+        }
+
+        // 新会话：不覆盖输入模型；首次提取时生成独立的新模型（ExtractCellsByType_n）
+        m_extractCellsByTypeModel = nullptr;
+
+        // 注入"提取"逻辑：改勾选 → 点"提取" → 重新执行
+        // 首次执行：在模型树新增 ExtractCellsByType_n（输入模型保持不动）
+        // 后续执行：仅更新该新模型（模型树不新增节点）
+        m_extractCellsByTypeWidget->onApply = [this]() {
+            if (!m_extractCellsByTypeFilter) return;
+            auto selected = m_extractCellsByTypeWidget->GetSelectedCellTypes();
+            if (selected.empty()) {
+                showDarkFramelessMessage(QStringLiteral("未选择单元类型"),
+                                         QStringLiteral("请至少勾选一种单元类型"));
+                return;
+            }
+            m_extractCellsByTypeFilter->SetExtractCellTypes(selected);
+            if (!m_extractCellsByTypeFilter->Execute()) {
+                showDarkFramelessMessage(QStringLiteral("执行失败"),
+                                         QStringLiteral("所选类型在当前模型中无匹配单元"));
+                return;
+            }
+            auto out = m_extractCellsByTypeFilter->GetOutput();
+            if (!m_extractCellsByTypeModel) {
+                // 首次提取：生成独立新模型（输入模型保留）
+                const int id = modelTreeWidget->addDataObjectToModelTree(out, Algorithm);
+                m_extractCellsByTypeModel = rendererWidget->GetScene()->GetModelById(id);
+            } else {
+                // 改勾选后再次提取：原地更新提取出来的新模型
+                m_extractCellsByTypeModel->SetDataObject(out);
+                modelTreeWidget->updateItemName(out);      // 名字保持 ExtractCellsByType_n
+                modelTreeWidget->updateAllAttriubute(out); // 重建属性子节点 + 刷新渲染数据
+            }
+            rendererWidget->update();
+        };
+
+        // 列出单元类型勾选框（默认全选）并打开左侧工具面板
+        m_extractCellsByTypeWidget->SetDataObject(obj);
+        openLeftToolPanel(LeftToolPanelId::ExtractCellsByType);
+
+        // 打开即按默认全选执行一次（生成 ExtractCellsByType_n）；
+        // 用户随后改勾选再点"提取"即在该新模型上更新
+        m_extractCellsByTypeWidget->onApply();
+    });
     QMenu* convert = ui->menu_filters->addMenu(QStringLiteral("数据转换 (Convert)"));
     connect(convert->addAction(QStringLiteral("转换为点数据 (Convert To PointData)")), &QAction::triggered, this, [&](bool checked) {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
@@ -3492,6 +3569,7 @@ QDockWidget* igQtMainWindow::shellDockForLeftPanel(LeftToolPanelId id) const {
     case LeftToolPanelId::Selection: return ui->dockWidget_SelectionField;
     case LeftToolPanelId::VariableDensity: return ui->dockWidget_VariableDensityField;
     case LeftToolPanelId::DataChange: return ui->dockWidget_DataChangeField;
+    case LeftToolPanelId::ExtractCellsByType: return m_extractCellsByTypeShell;
     case LeftToolPanelId::Count: return nullptr;
     }
     return nullptr;
@@ -3598,6 +3676,10 @@ void igQtMainWindow::openLeftToolPanel(LeftToolPanelId id) {
     case LeftToolPanelId::DataChange:
         relocateContentToLeftTab(ui->dockWidget_DataChangeField, ui->widget_DataChangeField, QStringLiteral("路径图"), id,
                                  false);
+        break;
+    case LeftToolPanelId::ExtractCellsByType:
+        relocateContentToLeftTab(m_extractCellsByTypeShell, m_extractCellsByTypeWidget,
+                                 QStringLiteral("按单元类型提取"), id, false);
         break;
     case LeftToolPanelId::Count:
         break;

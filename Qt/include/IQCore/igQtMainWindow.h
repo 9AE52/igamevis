@@ -22,6 +22,8 @@
 #include <QRect>
 #include <QTimer>
 #include <array>
+#include <MyFilter/iGameExtractCellsByTypeFilter.h>
+#include <iGameScene.h>
 #undef QT_NO_OPENGL
 
 class igQtModelDrawWidget;
@@ -38,6 +40,7 @@ class igQtCommandManager;
 class igQtChromeFramelessDialog;
 class igQtPartFocusWidget;
 class igQtGlobalIdWidget;
+class igQtExtractCellsByTypeWidget;
 
 class IG_QT_MODULE_EXPORT igQtMainWindow : public QMainWindow {
     Q_OBJECT
@@ -54,6 +57,7 @@ public:
         Selection,
         VariableDensity,
         DataChange,
+        ExtractCellsByType,
         GenerateProcessIds,
         Count
     };
