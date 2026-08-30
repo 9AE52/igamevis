@@ -2543,6 +2543,151 @@ void igQtMainWindow::initAllFilters() {
             showDarkFramelessMessage(QStringLiteral("Warning"), QString::fromStdString(message));
         }
     });
+QAction* passArrays = ui->menu_filters->addAction(QStringLiteral("传递过滤数据数组 (Pass Arrays)"));
+    connect(passArrays, &QAction::triggered, this, [this](bool) {
+        auto model = rendererWidget->GetScene()->GetCurrentModel();
+        if (!model) return;
+        auto obj = model->GetDataObject();
+        if (!obj) return;
+        auto attrSet = obj->GetAttributeSet();
+        if (!attrSet) {
+            showDarkFramelessMessage(QStringLiteral("提示"), QStringLiteral("当前模型没有属性。"));
+            return;
+        }
+
+        // ---------- 收集属性信息 ----------
+        struct AttrInfo {
+            QString name;
+            QString type;
+        };
+        QList<AttrInfo> attrList;
+        auto pointAttrs = attrSet->GetAllPointAttributes();
+        if (pointAttrs) {
+            for (IGsize i = 0; i < pointAttrs->GetNumberOfElements(); ++i) {
+                auto& attr = pointAttrs->GetElement(i);
+                if (attr.IsNone()) continue;
+                auto arr = attr.pointer;
+                if (arr) attrList.append({QString::fromStdString(arr->GetName()), QStringLiteral("点属性")});
+            }
+        }
+        auto cellAttrs = attrSet->GetAllCellAttributes();
+        if (cellAttrs) {
+            for (IGsize i = 0; i < cellAttrs->GetNumberOfElements(); ++i) {
+                auto& attr = cellAttrs->GetElement(i);
+                if (attr.IsNone()) continue;
+                auto arr = attr.pointer;
+                if (arr) attrList.append({QString::fromStdString(arr->GetName()), QStringLiteral("单元属性")});
+            }
+        }
+        if (attrList.isEmpty()) {
+            showDarkFramelessMessage(QStringLiteral("提示"), QStringLiteral("当前模型没有任何属性可传递。"));
+            return;
+        }
+
+        // ---------- 创建自定义对话框 ----------
+        igQtChromeFramelessDialog* dlg = new igQtChromeFramelessDialog(this);
+        dlg->setDialogTitle(QStringLiteral("选择要保留的属性"));
+        dlg->setMaximizeEnabled(false);
+        dlg->setAttribute(Qt::WA_DeleteOnClose);
+
+        QWidget* content = new QWidget(dlg->contentHost());
+        content->setStyleSheet(
+                "QWidget { background-color: #252526; color: #D4D4D4; }"
+                "QCheckBox { color: #D4D4D4; spacing: 6px; }"
+                "QCheckBox::indicator { width: 16px; height: 16px; }"
+                "QCheckBox::indicator:unchecked { border: 1px solid #6A6A6A; background-color: #3A3A3A; }"
+                "QCheckBox::indicator:checked { border: 1px solid #0E639C; background-color: #0E639C; }"
+                "QCheckBox::indicator:unchecked:hover { border: 1px solid #9A9A9A; }"
+                "QCheckBox::indicator:checked:hover { background-color: #1177BB; }"
+                "QPushButton { background-color: #3A3A3A; color: #D4D4D4; border: 1px solid #4A4A4A; "
+                "              padding: 6px 12px; border-radius: 4px; }"
+                "QPushButton:hover { background-color: #4A4A4A; border-color: #5A5A5A; }"
+                "QPushButton:pressed { background-color: #2A2A2A; }"
+                "QScrollArea { background-color: #1E1E1E; border: none; }"
+                "QScrollBar:vertical { background: #1E1E1E; width: 10px; margin: 0; }"
+                "QScrollBar::handle:vertical { background: #4A4A4A; border-radius: 5px; min-height: 20px; }"
+                "QScrollBar::handle:vertical:hover { background: #5A5A5A; }"
+                "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }");
+        QVBoxLayout* mainLayout = new QVBoxLayout(content);
+        mainLayout->setContentsMargins(12, 12, 12, 12);
+        mainLayout->setSpacing(8);
+
+        // 全选 / 全不选
+        QHBoxLayout* btnLayout = new QHBoxLayout();
+        QPushButton* selectAllBtn = new QPushButton(QStringLiteral("全选"), content);
+        QPushButton* deselectAllBtn = new QPushButton(QStringLiteral("全不选"), content);
+        btnLayout->addWidget(selectAllBtn);
+        btnLayout->addWidget(deselectAllBtn);
+        btnLayout->addStretch();
+        mainLayout->addLayout(btnLayout);
+
+        // 属性列表（滚动区域）
+        QScrollArea* scrollArea = new QScrollArea(content);
+        scrollArea->setWidgetResizable(true);
+        scrollArea->setFrameShape(QFrame::NoFrame);
+        QWidget* listWidget = new QWidget(scrollArea);
+        QVBoxLayout* listLayout = new QVBoxLayout(listWidget);
+        listLayout->setSpacing(4);
+        listLayout->setContentsMargins(0, 0, 0, 0);
+        QList<QCheckBox*> checkBoxes;
+        for (const AttrInfo& info: attrList) {
+            QString label = QString("%1 (%2)").arg(info.name).arg(info.type);
+            QCheckBox* cb = new QCheckBox(label, listWidget);
+            cb->setChecked(true); // 默认全部选中
+            checkBoxes.append(cb);
+            listLayout->addWidget(cb);
+        }
+        listWidget->setLayout(listLayout);
+        scrollArea->setWidget(listWidget);
+        mainLayout->addWidget(scrollArea);
+
+        // 确定 / 取消
+        QDialogButtonBox* buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, content);
+        mainLayout->addWidget(buttonBox);
+
+        dlg->setContentWidget(content);
+        dlg->resize(400, 500);
+
+        // 信号连接
+        connect(selectAllBtn, &QPushButton::clicked, [checkBoxes]() {
+            for (QCheckBox* cb: checkBoxes) cb->setChecked(true);
+        });
+        connect(deselectAllBtn, &QPushButton::clicked, [checkBoxes]() {
+            for (QCheckBox* cb: checkBoxes) cb->setChecked(false);
+        });
+        connect(buttonBox, &QDialogButtonBox::accepted, this, [this, obj, dlg, checkBoxes, attrList]() {
+            std::vector<std::string> selectedNames;
+            for (int i = 0; i < checkBoxes.size(); ++i) {
+                if (checkBoxes[i]->isChecked()) selectedNames.push_back(attrList[i].name.toStdString());
+            }
+            if (selectedNames.empty()) {
+                showDarkFramelessMessage(QStringLiteral("提示"), QStringLiteral("请至少选择一个属性。"));
+                return;
+            }
+            auto filter = PassArrays::New();
+            filter->SetArrayNames(selectedNames);
+            filter->SetInput(obj);
+            if (!filter->Execute()) {
+                showDarkFramelessMessage(QStringLiteral("执行失败"), QStringLiteral("PassArrays 执行出错。"));
+                return;
+            }
+            auto output = filter->GetOutput();
+            if (output) {
+                output->SetName(obj->GetName() + "_filtered");
+                modelTreeWidget->addDataObjectToModelTree(output, Algorithm);
+                rendererWidget->GetScene()->Modified();
+                rendererWidget->GetScene()->Update();
+                rendererWidget->update();
+                dlg->accept();
+            } else {
+                showDarkFramelessMessage(QStringLiteral("执行失败"), QStringLiteral("未得到输出数据。"));
+            }
+        });
+        connect(buttonBox, &QDialogButtonBox::rejected, dlg, &QDialog::reject);
+
+        dlg->show();
+    });
+
 }
     
 
