@@ -1,3 +1,4 @@
+#include "PointCoordinates/iGamePointCoordinatesFilter.h"
 #include "Clip/iGameClipFilter.h"
 #include "CellSize/iGameCellSizeFilter.h"
 #include "Contour/iGameContourFilter.h"
@@ -38,3 +39,4 @@
 #include "FeatureExtraction/iGameVortexDetectionFilter.h"
 #include "FeatureExtraction/iGameVortexFilter.h"
 #include "PassArrays/iGamePassArraysFilter.h"
+#include "ProcessGet/iGameGenerateProcessIdsFilter.h"

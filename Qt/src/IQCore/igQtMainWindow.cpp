@@ -810,6 +810,7 @@ void igQtMainWindow::initAllUnDefinedComponents() {
     this->addDockWidget(Qt::BottomDockWidgetArea, ui->dockWidget_Animation);
     this->addDockWidget(Qt::LeftDockWidgetArea, ui->dockWidget_ModelList);
     this->addDockWidget(Qt::LeftDockWidgetArea, ui->dockWidget_ContourExtract);
+    this->addDockWidget(Qt::LeftDockWidgetArea, ui->dockWidget_GenerateProcessIds);
 
     // 禁止所有 dock 悬浮：去掉 DockWidgetFloatable
     // 同时为了防止“拖拽标题栏就被扯成系统浮动窗”，这里也把 Movable 去掉（只保留可关闭）。
@@ -850,6 +851,7 @@ void igQtMainWindow::initAllUnDefinedComponents() {
     ui->dockWidget_Animation->hide();
     ui->dockWidget_ModelList->hide();
     ui->dockWidget_ContourExtract->hide();
+    ui->dockWidget_GenerateProcessIds->hide();
     
     // Setup default GUI layout.
     // 启用左侧区域的 tab 功能，使左侧 dockwidget 可以通过 tab 切换
@@ -939,6 +941,7 @@ void igQtMainWindow::initAllUnDefinedComponents() {
     makeDockWidgetScrollable(ui->dockWidget_EditMode);
     makeDockWidgetScrollable(ui->dockWidget_ModelList);
     makeDockWidgetScrollable(ui->dockWidget_ContourExtract);
+    makeDockWidgetScrollable(ui->dockWidget_GenerateProcessIds);
     makeDockWidgetScrollable(modelTreeWidget->getPropertiesDock());
 
     // 设置左侧 dock 区域的初始宽度（不锁死，用户仍可拖拽调整）
@@ -2020,6 +2023,73 @@ void igQtMainWindow::initAllFilters() {
                 }
             });
 
+
+    QAction* generateProcessIds = ui->menu_filters->addAction(QStringLiteral("生成进程ID (GenerateProcessIds)"));
+    connect(generateProcessIds, &QAction::triggered, this, [this](bool checked) {
+        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
+        auto data = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+        if (data == nullptr) return;
+        openLeftToolPanel(LeftToolPanelId::GenerateProcessIds);
+        ui->widget_GenerateProcessIds->SetOriginDataObject(data);
+    });
+    connect(ui->menu_filters->addAction(QStringLiteral("提取点坐标 (Extract Point Coordinates)")), &QAction::triggered, this,
+            [this](bool checked) {
+                auto scene = rendererWidget->GetScene();
+                if (!scene || !scene->GetCurrentModel()) {
+                    showDarkFramelessMessage(QStringLiteral("Warning"), QStringLiteral("请先选择一个模型。"));
+                    return;
+                }
+
+                auto data = scene->GetCurrentModel()->GetDataObject();
+                if (!data || !data->GetPoints()) {
+                    showDarkFramelessMessage(QStringLiteral("Warning"),
+                                             QStringLiteral("当前模型不包含可提取的点坐标。"));
+                    return;
+                }
+
+                PointCoordinatesFilter::Pointer filter = PointCoordinatesFilter::New();
+                filter->SetInput(data);
+                if (!filter->Execute()) {
+                    showDarkFramelessMessage(
+                            QStringLiteral("Warning"),
+                            QStringLiteral("点坐标提取失败，请检查 Coordinates 名称是否已被其他属性占用。"));
+                    return;
+                }
+
+                auto attributes = data->GetAttributeSet();
+                const int coordinatesIndex = attributes ? attributes->GetAttributeIndex(filter->GetArrayName()) : -1;
+                modelTreeWidget->updateAllAttriubute(data);
+
+                auto item = modelTreeWidget->getItemFromObject(data);
+                if (item && coordinatesIndex >= 0) {
+                    item->setExpanded(true);
+                    for (int i = 0; i < item->childCount(); ++i) {
+                        auto child = item->child(i);
+                        if (child && child->data(0, Qt::UserRole).toInt() == coordinatesIndex) {
+                            item->setCurrentChild(child);
+                            item->setSelected(false);
+                            if (auto attributeItem = dynamic_cast<AttribTreeWidgetItem*>(child)) {
+                                attributeItem->get()->setCurrentIndex(0);
+                            }
+                            // Clear the active attribute first so selecting Coordinates
+                            // again cannot be skipped by the rendering cache.
+                            item->viewAttribute(-1, -1);
+                            item->viewAttribute(coordinatesIndex, -1);
+                            child->setSelected(true);
+                            modelTreeWidget->setCurrentItem(child);
+                            break;
+                        }
+                    }
+                }
+
+                if (ui->dockWidget_SearchInfo && ui->widget_SearchInfo) {
+                    ui->dockWidget_SearchInfo->show();
+                    ui->dockWidget_SearchInfo->raise();
+                    ui->widget_SearchInfo->showPointAttributeDetails(
+                            scene->GetCurrentModel(), QString::fromStdString(filter->GetArrayName()));
+                }
+                rendererWidget->update();
+            });
 
     QMenu* view = ui->menu_filters->addMenu("特征提取");
 
@@ -3263,6 +3333,7 @@ QDockWidget* igQtMainWindow::shellDockForLeftPanel(LeftToolPanelId id) const {
     case LeftToolPanelId::Tensor: return ui->dockWidget_TensorField;
     case LeftToolPanelId::Flow: return ui->dockWidget_FlowField;
     case LeftToolPanelId::ContourExtract: return ui->dockWidget_ContourExtract;
+    case LeftToolPanelId::GenerateProcessIds: return ui->dockWidget_GenerateProcessIds;
     case LeftToolPanelId::Slice: return SliceDockWidget;
     case LeftToolPanelId::Deformation: return DeformationDockWidget;
     case LeftToolPanelId::Selection: return ui->dockWidget_SelectionField;
@@ -3354,6 +3425,9 @@ void igQtMainWindow::openLeftToolPanel(LeftToolPanelId id) {
         break;
     case LeftToolPanelId::ContourExtract:
         relocateContentToLeftTab(ui->dockWidget_ContourExtract, ui->widget_ContourExtract, QStringLiteral("轮廓提取"), id, false);
+        break;
+    case LeftToolPanelId::GenerateProcessIds:
+        relocateContentToLeftTab(ui->dockWidget_GenerateProcessIds, ui->widget_GenerateProcessIds, QStringLiteral("生成进程ID"), id, false);
         break;
     case LeftToolPanelId::Slice:
         relocateContentToLeftTab(SliceDockWidget, SliceWidget, QStringLiteral("网格切面"), id, false);
@@ -3593,6 +3667,11 @@ void igQtMainWindow::initAllMySignalConnections() {
             });
     connect(ui->widget_ContourExtract, &igQtContourExtractWidget::UpdateContourModel, this,
             [&](DataObject::Pointer mesh) {
+                modelTreeWidget->updateCurrentModelInfo();
+                rendererWidget->update();
+            });
+    connect(ui->widget_GenerateProcessIds, &igQtGenerateProcessIdsWidget::UpdateProcessIdsModel, this,
+            [&](iGame::DataObject::Pointer res) {
                 modelTreeWidget->updateCurrentModelInfo();
                 rendererWidget->update();
             });
