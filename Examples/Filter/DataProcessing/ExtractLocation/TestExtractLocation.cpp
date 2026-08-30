@@ -34,6 +34,22 @@ iGame::UnstructuredMesh::Pointer MakeTwoTetraMesh() {
     cellScalar->AddValue(10);
     cellScalar->AddValue(20);
     mesh->GetAttributeSet()->AddAttribute(IG_SCALAR, IG_CELL, cellScalar);
+
+    auto largeSignedIds = iGame::LongLongArray::New();
+    largeSignedIds->SetName("LargeSignedIds");
+    largeSignedIds->SetDimension(1);
+    constexpr long long signedBase = 9007199254740993LL; // 2^53 + 1
+    for (igIndex pointId = 0; pointId < mesh->GetNumberOfPoints(); ++pointId)
+        largeSignedIds->AddValue(signedBase + pointId);
+    mesh->GetAttributeSet()->AddAttribute(IG_SCALAR, IG_POINT, largeSignedIds);
+
+    auto largeUnsignedIds = iGame::UnsignedLongLongArray::New();
+    largeUnsignedIds->SetName("LargeUnsignedIds");
+    largeUnsignedIds->SetDimension(1);
+    constexpr unsigned long long unsignedBase = 9007199254741993ULL;
+    largeUnsignedIds->AddValue(unsignedBase);
+    largeUnsignedIds->AddValue(unsignedBase + 1ULL);
+    mesh->GetAttributeSet()->AddAttribute(IG_SCALAR, IG_CELL, largeUnsignedIds);
     return mesh;
 }
 
@@ -59,7 +75,9 @@ bool RunInsideCellCase() {
     }
     auto* originalIds = output->GetAttributeSet()->GetArrayPointer(
             IG_SCALAR, IG_CELL, iGame::ExtractLocationFilter::OriginalCellIdsArrayName());
-    if (originalIds == nullptr || originalIds->GetNumberOfElements() != 1 || originalIds->GetValue(0) != 0.0) {
+    auto originalCellIds64 = iGame::DynamicCast<iGame::LongLongArray>(originalIds);
+    if (originalCellIds64 == nullptr || originalCellIds64->GetNumberOfElements() != 1 ||
+        originalCellIds64->RawPointer()[0] != 0) {
         std::cerr << "[FAIL] vtkOriginalCellIds output\n";
         return false;
     }
@@ -68,8 +86,9 @@ bool RunInsideCellCase() {
     auto* originalPointIds = output->GetAttributeSet()->GetArrayPointer(
             IG_SCALAR, IG_POINT,
             iGame::ExtractLocationFilter::OriginalPointIdsArrayName());
-    if (originalPointIds == nullptr || originalPointIds->GetNumberOfElements() != 4 ||
-        originalPointIds->GetValue(0) != 0.0 || originalPointIds->GetValue(3) != 3.0) {
+    auto originalPointIds64 = iGame::DynamicCast<iGame::LongLongArray>(originalPointIds);
+    if (originalPointIds64 == nullptr || originalPointIds64->GetNumberOfElements() != 4 ||
+        originalPointIds64->RawPointer()[0] != 0 || originalPointIds64->RawPointer()[3] != 3) {
         std::cerr << "[FAIL] vtkOriginalPointIds output\n";
         return false;
     }
@@ -86,6 +105,19 @@ bool RunInsideCellCase() {
         return false;
     }
     std::cout << "[PASS] extracted point and cell data arrays\n";
+
+    auto* copiedSignedBase = output->GetAttributeSet()->GetArrayPointer(IG_SCALAR, IG_POINT, "LargeSignedIds");
+    auto* copiedUnsignedBase = output->GetAttributeSet()->GetArrayPointer(IG_SCALAR, IG_CELL, "LargeUnsignedIds");
+    auto copiedSigned = iGame::DynamicCast<iGame::LongLongArray>(copiedSignedBase);
+    auto copiedUnsigned = iGame::DynamicCast<iGame::UnsignedLongLongArray>(copiedUnsignedBase);
+    if (copiedSigned == nullptr || copiedUnsigned == nullptr ||
+        copiedSigned->RawPointer()[0] != 9007199254740993LL ||
+        copiedSigned->RawPointer()[3] != 9007199254740996LL ||
+        copiedUnsigned->RawPointer()[0] != 9007199254741993ULL) {
+        std::cerr << "[FAIL] exact 64-bit integer array preservation\n";
+        return false;
+    }
+    std::cout << "[PASS] exact 64-bit integer array preservation\n";
     return true;
 }
 

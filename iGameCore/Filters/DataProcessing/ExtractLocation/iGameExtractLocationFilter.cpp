@@ -31,17 +31,37 @@ bool IsPointInsideTetrahedron(const Point& point, const std::array<Point, 4>& te
                        [tolerance](double value) { return value >= -tolerance && value <= 1.0 + tolerance; });
 }
 
-ArrayObject::Pointer CreateArrayWithSameValueType(const ArrayObject::Pointer& input) {
-    if (DynamicCast<FloatArray>(input)) return FloatArray::New();
-    if (DynamicCast<DoubleArray>(input)) return DoubleArray::New();
-    if (DynamicCast<IntArray>(input)) return IntArray::New();
-    if (DynamicCast<UnsignedIntArray>(input)) return UnsignedIntArray::New();
-    if (DynamicCast<CharArray>(input)) return CharArray::New();
-    if (DynamicCast<UnsignedCharArray>(input)) return UnsignedCharArray::New();
-    if (DynamicCast<ShortArray>(input)) return ShortArray::New();
-    if (DynamicCast<UnsignedShortArray>(input)) return UnsignedShortArray::New();
-    if (DynamicCast<LongLongArray>(input)) return LongLongArray::New();
-    if (DynamicCast<UnsignedLongLongArray>(input)) return UnsignedLongLongArray::New();
+template<typename TArray>
+ArrayObject::Pointer CopySelectedValues(const ArrayObject::Pointer& input,
+                                        const std::vector<igIndex>& sourceIds) {
+    auto typedInput = DynamicCast<TArray>(input);
+    if (typedInput.IsNull()) return nullptr;
+
+    auto output = TArray::New();
+    output->SetName(input->GetName());
+    output->SetDimension(input->GetDimension());
+    output->Resize(sourceIds.size());
+    const int dimension = input->GetDimension();
+    for (IGsize outputIndex = 0; outputIndex < sourceIds.size(); ++outputIndex) {
+        std::copy_n(typedInput->RawPointer(sourceIds[outputIndex]), dimension,
+                    output->RawPointer(outputIndex));
+    }
+    return output;
+}
+
+ArrayObject::Pointer CopySelectedArrayValues(const ArrayObject::Pointer& input,
+                                             const std::vector<igIndex>& sourceIds) {
+    if (DynamicCast<FloatArray>(input)) return CopySelectedValues<FloatArray>(input, sourceIds);
+    if (DynamicCast<DoubleArray>(input)) return CopySelectedValues<DoubleArray>(input, sourceIds);
+    if (DynamicCast<IntArray>(input)) return CopySelectedValues<IntArray>(input, sourceIds);
+    if (DynamicCast<UnsignedIntArray>(input)) return CopySelectedValues<UnsignedIntArray>(input, sourceIds);
+    if (DynamicCast<CharArray>(input)) return CopySelectedValues<CharArray>(input, sourceIds);
+    if (DynamicCast<UnsignedCharArray>(input)) return CopySelectedValues<UnsignedCharArray>(input, sourceIds);
+    if (DynamicCast<ShortArray>(input)) return CopySelectedValues<ShortArray>(input, sourceIds);
+    if (DynamicCast<UnsignedShortArray>(input)) return CopySelectedValues<UnsignedShortArray>(input, sourceIds);
+    if (DynamicCast<LongLongArray>(input)) return CopySelectedValues<LongLongArray>(input, sourceIds);
+    if (DynamicCast<UnsignedLongLongArray>(input))
+        return CopySelectedValues<UnsignedLongLongArray>(input, sourceIds);
     return nullptr;
 }
 
@@ -158,37 +178,32 @@ bool ExtractLocationFilter::Execute() {
                                       inputAttribute.GetAttachmentType() != IG_CELL)) {
             continue;
         }
-        auto outputArray = CreateArrayWithSameValueType(inputArray);
+        const auto& sourceIds = inputAttribute.GetAttachmentType() == IG_POINT
+                                        ? outputToInputPointIds
+                                        : m_ExtractedCellIds;
+        auto outputArray = CopySelectedArrayValues(inputArray, sourceIds);
         if (outputArray.IsNull()) {
             m_LastError = std::string("无法保留数组 '") + inputArray->GetName() +
                           "' 的数值类型。";
             return false;
         }
-        outputArray->SetName(inputArray->GetName());
-        outputArray->SetDimension(inputArray->GetDimension());
-        const auto& sourceIds = inputAttribute.GetAttachmentType() == IG_POINT ? outputToInputPointIds : m_ExtractedCellIds;
-        outputArray->Resize(sourceIds.size());
-        std::vector<double> values(inputArray->GetDimension());
-        for (igIndex outputIndex = 0; outputIndex < sourceIds.size(); ++outputIndex) {
-            inputArray->GetElement(sourceIds[outputIndex], values.data());
-            outputArray->SetElement(outputIndex, values.data());
-        }
         outputAttributes->AddAttribute(inputAttribute.GetType(), inputAttribute.GetAttachmentType(), outputArray);
     }
 
-    auto originalPointIds = UnsignedIntArray::New();
+    auto originalPointIds = LongLongArray::New();
     originalPointIds->SetName(OriginalPointIdsArrayName());
     originalPointIds->SetDimension(1);
     originalPointIds->Reserve(outputToInputPointIds.size());
     for (const igIndex pointId : outputToInputPointIds)
-        originalPointIds->AddValue(pointId);
+        originalPointIds->AddValue(static_cast<igIndex64>(pointId));
     outputAttributes->AddAttribute(IG_SCALAR, IG_POINT, originalPointIds);
 
-    auto originalCellIds = UnsignedIntArray::New();
+    auto originalCellIds = LongLongArray::New();
     originalCellIds->SetName(OriginalCellIdsArrayName());
     originalCellIds->SetDimension(1);
     originalCellIds->Reserve(m_ExtractedCellIds.size());
-    for (const igIndex cellId : m_ExtractedCellIds) originalCellIds->AddValue(cellId);
+    for (const igIndex cellId : m_ExtractedCellIds)
+        originalCellIds->AddValue(static_cast<igIndex64>(cellId));
     outputAttributes->AddAttribute(IG_SCALAR, IG_CELL, originalCellIds);
     m_OutputMesh->SetAttributeSet(outputAttributes);
     SetOutput(m_OutputMesh);

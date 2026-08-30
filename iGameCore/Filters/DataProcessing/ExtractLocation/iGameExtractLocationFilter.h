@@ -10,8 +10,9 @@ IGAME_NAMESPACE_BEGIN
 
 /// Extracts the first linear volume cell that contains a requested spatial location,
 /// matching ParaView's "Extract Cell At Location" lookup semantics.
-/// The output uses the existing UnstructuredMesh data model and has a
-/// vtkOriginalCellIds cell scalar for traceability to the input mesh.
+/// The output uses the existing UnstructuredMesh data model and stores
+/// vtkOriginalPointIds/vtkOriginalCellIds in signed 64-bit arrays for
+/// traceability to the input mesh.
 class ExtractLocationFilter : public Filter {
 public:
     I_OBJECT(ExtractLocationFilter);
