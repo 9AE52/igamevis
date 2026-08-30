@@ -169,7 +169,19 @@ function(igame_register_example_test EXAMPLE_TARGET)
         set(_TEST_COMMAND bash "${_TEST_SCRIPT}" "$<TARGET_FILE:${EXAMPLE_TARGET}>" 120 -- Models/Quad_Plane_Tensor.vtk)
     endif ()
 
-    if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    if (WIN32)
+        # Windows may resolve `bash` to WSL, which cannot execute D:/ paths.
+        # CTest already enforces the timeout below, so run the executable directly.
+        set(_TEST_COMMAND "$<TARGET_FILE:${EXAMPLE_TARGET}>")
+        if ("${EXAMPLE_TARGET}" STREQUAL "testLosslessEncode")
+            set(_TEST_COMMAND "$<TARGET_FILE:${EXAMPLE_TARGET}>" Models/Quad_Plane_Tensor.vtk)
+        endif ()
+        add_test(
+            NAME ${EXAMPLE_TARGET}
+            COMMAND ${_TEST_COMMAND}
+            WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+        )
+    elseif (CMAKE_SYSTEM_NAME STREQUAL "Linux")
         add_test(
             NAME ${EXAMPLE_TARGET}
             COMMAND xvfb-run -a ${_TEST_COMMAND}
@@ -229,6 +241,10 @@ igame_add_example(testGetClosestPointsInLine Filter/Selection/TestGetClosestPoin
 igame_add_example(testGetClosestCellsInLine Filter/Selection/TestGetClosestCellsInLine.cpp)
 igame_add_example(testGetPointsInFrustum Filter/Selection/TestGetPointsInFrustum.cpp)
 igame_add_example(testGetCellsInFrustum Filter/Selection/TestGetCellsInFrustum.cpp)
+
+# Data processing
+igame_add_example(testOverlappingCellsDetector
+    Filter/DataProcessing/OverlappingCellsDetector/TestOverlappingCellsDetector.cpp)
 
 # Compression
 igame_add_example(testDecoder Filter/Compression/TestDecoder.cpp)
