@@ -37,3 +37,4 @@
 #include "FeatureExtraction/iGameLaplacianFilter.h"
 #include "FeatureExtraction/iGameVortexDetectionFilter.h"
 #include "FeatureExtraction/iGameVortexFilter.h"
+#include "ProcessGet/iGameGenerateProcessIdsFilter.h"
