@@ -2567,20 +2567,16 @@ void igQtMainWindow::initAllFilters() {
             featureEdgeFilter->SetFeatureEdges(true);
             featureEdgeFilter->SetNonManifoldEdges(true);
             featureEdgeFilter->SetManifoldEdges(false);
-            if (!featureEdgeFilter->Execute()) {
-                showDarkFramelessMessage(QStringLiteral("执行失败"), QStringLiteral("提取特征边失败"));
-                return;
+
+            DataObject::Pointer featureEdgeOutput;
+            UnstructuredMesh::Pointer featureEdgeMesh;
+            if (featureEdgeFilter->Execute()) {
+                featureEdgeOutput = featureEdgeFilter->GetOutput();
+                if (featureEdgeOutput != nullptr) {
+                    featureEdgeMesh = DynamicCast<UnstructuredMesh>(featureEdgeOutput);
+                }
             }
-            auto featureEdgeOutput = featureEdgeFilter->GetOutput();
-            if (featureEdgeOutput == nullptr) {
-                showDarkFramelessMessage(QStringLiteral("执行失败"), QStringLiteral("提取特征边失败"));
-                return;
-            }
-            auto featureEdgeMesh = DynamicCast<UnstructuredMesh>(featureEdgeOutput);
-            if (featureEdgeMesh == nullptr) {
-                showDarkFramelessMessage(QStringLiteral("执行失败"), QStringLiteral("提取特征边失败"));
-                return;
-            }
+            if (featureEdgeMesh == nullptr) featureEdgeMesh = UnstructuredMesh::New(); 
             auto filter = FeatureEdgeRegionFilter::New();
             filter->SetInput(0, surfaceMesh);
             filter->SetInput(1, featureEdgeMesh);

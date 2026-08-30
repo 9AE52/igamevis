@@ -78,15 +78,14 @@ bool FeatureEdgeRegionFilter::Execute() {
 
     auto edgeIdAttribute = featureMesh->GetAttributeSet()->GetAttribute("Edge Ids");
 
-    if (edgeIdAttribute.IsNone()) {
-        std::cerr << "Failed to get edge id attribute" << std::endl;
-        return false;
+    UnsignedIntArray::Pointer edgeIdArray = UnsignedIntArray::New();
+
+    if (!edgeIdAttribute.IsNone()) { 
+        edgeIdArray = DynamicCast<UnsignedIntArray>(edgeIdAttribute.pointer);
     }
 
-    auto edgeIdArray = DynamicCast<UnsignedIntArray>(edgeIdAttribute.pointer);
     if (edgeIdArray == nullptr) {
-        std::cerr << "Failed to get edge id array" << std::endl;
-        return false;
+        edgeIdArray = UnsignedIntArray::New();
     }
 
     std::unordered_set<igIndex> featureEdgeIds;
@@ -127,8 +126,25 @@ bool FeatureEdgeRegionFilter::Execute() {
         }
         regionArray->AddValue(regionIDs[regionID]);
     }
-    mesh->GetAttributeSet()->AddScalar(IG_CELL, regionArray);
-    mesh->GetAttributeSet()->ForceReConvertToDrawableData();
+
+    auto attributeSet = mesh->GetAttributeSet();
+    if (!attributeSet) { return false; }
+    auto oldAttributeId = attributeSet->GetAttributeIndex("Region Id");
+    if (oldAttributeId >= 0) { 
+        auto oldArray = DynamicCast<IntArray>(attributeSet->GetAttribute("Region Id").pointer);
+        if (oldArray == nullptr) {
+            std::cerr << "Region Id already exists, but it is not an IntArray." << std::endl;
+            return false;
+        }
+        oldArray->SetDimension(1);
+        oldArray->Resize(numFaces);
+        for (int i = 0; i < numFaces; ++i) { oldArray->SetValue(i, regionArray->GetValue(i)); }
+        oldArray->Modified();
+        attributeSet->GetAttribute("Region Id").UpdateAllDataRange();
+    } else {
+        attributeSet->AddScalar(IG_CELL, regionArray);
+    }
+    attributeSet->ForceReConvertToDrawableData();
 
     std::map<int, int> regionFaceCount;
     for (int i = 0; i < numFaces; i++) {
