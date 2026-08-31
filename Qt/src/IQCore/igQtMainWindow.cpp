@@ -59,6 +59,7 @@
 #include <IQWidgets/igQtDeformationWidget.h>
 #include <IQWidgets/igQtGlobalIdWidget.h>
 #include <IQWidgets/igQtExtractCellsByTypeWidget.h>
+#include <IQWidgets/igQtAxisAlignedReflectionWidget.h>
 #include <IQWidgets/igQtModelClipWidget.h>
 #include <IQWidgets/igQtModelDrawWidget.h>
 #include <IQWidgets/igQtModelInformationWidget.h>
@@ -877,6 +878,18 @@ void igQtMainWindow::initAllUnDefinedComponents() {
     connect(GlobalIdDockWidget, &QDockWidget::visibilityChanged, this, [this](bool visible) {
         if (!visible && GlobalIdWidget) GlobalIdWidget->resetOffsets();
     });
+
+    AxisAlignedReflectionDockWidget =
+        igQtAxisAlignedReflectionWidget::createDockWidget(this);
+    AxisAlignedReflectionWidget =
+        qobject_cast<igQtAxisAlignedReflectionWidget*>(
+                AxisAlignedReflectionDockWidget->widget());
+    this->addDockWidget(
+        Qt::RightDockWidgetArea,
+        AxisAlignedReflectionDockWidget);
+    AxisAlignedReflectionDockWidget->resize(360, 300);
+    AxisAlignedReflectionDockWidget->hide();
+
     auto makeWidgetScrollable = [&](QWidget* content, QWidget* parent) -> QWidget* {
         if (!content) return nullptr;
         if (qobject_cast<QScrollArea*>(content)) return content;
@@ -2262,6 +2275,114 @@ void igQtMainWindow::initAllFilters() {
         m_extractCellsByTypeWidget->onApply();
     });
     
+
+    QAction* axisAlignedReflectionAction =ui->menu_filters->addAction(
+                QStringLiteral("反射 (Axis Aligned Reflection)"));
+    connect(axisAlignedReflectionAction,&QAction::triggered,this,
+        [this](bool) {
+            auto scene = rendererWidget->GetScene();
+            if (!scene || !scene->GetCurrentModel()) {
+                showDarkFramelessMessage(
+                        QStringLiteral("反射"),
+                        QStringLiteral("请先选择一个模型。"));
+                return;
+            }
+            auto input = scene->GetCurrentModel()->GetDataObject();
+            if (!DynamicCast<UnstructuredMesh>(input)) {
+                showDarkFramelessMessage(
+                        QStringLiteral("反射"),
+                        QStringLiteral(
+                                "当前版本仅支持非结构网格 "
+                                "(UnstructuredMesh)。"));
+                return;
+            }
+
+            m_axisAlignedReflectionFilter =
+                    AxisAlignedReflectionFilter::New();
+
+            m_axisAlignedReflectionFilter->SetInput(input);
+
+            m_axisAlignedReflectionModel = nullptr;
+            ++m_axisAlignedReflectionCount;
+
+            AxisAlignedReflectionWidget->resetParameters();
+
+            AxisAlignedReflectionDockWidget->show();
+            AxisAlignedReflectionDockWidget->raise();
+            AxisAlignedReflectionWidget->setFocus(
+                    Qt::OtherFocusReason);
+        });
+    connect(AxisAlignedReflectionWidget,&igQtAxisAlignedReflectionWidget::applyRequested,this,
+        [this]() {
+            if (!m_axisAlignedReflectionFilter) {
+                return;
+            }
+
+            m_axisAlignedReflectionFilter->SetPlane(
+                    AxisAlignedReflectionWidget->plane());
+
+            m_axisAlignedReflectionFilter->SetCenter(
+                    AxisAlignedReflectionWidget->center());
+
+            m_axisAlignedReflectionFilter->SetCopyInput(
+                    AxisAlignedReflectionWidget->copyInput());
+
+            m_axisAlignedReflectionFilter->SetFlipAllInputArrays(
+                    AxisAlignedReflectionWidget
+                            ->flipAllInputArrays());
+
+            if (!m_axisAlignedReflectionFilter->Execute()) {
+                showDarkFramelessMessage(
+                        QStringLiteral("反射"),
+                        QStringLiteral(
+                                "反射执行失败，请检查输入网格和参数。"));
+                return;
+            }
+
+            auto output =
+                    DynamicCast<UnstructuredMesh>(
+                            m_axisAlignedReflectionFilter
+                                    ->GetOutput());
+
+            if (!output) {
+                showDarkFramelessMessage(
+                        QStringLiteral("反射"),
+                        QStringLiteral(
+                                "反射未生成有效的非结构网格。"));
+                return;
+            }
+
+            const QString outputName =
+                    QStringLiteral("Reflect_%1")
+                            .arg(m_axisAlignedReflectionCount);
+
+            output->SetName(outputName.toStdString());
+
+            if (!m_axisAlignedReflectionModel) {
+                const int id =
+                        modelTreeWidget
+                                ->addDataObjectToModelTree(
+                                        output,
+                                        Algorithm);
+
+                m_axisAlignedReflectionModel =
+                        rendererWidget->GetScene()
+                                ->GetModelById(id);
+            } else {
+                m_axisAlignedReflectionModel
+                        ->SetDataObject(output);
+
+                modelTreeWidget->updateItemName(output);
+
+                modelTreeWidget->updateAllAttriubute(
+                        output);
+
+                modelTreeWidget
+                        ->updateCurrentModelInfo();
+            }
+
+            rendererWidget->update();
+        });
 
     QAction* countCellFaces = view->addAction(
             QStringLiteral("统计单元面数 (Count Cell Faces)"));

@@ -260,6 +260,9 @@ igame_add_example(testConvertToVolumeMesh Filter/Convert/TestConvertToVolumeMesh
 igame_add_example(testConvertToSurfaceMesh Filter/Convert/TestConvertToSurfaceMesh.cpp)
 igame_add_example(testConvertToLagrangeUnstructuredMesh Filter/Convert/TestConvertToLagrangeUnstructuredMesh.cpp)
 
+# Axis aligned reflection
+igame_add_example(testAxisAlignedReflection Filter/AxisAlignedReflection/TestAxisAlignedReflection.cpp)
+
 # My Filters
 igame_add_example(testExtractCellsByType Filter/MyFilter/TestExtractCellsByType.cpp)
 igame_add_example(testCellCenterFilter Filter/MyFilter/TestCellCenterFilter.cpp)
