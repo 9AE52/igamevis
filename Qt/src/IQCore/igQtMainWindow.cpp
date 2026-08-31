@@ -1201,6 +1201,12 @@ void igQtMainWindow::initAllFilters() {
                         return;
                     }
 
+                    if (!filter->WasModified()) {
+                        showDarkFramelessMessage(QStringLiteral("提示"), QStringLiteral("未发现 Ghost 信息"));
+                        dialog->close();
+                        return;
+                    }
+
                     auto outObj = filter->GetOutput();
 
                     if (outObj == nullptr) {

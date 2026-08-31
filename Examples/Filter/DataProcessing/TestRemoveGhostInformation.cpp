@@ -192,6 +192,21 @@ iGame::UnsignedCharArray::Pointer CreateCellGhostAttribute(unsigned char ghost0,
 }
 
 
+iGame::UnsignedCharArray::Pointer CreatePointGhostAttribute(IGsize numberOfPoints) {
+    auto array = iGame::UnsignedCharArray::New();
+
+    array->SetName("vtkGhostType");
+
+    array->SetDimension(1);
+
+    array->Resize(numberOfPoints);
+
+    for (IGsize i = 0; i < numberOfPoints; ++i) { array->SetValue(i, 0); }
+
+    return array;
+}
+
+
 // ============================================================
 // 创建Point普通属性
 //
@@ -242,6 +257,44 @@ void AddCellAttribute(iGame::UnstructuredMesh::Pointer mesh) {
     array->SetValue(1, 20);
 
     mesh->GetAttributeSet()->AddAttribute(IG_SCALAR, IG_CELL, array);
+}
+
+
+void AddInt64Attributes(iGame::UnstructuredMesh::Pointer mesh) {
+    auto pointArray = iGame::LongLongArray::New();
+
+    pointArray->SetName("PointInt64");
+
+    pointArray->SetDimension(1);
+
+    pointArray->Resize(mesh->GetNumberOfPoints());
+
+    auto* pointValues = pointArray->RawPointer();
+
+    const long long basePointValue = 9007199254740993LL;
+
+    for (IGsize i = 0; i < mesh->GetNumberOfPoints(); ++i) {
+        pointValues[i] = basePointValue + static_cast<long long>(i);
+    }
+
+    mesh->GetAttributeSet()->AddAttribute(IG_SCALAR, IG_POINT, pointArray);
+
+
+    auto cellArray = iGame::UnsignedLongLongArray::New();
+
+    cellArray->SetName("CellUInt64");
+
+    cellArray->SetDimension(1);
+
+    cellArray->Resize(mesh->GetNumberOfCells());
+
+    auto* cellValues = cellArray->RawPointer();
+
+    cellValues[0] = 9007199254740993ULL;
+
+    cellValues[1] = 9007199254740995ULL;
+
+    mesh->GetAttributeSet()->AddAttribute(IG_SCALAR, IG_CELL, cellArray);
 }
 
 
@@ -645,12 +698,139 @@ bool TestAttributeTypes() {
 }
 
 
+bool TestPointGhostOnly() {
+    auto mesh = CreateTwoTetraMesh();
+
+
+    AddPointAttribute(mesh);
+
+    AddCellAttribute(mesh);
+
+
+    auto pointGhost = CreatePointGhostAttribute(mesh->GetNumberOfPoints());
+
+
+    mesh->GetAttributeSet()->AddAttribute(IG_SCALAR, IG_POINT, pointGhost);
+
+
+    auto filter = iGame::RemoveGhostInformationFilter::New();
+
+
+    filter->SetInput(mesh);
+
+
+    if (!filter->Execute()) { return false; }
+
+
+    if (!filter->WasModified()) { return false; }
+
+
+    auto output = DynamicCast<iGame::UnstructuredMesh>(filter->GetOutput());
+
+
+    if (output.IsNull()) { return false; }
+
+
+    if (output == mesh) { return false; }
+
+
+    if (output->GetNumberOfPoints() != mesh->GetNumberOfPoints()) { return false; }
+
+
+    if (output->GetNumberOfCells() != mesh->GetNumberOfCells()) { return false; }
+
+
+    if (CountGhostAttributes(output) != 0) { return false; }
+
+
+    if (GetAttributeArrayByName(output, "Temperature") == nullptr) { return false; }
+
+
+    if (GetAttributeArrayByName(output, "MaterialId") == nullptr) { return false; }
+
+
+    return true;
+}
+
+
+bool TestInt64Precision() {
+    auto mesh = CreateTwoTetraMesh();
+
+
+    AddInt64Attributes(mesh);
+
+
+    auto ghost = CreateCellGhostAttribute(0, 1);
+
+
+    mesh->GetAttributeSet()->AddAttribute(IG_SCALAR, IG_CELL, ghost);
+
+
+    auto filter = iGame::RemoveGhostInformationFilter::New();
+
+
+    filter->SetInput(mesh);
+
+
+    if (!filter->Execute()) { return false; }
+
+
+    auto output = filter->GetOutput();
+
+
+    auto pointBase = GetAttributeArrayByName(output, "PointInt64");
+
+
+    auto cellBase = GetAttributeArrayByName(output, "CellUInt64");
+
+
+    auto pointArray = DynamicCast<iGame::LongLongArray>(pointBase);
+
+
+    auto cellArray = DynamicCast<iGame::UnsignedLongLongArray>(cellBase);
+
+
+    if (pointArray.IsNull() || cellArray.IsNull()) { return false; }
+
+
+    if (pointArray->GetNumberOfElements() != 4) { return false; }
+
+
+    if (cellArray->GetNumberOfElements() != 1) { return false; }
+
+
+    const auto* pointValues = pointArray->RawPointer();
+
+
+    const auto* cellValues = cellArray->RawPointer();
+
+
+    if (pointValues == nullptr || cellValues == nullptr) { return false; }
+
+
+    const long long expectedPointValues[4] = {9007199254740993LL, 9007199254740995LL, 9007199254740997LL,
+                                              9007199254740999LL};
+
+
+    for (IGsize i = 0; i < 4; ++i) {
+
+        if (pointValues[i] != expectedPointValues[i]) { return false; }
+    }
+
+
+    if (cellValues[0] != 9007199254740993ULL) { return false; }
+
+
+    return true;
+}
+
+
 // ============================================================
 // Test 7
 //
 // No Ghost Attribute
 //
-// 如果输入中没有Cell vtkGhostType：
+// 如果输入中没有Point/Cell vtkGhostType：
 //
 // 不删除Cell
 // 不删除Point
@@ -675,25 +855,22 @@ bool TestNoGhostAttribute() {
     if (!filter->Execute()) { return false; }
 
 
-    auto output = DynamicCast<iGame::UnstructuredMesh>(filter->GetOutput());
+    if (filter->WasModified()) { return false; }
 
 
-    if (output.IsNull()) { return false; }
+    if (filter->GetOutput() != nullptr) { return false; }
 
 
-    if (output->GetNumberOfCells() != 2) { return false; }
+    if (mesh->GetNumberOfCells() != 2) { return false; }
 
 
-    if (output->GetNumberOfPoints() != 8) { return false; }
+    if (mesh->GetNumberOfPoints() != 8) { return false; }
 
 
-    if (CountGhostAttributes(output) != 0) { return false; }
+    auto temperature = GetAttributeArrayByName(mesh, "Temperature");
 
 
-    auto temperature = GetAttributeArrayByName(output, "Temperature");
-
-
-    auto materialId = GetAttributeArrayByName(output, "MaterialId");
+    auto materialId = GetAttributeArrayByName(mesh, "MaterialId");
 
 
     if (temperature == nullptr || materialId == nullptr) { return false; }
@@ -710,7 +887,6 @@ bool TestNoGhostAttribute() {
 
 
 } // namespace
-
 
 
 int main() {
@@ -766,6 +942,24 @@ int main() {
     }
 
     std::cout << "Success: Attribute Types" << std::endl;
+
+
+    if (!TestPointGhostOnly()) {
+        std::cerr << "ERROR: Point Ghost Only" << std::endl;
+
+        return 1;
+    }
+
+    std::cout << "Success: Point Ghost Only" << std::endl;
+
+
+    if (!TestInt64Precision()) {
+        std::cerr << "ERROR: Int64 Precision" << std::endl;
+
+        return 1;
+    }
+
+    std::cout << "Success: Int64 Precision" << std::endl;
 
 
     if (!TestNoGhostAttribute()) {

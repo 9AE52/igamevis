@@ -58,17 +58,23 @@ ArrayObject::Pointer CopyPointAttribute(ArrayObject::Pointer inputArray, const s
 
     outputArray->Resize(outputPointCount);
 
-    std::vector<double> values(static_cast<size_t>(dimension));
+    if (outputPointCount == 0 || dimension <= 0) { return outputArray; }
 
-    for (IGsize oldPointId = 0; oldPointId < pointLookup.size(); ++oldPointId) {
+    const auto* inputValues = typedInput->RawPointer();
+    auto* outputValues = outputArray->RawPointer();
 
-        const igIndex newPointId = pointLookup[oldPointId];
+    if (inputValues == nullptr || outputValues == nullptr) { return nullptr; }
+
+    for (IGsize oldPointId = 0; oldPointId < static_cast<IGsize>(pointLookup.size()); ++oldPointId) {
+
+        const igIndex newPointId = pointLookup[static_cast<size_t>(oldPointId)];
 
         if (newPointId < 0) { continue; }
 
-        inputArray->GetElement(oldPointId, values.data());
+        const size_t inputOffset = static_cast<size_t>(oldPointId) * static_cast<size_t>(dimension);
+        const size_t outputOffset = static_cast<size_t>(newPointId) * static_cast<size_t>(dimension);
 
-        outputArray->SetElement(static_cast<IGsize>(newPointId), values.data());
+        std::copy_n(inputValues + inputOffset, dimension, outputValues + outputOffset);
     }
 
     return outputArray;
@@ -92,15 +98,21 @@ ArrayObject::Pointer CopyCellAttribute(ArrayObject::Pointer inputArray, const st
 
     outputArray->Resize(static_cast<IGsize>(originCells.size()));
 
-    std::vector<double> values(static_cast<size_t>(dimension));
+    if (originCells.empty() || dimension <= 0) { return outputArray; }
+
+    const auto* inputValues = typedInput->RawPointer();
+    auto* outputValues = outputArray->RawPointer();
+
+    if (inputValues == nullptr || outputValues == nullptr) { return nullptr; }
 
     for (IGsize newCellId = 0; newCellId < static_cast<IGsize>(originCells.size()); ++newCellId) {
 
-        const IGsize oldCellId = static_cast<IGsize>(originCells[newCellId]);
+        const IGsize oldCellId = static_cast<IGsize>(originCells[static_cast<size_t>(newCellId)]);
 
-        inputArray->GetElement(oldCellId, values.data());
+        const size_t inputOffset = static_cast<size_t>(oldCellId) * static_cast<size_t>(dimension);
+        const size_t outputOffset = static_cast<size_t>(newCellId) * static_cast<size_t>(dimension);
 
-        outputArray->SetElement(newCellId, values.data());
+        std::copy_n(inputValues + inputOffset, dimension, outputValues + outputOffset);
     }
 
     return outputArray;
@@ -202,12 +214,13 @@ RemoveGhostInformationFilter::RemoveGhostInformationFilter() {
 
 bool RemoveGhostInformationFilter::Execute() {
 
+    m_WasModified = false;
+
     auto inputObject = GetInput(0);
 
     if (inputObject.IsNull()) { return false; }
 
     // 当前版本处理UnstructuredMesh
-
     auto input = DynamicCast<UnstructuredMesh>(inputObject);
 
     if (input.IsNull()) { return false; }
@@ -220,10 +233,11 @@ bool RemoveGhostInformationFilter::Execute() {
 
     auto inputAttributes = input->GetAttributeSet();
 
-    if (inputAttributes == nullptr) { return false; }
+    if (inputAttributes == nullptr) { return true; }
 
 
-    // 找Cell级 vtkGhostType
+    // 查找Point和Cell级vtkGhostType
+    ArrayObject::Pointer pointGhostArray = nullptr;
 
     ArrayObject::Pointer cellGhostArray = nullptr;
 
@@ -239,27 +253,28 @@ bool RemoveGhostInformationFilter::Execute() {
         if (attr.isDeleted || attr.pointer == nullptr) { continue; }
 
 
-        if (attr.attachmentType != IG_CELL) { continue; }
+        if (!IsGhostAttributeName(attr.pointer->GetName())) { continue; }
 
 
-        if (IsGhostAttributeName(attr.pointer->GetName())) {
+        if (attr.attachmentType == IG_POINT && pointGhostArray == nullptr) {
+
+            pointGhostArray = attr.pointer;
+        }
+
+        else if (attr.attachmentType == IG_CELL && cellGhostArray == nullptr) {
 
             cellGhostArray = attr.pointer;
-
-            break;
         }
     }
 
-    if (cellGhostArray == nullptr) {
 
-        SetOutput(input);
-
-        return true;
-    }
+    if (pointGhostArray == nullptr && cellGhostArray == nullptr) { return true; }
 
 
     // Ghost数组长度检查
-    if (cellGhostArray->GetNumberOfElements() < numberOfCells) { return false; }
+    if (pointGhostArray != nullptr && pointGhostArray->GetNumberOfElements() < numberOfPoints) { return false; }
+
+    if (cellGhostArray != nullptr && cellGhostArray->GetNumberOfElements() < numberOfCells) { return false; }
 
 
     // 遍历Cell，确定需要保留的Cell
@@ -275,23 +290,31 @@ bool RemoveGhostInformationFilter::Execute() {
 
     for (IGsize cellId = 0; cellId < numberOfCells; ++cellId) {
 
-        const unsigned char ghostValue = static_cast<unsigned char>(cellGhostArray->GetValue(cellId));
+        if (cellGhostArray != nullptr) {
+
+            const unsigned char ghostValue = static_cast<unsigned char>(cellGhostArray->GetValue(cellId));
 
 
-        // Ghost Cell直接跳过
-        if (ShouldRemoveGhostCell(ghostValue)) { continue; }
+            // Ghost Cell直接跳过
+            if (ShouldRemoveGhostCell(ghostValue)) { continue; }
+        }
+
 
         // 记录原Cell ID
         originCells.push_back(static_cast<igIndex>(cellId));
 
-        // 标记该Cell使用到的Points
 
+        if (cellGhostArray == nullptr) { continue; }
+
+
+        // 标记该Cell使用到的Points
         const int pointCount = input->GetCellPointIds(cellId, ids);
 
 
         for (int j = 0; j < pointCount; ++j) {
 
             const igIndex pointId = ids[j];
+
 
             if (pointId >= 0 && pointId < static_cast<igIndex>(numberOfPoints)) {
 
@@ -300,23 +323,37 @@ bool RemoveGhostInformationFilter::Execute() {
         }
     }
 
-    // 建立 oldPointId -> newPointId
 
+    // 建立 oldPointId -> newPointId
     std::vector<igIndex> pointLookup(static_cast<size_t>(numberOfPoints), -1);
 
 
     IGsize outputPointCount = 0;
 
 
-    for (IGsize oldPointId = 0; oldPointId < numberOfPoints; ++oldPointId) {
+    if (cellGhostArray == nullptr) {
 
-        if (!usedPoints[static_cast<size_t>(oldPointId)]) { continue; }
-
-
-        pointLookup[static_cast<size_t>(oldPointId)] = static_cast<igIndex>(outputPointCount);
+        outputPointCount = numberOfPoints;
 
 
-        ++outputPointCount;
+        for (IGsize oldPointId = 0; oldPointId < numberOfPoints; ++oldPointId) {
+
+            pointLookup[static_cast<size_t>(oldPointId)] = static_cast<igIndex>(oldPointId);
+        }
+    }
+
+    else {
+
+        for (IGsize oldPointId = 0; oldPointId < numberOfPoints; ++oldPointId) {
+
+            if (!usedPoints[static_cast<size_t>(oldPointId)]) { continue; }
+
+
+            pointLookup[static_cast<size_t>(oldPointId)] = static_cast<igIndex>(outputPointCount);
+
+
+            ++outputPointCount;
+        }
     }
 
 
@@ -369,12 +406,13 @@ bool RemoveGhostInformationFilter::Execute() {
             const igIndex oldPointId = ids[j];
 
 
+            if (oldPointId < 0 || oldPointId >= static_cast<igIndex>(numberOfPoints)) { return false; }
+
+
             const igIndex newPointId = pointLookup[static_cast<size_t>(oldPointId)];
 
 
-            if (newPointId < 0) {
-                return false;
-            }
+            if (newPointId < 0) { return false; }
 
 
             newIds[j] = newPointId;
@@ -403,11 +441,15 @@ bool RemoveGhostInformationFilter::Execute() {
 
         auto& attr = inputAttributes->GetAttribute(i);
 
+
         if (attr.isDeleted || attr.pointer == nullptr) { continue; }
+
 
         if (IsGhostAttributeName(attr.pointer->GetName())) { continue; }
 
+
         ArrayObject::Pointer outputArray = nullptr;
+
 
         if (attr.attachmentType == IG_POINT) {
 
@@ -419,17 +461,13 @@ bool RemoveGhostInformationFilter::Execute() {
             outputArray = CopyCellAttributeByType(attr.pointer, originCells);
         }
 
-
         else {
 
             continue;
         }
 
 
-        if (outputArray == nullptr) {
-
-            continue;
-        }
+        if (outputArray == nullptr) { continue; }
 
 
         outputAttributes->AddAttribute(attr.type, attr.attachmentType, outputArray);
@@ -441,6 +479,9 @@ bool RemoveGhostInformationFilter::Execute() {
 
     // 设置输出
     SetOutput(output);
+
+
+    m_WasModified = true;
 
 
     return true;

@@ -13,11 +13,14 @@ public:
 
     bool Execute() override;
 
+    bool WasModified() const { return m_WasModified; }
+
 protected:
     RemoveGhostInformationFilter();
     ~RemoveGhostInformationFilter() override = default;
+
+private:
+    bool m_WasModified{false};
 };
 
 IGAME_NAMESPACE_END
-
-
