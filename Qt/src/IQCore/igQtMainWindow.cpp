@@ -1457,14 +1457,14 @@ void igQtMainWindow::initAllFilters() {
 
     QMenu* mesh_processing = ui->menu_filters->addMenu(QStringLiteral("数据处理 (Data Processing)"));
 
-    connect(mesh_processing->addAction(QStringLiteral("点抽样 (Mask Points)")), &QAction::triggered, this,
+    connect(mesh_processing->addAction(QStringLiteral("点抽样（Mask Points）")), &QAction::triggered, this,
             [&](bool checked) {
                 if (rendererWidget->GetScene() == nullptr || rendererWidget->GetScene()->GetCurrentModel() == nullptr) {
                     return;
                 }
 
                 igQtFilterDialogDockWidget* dialog = new igQtFilterDialogDockWidget(this, true);
-                dialog->setFilterTitle(QStringLiteral("点抽样 (Mask Points)"));
+                dialog->setFilterTitle(QStringLiteral("点抽样（Mask Points）"));
 
                 dialog->setFixedWidth(1050);
 
@@ -1473,34 +1473,34 @@ void igQtMainWindow::initAllFilters() {
                 }
 
                 int onRatioId =
-                        dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, QStringLiteral("On Ratio"), "2");
+                        dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, QStringLiteral("抽样间隔"), "2");
 
                 int maximumId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT,
-                                                     QStringLiteral("Maximum Number of Points"), "5000");
+                                                     QStringLiteral("最大点数"), "5000");
 
                 int proportionalId = dialog->addParameter(
                         igQtFilterDialogDockWidget::QT_CHECK_BOX,
-                        QStringLiteral("Proportionally Distribute Maximum Number Of Points"), "false");
+                        QStringLiteral("按比例分配最大点数"), "false");
 
                 if (auto* widget = dialog->getWidget(proportionalId)) {
                     widget->setToolTip(QStringLiteral(
-                            "This option is retained for ParaView compatibility. "
-                            "In the current serial implementation it does not change the sampling result."));
+                            "该选项用于保持与 ParaView 参数兼容 "
+                            "当前串行实现中，该选项不会改变抽样结果"));
                 }
 
                 int offsetId =
-                        dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, QStringLiteral("Offset"), "0");
+                        dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, QStringLiteral("偏移量"), "0");
 
                 int randomId = dialog->addParameter(igQtFilterDialogDockWidget::QT_CHECK_BOX,
-                                                    QStringLiteral("Random Sampling"), "false");
+                                                    QStringLiteral("随机采样"), "false");
 
                 int randomModeId = dialog->addParameter(
-                        igQtFilterDialogDockWidget::QT_COMBO_BOX, QStringLiteral("Random Sampling Mode"),
-                        std::vector<QString>{"Randomized Id Strides", "Random Sampling",
-                                             "Spatially Stratified Random Sampling",
-                                             "Uniform Spatial Distribution (Bounds Based)",
-                                             "Uniform Spatial Distribution (Surface Sampling)",
-                                             "Uniform Spatial Distribution (Volume Sampling)"});
+                        igQtFilterDialogDockWidget::QT_COMBO_BOX, QStringLiteral("随机采样模式"),
+                        std::vector<QString>{"随机化ID步长", "随机采样",
+                                             "空间分层随机采样",
+                                             "均匀空间分布（边界）",
+                                             "均匀空间分布（表面）",
+                                             "均匀空间分布（体积）"});
 
                 if (auto* comboBox = qobject_cast<QComboBox*>(dialog->getWidget(randomModeId))) {
                     comboBox->setStyleSheet(QStringLiteral("QComboBox { padding-right: 24px; }"
@@ -1518,17 +1518,17 @@ void igQtMainWindow::initAllFilters() {
                 }
 
                 int randomSeedId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT,
-                                                        QStringLiteral("Random Seed"), "1");
+                                                        QStringLiteral("随机数种子"), "1");
 
                 int generateVerticesId = dialog->addParameter(igQtFilterDialogDockWidget::QT_CHECK_BOX,
-                                                              QStringLiteral("Generate Vertices"), "false");
+                                                              QStringLiteral("生成顶点"), "false");
 
                 int singleVertexId = dialog->addParameter(igQtFilterDialogDockWidget::QT_CHECK_BOX,
-                                                          QStringLiteral("Single Vertex Per Cell"), "false");
+                                                          QStringLiteral("每个单元一个顶点"), "false");
 
                 if (auto* widget = dialog->getWidget(singleVertexId)) {
-                    widget->setToolTip(QStringLiteral("When enabled, one vertex cell is generated per sampled point. "
-                                                      "PolyVertex output is currently unavailable in iGameVis."));
+                    widget->setToolTip(QStringLiteral("启用后，每个抽样点生成一个顶点单元 "
+                                                      "当前 iGameVis 暂不支持 PolyVertex 输出"));
                 }
 
                 dialog->show();
@@ -1545,8 +1545,8 @@ void igQtMainWindow::initAllFilters() {
                     int onRatio = dialog->getInt(onRatioId, ok);
 
                     if (!ok || onRatio <= 0) {
-                        showDarkFramelessMessage(QStringLiteral("Warning"),
-                                                 QStringLiteral("On Ratio must be greater than 0."));
+                        showDarkFramelessMessage(QStringLiteral("警号"),
+                                                 QStringLiteral("抽样间隔必须大于 0"));
                         return;
                     }
 
@@ -1554,8 +1554,8 @@ void igQtMainWindow::initAllFilters() {
 
                     if (!ok || maximum < 0) {
                         showDarkFramelessMessage(
-                                QStringLiteral("Warning"),
-                                QStringLiteral("Maximum Number of Points must be greater than or equal to 0."));
+                                QStringLiteral("警告"),
+                                QStringLiteral("最大点数必须大于或等于 0"));
                         return;
                     }
 
@@ -1566,8 +1566,8 @@ void igQtMainWindow::initAllFilters() {
                     int offset = dialog->getInt(offsetId, ok);
 
                     if (!ok || offset < 0) {
-                        showDarkFramelessMessage(QStringLiteral("Warning"),
-                                                 QStringLiteral("Offset must be greater than or equal to 0."));
+                        showDarkFramelessMessage(QStringLiteral("警告"),
+                                                 QStringLiteral("偏移量必须大于或等于 0"));
                         return;
                     }
 
@@ -1579,16 +1579,16 @@ void igQtMainWindow::initAllFilters() {
 
                     if (!ok || randomMode < MaskPointsFilter::RANDOMIZED_ID_STRIDES ||
                         randomMode > MaskPointsFilter::UNIFORM_SPATIAL_VOLUME) {
-                        showDarkFramelessMessage(QStringLiteral("Warning"),
-                                                 QStringLiteral("Invalid Random Sampling Mode."));
+                        showDarkFramelessMessage(QStringLiteral("警告"),
+                                                 QStringLiteral("随机采样模式无效"));
                         return;
                     }
 
                     int randomSeed = dialog->getInt(randomSeedId, ok);
 
                     if (!ok || randomSeed < 0) {
-                        showDarkFramelessMessage(QStringLiteral("Warning"),
-                                                 QStringLiteral("Random Seed must be greater than or equal to 0."));
+                        showDarkFramelessMessage(QStringLiteral("警告"),
+                                                 QStringLiteral("随机种子必须大于或等于 0"));
                         return;
                     }
 
@@ -1602,10 +1602,10 @@ void igQtMainWindow::initAllFilters() {
 
                     if (generateVertices && !singleVertexPerCell) {
                         showDarkFramelessMessage(
-                                QStringLiteral("Warning"),
+                                QStringLiteral("警告"),
                                 QStringLiteral(
-                                        "PolyVertex output is currently unavailable in iGameVis. "
-                                        "Please enable Single Vertex Per Cell when Generate Vertices is enabled."));
+                                        "当前 iGameVis 暂不支持 PolyVertex 输出"
+                                        "启用“生成顶点”时，请同时启用“每个单元一个顶点”"));
                         return;
                     }
 
@@ -1614,8 +1614,8 @@ void igQtMainWindow::initAllFilters() {
                     auto input = DynamicCast<UnstructuredMesh>(obj);
 
                     if (input.IsNull()) {
-                        showDarkFramelessMessage(QStringLiteral("Warning"),
-                                                 QStringLiteral("Mask Points currently supports UnstructuredMesh."));
+                        showDarkFramelessMessage(QStringLiteral("警告"),
+                                                 QStringLiteral("点抽样当前仅支持非结构网格"));
                         return;
                     }
 
@@ -1633,8 +1633,8 @@ void igQtMainWindow::initAllFilters() {
                     filter->SetSingleVertexPerCell(singleVertexPerCell);
 
                     if (!filter->Execute()) {
-                        showDarkFramelessMessage(QStringLiteral("Warning"),
-                                                 QStringLiteral("Mask Points execution failed."));
+                        showDarkFramelessMessage(QStringLiteral("警告"),
+                                                 QStringLiteral("点抽样执行失败"));
                         return;
                     }
 
