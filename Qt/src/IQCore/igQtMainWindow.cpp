@@ -2017,29 +2017,29 @@ void igQtMainWindow::initAllFilters() {
                 modelTreeWidget->addDataObjectToModelTree(filter->GetOutput(), Algorithm);
                 rendererWidget->update();
             });
-    // QMenu* convert = ui->menu_filters->addMenu(QStringLiteral("数据转换 (Convert)"));
-    // connect(convert->addAction(QStringLiteral("转换为点数据 (Convert To PointData)")), &QAction::triggered, this,
-    //         [&](bool checked) {
-    //             if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
-    //             auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
-    //             ConvertToPointDataFilter::Pointer filter = ConvertToPointDataFilter::New();
-    //             filter->SetInput(obj);
-    //             if (filter->Execute()) {
-    //                 modelTreeWidget->addDataObjectToModelTree(filter->GetOutput(), Algorithm);
-    //                 rendererWidget->update();
-    //             }
-    //         });
-    // connect(convert->addAction(QStringLiteral("转换为单元数据 (Convert To CellData)")), &QAction::triggered, this,
-    //         [&](bool checked) {
-    //             if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
-    //             auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
-    //             ConvertToCellDataFilter::Pointer filter = ConvertToCellDataFilter::New();
-    //             filter->SetInput(obj);
-    //             if (filter->Execute()) {
-    //                 modelTreeWidget->addDataObjectToModelTree(filter->GetOutput(), Algorithm);
-    //                 rendererWidget->update();
-    //             }
-    //         });
+    QMenu* convert = ui->menu_filters->addMenu(QStringLiteral("数据转换 (Convert)"));
+    connect(convert->addAction(QStringLiteral("转换为点数据 (Convert To PointData)")), &QAction::triggered, this,
+            [&](bool checked) {
+                if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
+                auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+                ConvertToPointDataFilter::Pointer filter = ConvertToPointDataFilter::New();
+                filter->SetInput(obj);
+                if (filter->Execute()) {
+                    modelTreeWidget->addDataObjectToModelTree(filter->GetOutput(), Algorithm);
+                    rendererWidget->update();
+                }
+            });
+    connect(convert->addAction(QStringLiteral("转换为单元数据 (Convert To CellData)")), &QAction::triggered, this,
+            [&](bool checked) {
+                if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
+                auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+                ConvertToCellDataFilter::Pointer filter = ConvertToCellDataFilter::New();
+                filter->SetInput(obj);
+                if (filter->Execute()) {
+                    modelTreeWidget->addDataObjectToModelTree(filter->GetOutput(), Algorithm);
+                    rendererWidget->update();
+                }
+            });
 
 
     QAction* generateProcessIds = ui->menu_filters->addAction(QStringLiteral("生成进程ID (GenerateProcessIds)"));
