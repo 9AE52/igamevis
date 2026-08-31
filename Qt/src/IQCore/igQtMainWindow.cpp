@@ -63,6 +63,7 @@
 #include <IQWidgets/igQtModelDrawWidget.h>
 #include <IQWidgets/igQtModelInformationWidget.h>
 #include <IQWidgets/igQtParallelCoordinatesWidget.h>
+#include <IQWidgets/igQtProbeWidget.h>
 #include <IQWidgets/igQtTensorWidget.h>
 #include <IQWidgets/igQtVariableCorrelationWidget.h>
 #include <IQWidgets/igQtPartFocusWidget.h>
@@ -2994,6 +2995,39 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
             ui->widget_SearchInfo->setCurrentModel(rendererWidget->GetScene()->GetCurrentModel());
         });
     });
+    //############# PROBE (探测) ST #############
+    {
+        auto* probeDock = new QDockWidget(QStringLiteral("探测 (probe)"), this);
+        probeDock->setObjectName("dockWidget_Probe");
+        probeDock->setAllowedAreas(Qt::RightDockWidgetArea);
+        probeDock->setFeatures(QDockWidget::DockWidgetClosable);
+        auto* probeWidget = new igQtProbeWidget(probeDock);
+        probeDock->setWidget(probeWidget);
+        this->addDockWidget(Qt::RightDockWidgetArea, probeDock);
+        probeDock->hide();
+
+        probeWidget->setContext(
+                [this]() { return rendererWidget->GetScene(); },
+                modelTreeWidget, [this]() { rendererWidget->update(); });
+
+        QAction* probeAction =
+                ui->menu_filters->addAction(QStringLiteral("探测 (probe)"));
+        connect(probeAction, &QAction::triggered, this,
+                [this, probeDock, probeWidget](bool) {
+                    probeDock->show();
+                    probeDock->raise();
+                    probeWidget->ensureQueryPointSet();
+                    probeWidget->refreshFromCurrentModel();
+                });
+        connect(modelTreeWidget, &igQtModelDialogWidget::CurrendModelChanged,
+                this, [this, probeDock, probeWidget]() {
+                    if (probeDock == nullptr || !probeDock->isVisible()) return;
+                    QTimer::singleShot(0, this, [this, probeWidget]() {
+                        probeWidget->refreshFromCurrentModel();
+                    });
+                });
+    }
+    //############# PROBE (探测) ED #############
     connect(ui->action_Scalar, &QAction::triggered, this,
             [this](bool) { openLeftToolPanel(LeftToolPanelId::Scalar); });
     connect(ui->action_Vector, &QAction::triggered, this,
