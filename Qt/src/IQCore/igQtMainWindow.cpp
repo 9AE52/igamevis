@@ -1538,8 +1538,6 @@ void igQtMainWindow::initAllFilters() {
         dialog->show();
     });
 
-    connect(mesh_processing->addAction(QStringLiteral("表面网格简化 (Surface Simplification)")), &QAction::triggered, this, [&](bool checked) {
-        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
     QAction* overlappingCellsDetectorAction = ui->menu_filters->addAction(
             QStringLiteral("检测重叠单元 (Overlapping Cells Detector)"));
     connect(overlappingCellsDetectorAction, &QAction::triggered, this, [this](bool checked) {
@@ -1636,7 +1634,7 @@ void igQtMainWindow::initAllFilters() {
         });
     });
 
-    QMenu* mesh_processing = ui->menu_filters->addMenu(QStringLiteral("数据处理 (Data Processing)"));
+    
     QAction* ghostCellAction = ui->menu_filters->addAction(QStringLiteral("Ghost 单元标记 (Ghost Cells)"));
     connect(ghostCellAction, &QAction::triggered, this, [this](bool checked) {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
