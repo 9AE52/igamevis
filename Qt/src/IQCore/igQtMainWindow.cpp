@@ -3,6 +3,7 @@
 // Created by m_ky on 2024/4/10.
 //
 
+#include "BoundaryMeshQuality/iGameBoundaryMeshQualityFilter.h"
 #include "MeshMetrics/iGameVolumeMeshMetricsFilter.h"
 #include "Deformation/iGameStressDeformationFilterCode.h"
 
@@ -28,6 +29,7 @@
 #include "Convert/iGameConvertToSurfaceMeshFilter.h"
 #include "Convert/iGameConvertToVolumeMeshFilter.h"
 
+#include "MyFilter/iGameExtractCellsByTypeFilter.h"
 #include "FeatureExtraction/iGameFeatureEdgesFilter.h"
 
 #include "Interactor/iGameInteractor.h"
@@ -56,10 +58,12 @@
 #include <IQWidgets/igQtCharts.h>
 #include <IQWidgets/igQtDeformationWidget.h>
 #include <IQWidgets/igQtGlobalIdWidget.h>
+#include <IQWidgets/igQtExtractCellsByTypeWidget.h>
 #include <IQWidgets/igQtModelClipWidget.h>
 #include <IQWidgets/igQtModelDrawWidget.h>
 #include <IQWidgets/igQtModelInformationWidget.h>
 #include <IQWidgets/igQtParallelCoordinatesWidget.h>
+#include <IQWidgets/igQtProbeWidget.h>
 #include <IQWidgets/igQtTensorWidget.h>
 #include <IQWidgets/igQtVariableCorrelationWidget.h>
 #include <IQWidgets/igQtPartFocusWidget.h>
@@ -120,6 +124,7 @@
 #include <QLineEdit>
 #include <QFormLayout>
 #include <QDialogButtonBox>
+#include <QComboBox>
 
 #include "AppendLocationAttribute/iGameAppendLocationAttribute.h"
 
@@ -982,6 +987,20 @@ void igQtMainWindow::initAllUnDefinedComponents() {
     DeformationDockWidget->setFeatures(QDockWidget::DockWidgetClosable);
     DeformationDockWidget->hide();
     this->addDockWidget(Qt::RightDockWidgetArea, DeformationDockWidget);
+
+    // 按单元类型提取：左侧工具面板（勾选要提取的单元类型）
+    m_extractCellsByTypeShell = new QDockWidget(this);
+    m_extractCellsByTypeShell->setObjectName("dockWidget_ExtractCellsByType");
+    m_extractCellsByTypeShell->setWindowTitle(QStringLiteral("按单元类型提取"));
+    m_extractCellsByTypeWidget = new igQtExtractCellsByTypeWidget(nullptr);
+    m_extractCellsByTypeWidget->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
+    m_extractCellsByTypeWidget->setMinimumWidth(280);
+    m_extractCellsByTypeShell->setWidget(m_extractCellsByTypeWidget);
+    m_extractCellsByTypeShell->setAllowedAreas(Qt::LeftDockWidgetArea);
+    m_extractCellsByTypeShell->setFeatures(QDockWidget::DockWidgetClosable);
+    this->addDockWidget(Qt::LeftDockWidgetArea, m_extractCellsByTypeShell);
+    makeDockWidgetScrollable(m_extractCellsByTypeShell);
+    m_extractCellsByTypeShell->hide();
 
 }
 void igQtMainWindow::initToolbarComponent() {
@@ -2191,21 +2210,69 @@ void igQtMainWindow::initAllFilters() {
         if (filter->Execute()) {
             modelTreeWidget->addDataObjectToModelTree(filter->GetOutput(), Algorithm);
             rendererWidget->update();
-        }
-    });
-    connect(convert->addAction(QStringLiteral("转换为单元数据 (Convert To CellData)")), &QAction::triggered, this, [&](bool checked) {
-        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
-        auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
-        ConvertToCellDataFilter::Pointer filter = ConvertToCellDataFilter::New();
-        filter->SetInput(obj);
-        if (filter->Execute()) {
-            modelTreeWidget->addDataObjectToModelTree(filter->GetOutput(), Algorithm);
-            rendererWidget->update();
-        }
-    });
+    // 按单元类型提取：直接作为【算法处理】一级菜单项（不嵌套子菜单）
+    connect(ui->menu_filters->addAction(QStringLiteral("按单元类型提取 (Extract Cells By Type)")), &QAction::triggered,
+            this, [this](bool) {
+        auto currentModel = rendererWidget->GetScene()->GetCurrentModel();
+        if (!currentModel) return;
 
+        auto obj = currentModel->GetDataObject();
+        if (!obj) return;
+
+        // 每次点菜单 = 一次新的提取会话（输出名 ExtractCellsByType_n，n 递增）
+        m_extractCellsByTypeFilter = ExtractCellsByTypeFilter::New();
+        m_extractCellsByTypeFilter->SetInput(obj);
+        auto types = m_extractCellsByTypeFilter->GetAvailableCellTypes();
+        if (types.empty()) {
+            showDarkFramelessMessage(QStringLiteral("无可提取的单元"),
+                                     QStringLiteral("当前模型没有可提取的单元（点集或空网格）"));
+            return;
+        }
+
+        // 新会话：不覆盖输入模型；首次提取时生成独立的新模型（ExtractCellsByType_n）
+        m_extractCellsByTypeModel = nullptr;
+
+        // 注入"提取"逻辑：改勾选 → 点"提取" → 重新执行
+        // 首次执行：在模型树新增 ExtractCellsByType_n（输入模型保持不动）
+        // 后续执行：仅更新该新模型（模型树不新增节点）
+        m_extractCellsByTypeWidget->onApply = [this]() {
+            if (!m_extractCellsByTypeFilter) return;
+            auto selected = m_extractCellsByTypeWidget->GetSelectedCellTypes();
+            if (selected.empty()) {
+                showDarkFramelessMessage(QStringLiteral("未选择单元类型"),
+                                         QStringLiteral("请至少勾选一种单元类型"));
+                return;
+            }
+            m_extractCellsByTypeFilter->SetExtractCellTypes(selected);
+            if (!m_extractCellsByTypeFilter->Execute()) {
+                showDarkFramelessMessage(QStringLiteral("执行失败"),
+                                         QStringLiteral("所选类型在当前模型中无匹配单元"));
+                return;
+            }
+            auto out = m_extractCellsByTypeFilter->GetOutput();
+            if (!m_extractCellsByTypeModel) {
+                // 首次提取：生成独立新模型（输入模型保留）
+                const int id = modelTreeWidget->addDataObjectToModelTree(out, Algorithm);
+                m_extractCellsByTypeModel = rendererWidget->GetScene()->GetModelById(id);
+            } else {
+                // 改勾选后再次提取：原地更新提取出来的新模型
+                m_extractCellsByTypeModel->SetDataObject(out);
+                modelTreeWidget->updateItemName(out);      // 名字保持 ExtractCellsByType_n
+                modelTreeWidget->updateAllAttriubute(out); // 重建属性子节点 + 刷新渲染数据
+            }
+            rendererWidget->update();
+        };
+
+        // 列出单元类型勾选框（默认全选）并打开左侧工具面板
+        m_extractCellsByTypeWidget->SetDataObject(obj);
+        openLeftToolPanel(LeftToolPanelId::ExtractCellsByType);
 
    //Menu* view = ui->menu_filters->addMenu("特征提取");
+        // 打开即按默认全选执行一次（生成 ExtractCellsByType_n）；
+        // 用户随后改勾选再点"提取"即在该新模型上更新
+        m_extractCellsByTypeWidget->onApply();
+    });
+    
 
     QAction* countCellFaces = view->addAction(
             QStringLiteral("统计单元面数 (Count Cell Faces)"));
@@ -2520,6 +2587,74 @@ void igQtMainWindow::initAllFilters() {
         } else {
             std::string message = filter->GetMessage();
             showDarkFramelessMessage(QStringLiteral("Warning"), QString::fromStdString(message));
+        }
+    });
+
+    QAction* boundaryMeshQuality = ui->menu_filters->addAction(
+        QStringLiteral("边界网格质量 (Boundary Mesh Quality)"));
+    connect(boundaryMeshQuality, &QAction::triggered, this, [this](bool checked) {
+        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
+        auto currentModel = rendererWidget->GetScene()->GetCurrentModel();
+        auto data = currentModel->GetDataObject();
+        if (data == nullptr) return;
+
+        if (data->GetDataObjectType() != IG_VOLUME_MESH &&
+            data->GetDataObjectType() != IG_UNSTRUCTURED_MESH) {
+            showDarkFramelessMessage(
+                QStringLiteral("不支持的模型"),
+                QStringLiteral("边界网格质量评估仅支持体网格或非结构化网格"));
+            return;
+        }
+
+        QDialog dialog(this);
+        dialog.setWindowTitle(QStringLiteral("边界网格质量评估"));
+        QFormLayout form(&dialog);
+        QComboBox metricBox(&dialog);
+        metricBox.addItem(QStringLiteral("体单元中心 -> 面中心距离 (DistanceFromCellCenterToFaceCenter)"),
+                          static_cast<int>(BoundaryMeshQualityFilter::DISTANCE_FROM_CELL_CENTER_TO_FACE_CENTER));
+        metricBox.addItem(QStringLiteral("体单元中心 -> 面所在平面距离 (DistanceFromCellCenterToFacePlane)"),
+                          static_cast<int>(BoundaryMeshQualityFilter::DISTANCE_FROM_CELL_CENTER_TO_FACE_PLANE));
+        metricBox.addItem(QStringLiteral("面法线与中心向量夹角 (AngleFaceNormalAndCellCenterToFaceCenterVector)"),
+                          static_cast<int>(BoundaryMeshQualityFilter::ANGLE_FACE_NORMAL_AND_CELL_CENTER_TO_FACE_CENTER_VECTOR));
+        form.addRow(QStringLiteral("评估指标:"), &metricBox);
+
+        QDialogButtonBox buttons(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
+        form.addRow(&buttons);
+        QObject::connect(&buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+        QObject::connect(&buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+
+        if (dialog.exec() != QDialog::Accepted) return;
+
+        BoundaryMeshQualityFilter::Pointer filter = BoundaryMeshQualityFilter::New();
+        filter->SetBoundaryMetric(
+            static_cast<BoundaryMeshQualityFilter::BoundaryMetric>(metricBox.currentData().toInt()));
+        filter->SetInput(data);
+
+        if (filter->Execute()) {
+            int attrIndex = data->GetAttributeSet()->GetNumberOfAttributes() - 1;
+            if (attrIndex < 0) attrIndex = 0;
+            modelTreeWidget->updateAllAttriubute(data);
+            auto drawObject = DynamicCast<DrawObject>(data);
+            if (drawObject) {
+                drawObject->ConvertToDrawableData();
+                auto item = modelTreeWidget->getItemFromObject(data);
+                if (item && item->childCount() > 0) {
+                    item->setExpanded(true);
+                    auto child = item->child(attrIndex);
+                    if (child) {
+                        item->setCurrentChild(child);
+                        item->setSelected(false);
+                        item->viewAttribute(attrIndex, -1);
+                        child->setSelected(true);
+                        modelTreeWidget->setCurrentItem(child);
+                    }
+                }
+            }
+            rendererWidget->update();
+        } else {
+            std::string message = filter->GetMessage();
+            showDarkFramelessMessage(QStringLiteral("Warning"),
+                                     QString::fromStdString(message));
         }
     });
 
@@ -2924,6 +3059,39 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
             ui->widget_SearchInfo->setCurrentModel(rendererWidget->GetScene()->GetCurrentModel());
         });
     });
+    //############# PROBE (探测) ST #############
+    {
+        auto* probeDock = new QDockWidget(QStringLiteral("探测 (probe)"), this);
+        probeDock->setObjectName("dockWidget_Probe");
+        probeDock->setAllowedAreas(Qt::RightDockWidgetArea);
+        probeDock->setFeatures(QDockWidget::DockWidgetClosable);
+        auto* probeWidget = new igQtProbeWidget(probeDock);
+        probeDock->setWidget(probeWidget);
+        this->addDockWidget(Qt::RightDockWidgetArea, probeDock);
+        probeDock->hide();
+
+        probeWidget->setContext(
+                [this]() { return rendererWidget->GetScene(); },
+                modelTreeWidget, [this]() { rendererWidget->update(); });
+
+        QAction* probeAction =
+                ui->menu_filters->addAction(QStringLiteral("探测 (probe)"));
+        connect(probeAction, &QAction::triggered, this,
+                [this, probeDock, probeWidget](bool) {
+                    probeDock->show();
+                    probeDock->raise();
+                    probeWidget->ensureQueryPointSet();
+                    probeWidget->refreshFromCurrentModel();
+                });
+        connect(modelTreeWidget, &igQtModelDialogWidget::CurrendModelChanged,
+                this, [this, probeDock, probeWidget]() {
+                    if (probeDock == nullptr || !probeDock->isVisible()) return;
+                    QTimer::singleShot(0, this, [this, probeWidget]() {
+                        probeWidget->refreshFromCurrentModel();
+                    });
+                });
+    }
+    //############# PROBE (探测) ED #############
     connect(ui->action_Scalar, &QAction::triggered, this,
             [this](bool) { openLeftToolPanel(LeftToolPanelId::Scalar); });
     connect(ui->action_Vector, &QAction::triggered, this,
@@ -3546,6 +3714,7 @@ QDockWidget* igQtMainWindow::shellDockForLeftPanel(LeftToolPanelId id) const {
     case LeftToolPanelId::Selection: return ui->dockWidget_SelectionField;
     case LeftToolPanelId::VariableDensity: return ui->dockWidget_VariableDensityField;
     case LeftToolPanelId::DataChange: return ui->dockWidget_DataChangeField;
+    case LeftToolPanelId::ExtractCellsByType: return m_extractCellsByTypeShell;
     case LeftToolPanelId::Count: return nullptr;
     }
     return nullptr;
@@ -3652,6 +3821,10 @@ void igQtMainWindow::openLeftToolPanel(LeftToolPanelId id) {
     case LeftToolPanelId::DataChange:
         relocateContentToLeftTab(ui->dockWidget_DataChangeField, ui->widget_DataChangeField, QStringLiteral("路径图"), id,
                                  false);
+        break;
+    case LeftToolPanelId::ExtractCellsByType:
+        relocateContentToLeftTab(m_extractCellsByTypeShell, m_extractCellsByTypeWidget,
+                                 QStringLiteral("按单元类型提取"), id, false);
         break;
     case LeftToolPanelId::Count:
         break;

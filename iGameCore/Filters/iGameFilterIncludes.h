@@ -41,5 +41,7 @@
 #include "FeatureExtraction/iGameVortexDetectionFilter.h"
 #include "FeatureExtraction/iGameVortexFilter.h"
 #include "FeatureExtraction/iGameFeatureEdgeRegionFilter.h"
+#include "Probe/iGameProbeFilter.h"
+#include "BoundaryMeshQuality/iGameBoundaryMeshQualityFilter.h"
 #include "PassArrays/iGamePassArraysFilter.h"
 #include "ProcessGet/iGameGenerateProcessIdsFilter.h"
