@@ -27,8 +27,8 @@ bool VolumeOfRevolutionFilter::Execute() {
     DataObject::Pointer input = GetInput(0);
     if (!input) return false;
 
-    std::vector<Vector3d> contourPts; // 所有轮廓点的坐标
-    std::vector<Edge> edges;          // 轮廓线段（无序）
+    std::vector<Vector3d> contourPts;
+    std::vector<Edge> edges;
 
     IGenum type = input->GetDataObjectType();
 
@@ -43,11 +43,9 @@ bool VolumeOfRevolutionFilter::Execute() {
             igError("UnstructuredMesh has insufficient points.");
             return false;
         }
-        // 提取点坐标
         IGsize numPts = inPoints->GetNumberOfPoints();
         contourPts.resize(numPts);
         for (IGsize i = 0; i < numPts; ++i) { inPoints->GetPoint(i, contourPts[i]); }
-        // 提取线段单元
         auto cells = inMesh->GetCells();
         auto types = inMesh->GetCellTypes();
         if (cells && types) {
@@ -71,7 +69,6 @@ bool VolumeOfRevolutionFilter::Execute() {
             igError("Failed to cast to SurfaceMesh.");
             return false;
         }
-        // 提取点坐标
         auto pts = surf->GetPoints();
         if (!pts || pts->GetNumberOfPoints() < 3) {
             igError("SurfaceMesh has insufficient points.");
@@ -80,8 +77,6 @@ bool VolumeOfRevolutionFilter::Execute() {
         IGsize numPts = pts->GetNumberOfPoints();
         contourPts.resize(numPts);
         for (IGsize i = 0; i < numPts; ++i) { pts->GetPoint(i, contourPts[i]); }
-
-        // 提取边界边：遍历所有边，保留 IsBoundaryEdge 为 true 的边
         IGsize numEdges = surf->GetNumberOfEdges();
         for (IGsize eid = 0; eid < numEdges; ++eid) {
             if (surf->IsBoundaryEdge(eid)) {
@@ -106,12 +101,8 @@ bool VolumeOfRevolutionFilter::Execute() {
             igError("StructuredMesh has insufficient points.");
             return false;
         }
-
-        // 获取维度大小（点数）
-        igIndex* dim = sMesh->GetDimensionSize(); // 返回{ni, nj, nk}
+        igIndex* dim = sMesh->GetDimensionSize();
         IGsize ni = dim[0], nj = dim[1], nk = dim[2];
-
-        // 提取所有点坐标
         IGsize expectedPts = ni * nj * nk;
         IGsize actualPts = pts->GetNumberOfPoints();
         if (actualPts != expectedPts) {
@@ -121,36 +112,23 @@ bool VolumeOfRevolutionFilter::Execute() {
         contourPts.resize(actualPts);
         for (IGsize idx = 0; idx < actualPts; ++idx) { pts->GetPoint(idx, contourPts[idx]); }
 
-        // 辅助：根据 (i,j,k) 计算线性索引
         auto idxOf = [&](IGsize i, IGsize j, IGsize k) -> IGsize { return i + j * ni + k * ni * nj; };
-
-        // 用 set 去重（避免四条边界相交处重复）
         std::set<std::pair<IGsize, IGsize>> edgeSet;
-
         auto addEdge = [&](IGsize a, IGsize b) {
             if (a > b) std::swap(a, b);
             edgeSet.insert({a, b});
         };
-
         if (nj == 1 && nk == 1) {
-            // 1D 曲线：沿 i 方向
             for (IGsize i = 0; i < ni - 1; ++i) { addEdge(idxOf(i, 0, 0), idxOf(i + 1, 0, 0)); }
         } else if (nk == 1) {
-            // 2D 面片 (i, j 平面)：提取四条边界
-            // 底边 j=0
             for (IGsize i = 0; i < ni - 1; ++i) addEdge(idxOf(i, 0, 0), idxOf(i + 1, 0, 0));
-            // 顶边 j=nj-1
             for (IGsize i = 0; i < ni - 1; ++i) addEdge(idxOf(i, nj - 1, 0), idxOf(i + 1, nj - 1, 0));
-            // 左边 i=0
             for (IGsize j = 0; j < nj - 1; ++j) addEdge(idxOf(0, j, 0), idxOf(0, j + 1, 0));
-            // 右边 i=ni-1
             for (IGsize j = 0; j < nj - 1; ++j) addEdge(idxOf(ni - 1, j, 0), idxOf(ni - 1, j + 1, 0));
         } else {
             igError("StructuredMesh must be 1D curve or 2D surface (nk==1).");
             return false;
         }
-
-        // 将 set 转为 vector
         for (const auto& e: edgeSet) { edges.push_back({e.first, e.second}); }
         if (edges.empty()) {
             igError("StructuredMesh boundary extraction failed.");
@@ -161,13 +139,12 @@ bool VolumeOfRevolutionFilter::Execute() {
         return false;
     }
 
-    // 检查轮廓是否有效
     if (contourPts.size() < 2 || edges.empty()) {
         igError("No valid contour points or edges found.");
         return false;
     }
 
-    // -------- 2. 旋转轴归一化 --------
+    // -------- 旋转轴归一化 --------
     Vector3d axisDir = m_AxisDirection;
     double len = axisDir.norm();
     if (len < 1e-12) {
@@ -177,7 +154,7 @@ bool VolumeOfRevolutionFilter::Execute() {
     axisDir /= len;
     Vector3d axisPt = m_AxisPoint;
 
-    // -------- 3. 预计算所有轮廓点的投影 --------
+    // -------- 预计算轮廓点投影 --------
     IGsize numPts = contourPts.size();
     std::vector<PointProjection> proj(numPts);
     for (IGsize i = 0; i < numPts; ++i) {
@@ -190,12 +167,15 @@ bool VolumeOfRevolutionFilter::Execute() {
         proj[i].v_perp = v_perp;
     }
 
-    // -------- 4. 角度参数 --------
+    // -------- 角度参数 --------
     double angleStep = m_Angle / m_Resolution;
     const double PI = 3.141592653589793;
     int numTheta = m_Resolution + 1;
 
-    // -------- 5. 生成旋转点云 --------
+    // -------- 判断是否为完整圆周旋转，处理+/-360的情况 --------
+    bool isFull = (fabs(fabs(m_Angle) - 2.0 * PI) < 1e-12);
+
+    // -------- 生成旋转点云 --------
     auto newPoints = Points::New();
     std::vector<std::vector<IGsize>> pointIndices(numPts);
     for (auto& vec: pointIndices) vec.resize(numTheta);
@@ -206,6 +186,11 @@ bool VolumeOfRevolutionFilter::Execute() {
         Vector3d v_par = h * axisDir;
         Vector3d v_perp = proj[iPt].v_perp;
         for (int j = 0; j < numTheta; ++j) {
+            // -------- 若为全周且为最后一层，复用第一层点索引 --------
+            if (isFull && j == m_Resolution) {
+                pointIndices[iPt][j] = pointIndices[iPt][0];
+                continue;
+            }
             double theta = j * angleStep;
             Vector3d v_rot;
             if (r < 1e-12) {
@@ -220,7 +205,7 @@ bool VolumeOfRevolutionFilter::Execute() {
         }
     }
 
-    // -------- 6. 生成侧面三角形 --------
+    // -------- 生成侧面三角形 --------
     auto newCells = CellArray::New();
     auto newTypes = UnsignedIntArray::New();
 
@@ -255,7 +240,8 @@ bool VolumeOfRevolutionFilter::Execute() {
             }
         }
     }
-    // -------- 7. 输出 --------
+
+    // -------- 输出 --------
     auto outputMesh = UnstructuredMesh::New();
     outputMesh->SetPoints(newPoints);
     outputMesh->SetCells(newCells, newTypes);

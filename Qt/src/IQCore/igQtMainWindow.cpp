@@ -2984,9 +2984,9 @@ QAction* volRevAction = ui->menu_filters->addAction(QStringLiteral("旋转体生
                 return;
             }
             double angleDeg = angleEdit->text().toDouble(&ok);
-            if (!ok || angleDeg <= 0) {
+            if (!ok ) {
                 showDarkFramelessMessage(QStringLiteral("错误"),
-                                         QStringLiteral("请输入有效的角度（正数，单位：度）。"));
+                                         QStringLiteral("请输入有效的角度（单位：度）。"));
                 return;
             }
             double angleRad = angleDeg * M_PI / 180.0;
