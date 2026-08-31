@@ -3,6 +3,7 @@
 // Created by m_ky on 2024/4/10.
 //
 
+#include "BoundaryMeshQuality/iGameBoundaryMeshQualityFilter.h"
 #include "MeshMetrics/iGameVolumeMeshMetricsFilter.h"
 #include "Deformation/iGameStressDeformationFilterCode.h"
 
@@ -63,6 +64,7 @@
 #include <IQWidgets/igQtModelDrawWidget.h>
 #include <IQWidgets/igQtModelInformationWidget.h>
 #include <IQWidgets/igQtParallelCoordinatesWidget.h>
+#include <IQWidgets/igQtProbeWidget.h>
 #include <IQWidgets/igQtTensorWidget.h>
 #include <IQWidgets/igQtVariableCorrelationWidget.h>
 #include <IQWidgets/igQtPartFocusWidget.h>
@@ -126,7 +128,6 @@
 #include <QCheckBox>
 #include <QComboBox>
 #include <QDoubleSpinBox>
-#include <QFormLayout>
 #include <QGroupBox>
 #include <QHeaderView>
 #include <QTableWidget>
@@ -2609,6 +2610,74 @@ void igQtMainWindow::initAllFilters() {
         }
     });
 
+    QAction* boundaryMeshQuality = ui->menu_filters->addAction(
+        QStringLiteral("边界网格质量 (Boundary Mesh Quality)"));
+    connect(boundaryMeshQuality, &QAction::triggered, this, [this](bool checked) {
+        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
+        auto currentModel = rendererWidget->GetScene()->GetCurrentModel();
+        auto data = currentModel->GetDataObject();
+        if (data == nullptr) return;
+
+        if (data->GetDataObjectType() != IG_VOLUME_MESH &&
+            data->GetDataObjectType() != IG_UNSTRUCTURED_MESH) {
+            showDarkFramelessMessage(
+                QStringLiteral("不支持的模型"),
+                QStringLiteral("边界网格质量评估仅支持体网格或非结构化网格"));
+            return;
+        }
+
+        QDialog dialog(this);
+        dialog.setWindowTitle(QStringLiteral("边界网格质量评估"));
+        QFormLayout form(&dialog);
+        QComboBox metricBox(&dialog);
+        metricBox.addItem(QStringLiteral("体单元中心 -> 面中心距离 (DistanceFromCellCenterToFaceCenter)"),
+                          static_cast<int>(BoundaryMeshQualityFilter::DISTANCE_FROM_CELL_CENTER_TO_FACE_CENTER));
+        metricBox.addItem(QStringLiteral("体单元中心 -> 面所在平面距离 (DistanceFromCellCenterToFacePlane)"),
+                          static_cast<int>(BoundaryMeshQualityFilter::DISTANCE_FROM_CELL_CENTER_TO_FACE_PLANE));
+        metricBox.addItem(QStringLiteral("面法线与中心向量夹角 (AngleFaceNormalAndCellCenterToFaceCenterVector)"),
+                          static_cast<int>(BoundaryMeshQualityFilter::ANGLE_FACE_NORMAL_AND_CELL_CENTER_TO_FACE_CENTER_VECTOR));
+        form.addRow(QStringLiteral("评估指标:"), &metricBox);
+
+        QDialogButtonBox buttons(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
+        form.addRow(&buttons);
+        QObject::connect(&buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+        QObject::connect(&buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+
+        if (dialog.exec() != QDialog::Accepted) return;
+
+        BoundaryMeshQualityFilter::Pointer filter = BoundaryMeshQualityFilter::New();
+        filter->SetBoundaryMetric(
+            static_cast<BoundaryMeshQualityFilter::BoundaryMetric>(metricBox.currentData().toInt()));
+        filter->SetInput(data);
+
+        if (filter->Execute()) {
+            int attrIndex = data->GetAttributeSet()->GetNumberOfAttributes() - 1;
+            if (attrIndex < 0) attrIndex = 0;
+            modelTreeWidget->updateAllAttriubute(data);
+            auto drawObject = DynamicCast<DrawObject>(data);
+            if (drawObject) {
+                drawObject->ConvertToDrawableData();
+                auto item = modelTreeWidget->getItemFromObject(data);
+                if (item && item->childCount() > 0) {
+                    item->setExpanded(true);
+                    auto child = item->child(attrIndex);
+                    if (child) {
+                        item->setCurrentChild(child);
+                        item->setSelected(false);
+                        item->viewAttribute(attrIndex, -1);
+                        child->setSelected(true);
+                        modelTreeWidget->setCurrentItem(child);
+                    }
+                }
+            }
+            rendererWidget->update();
+        } else {
+            std::string message = filter->GetMessage();
+            showDarkFramelessMessage(QStringLiteral("Warning"),
+                                     QString::fromStdString(message));
+        }
+    });
+
     QAction* lagrangeUnstructedMesh_visualization = ui->menu_filters->addAction(
             QStringLiteral("拉格朗日非结构网格可视化 (LagrangeUnstructedMesh Visualization)"));
     connect(lagrangeUnstructedMesh_visualization, &QAction::triggered, this, [&](bool checked) {
@@ -2956,6 +3025,39 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
             ui->widget_SearchInfo->setCurrentModel(rendererWidget->GetScene()->GetCurrentModel());
         });
     });
+    //############# PROBE (探测) ST #############
+    {
+        auto* probeDock = new QDockWidget(QStringLiteral("探测 (probe)"), this);
+        probeDock->setObjectName("dockWidget_Probe");
+        probeDock->setAllowedAreas(Qt::RightDockWidgetArea);
+        probeDock->setFeatures(QDockWidget::DockWidgetClosable);
+        auto* probeWidget = new igQtProbeWidget(probeDock);
+        probeDock->setWidget(probeWidget);
+        this->addDockWidget(Qt::RightDockWidgetArea, probeDock);
+        probeDock->hide();
+
+        probeWidget->setContext(
+                [this]() { return rendererWidget->GetScene(); },
+                modelTreeWidget, [this]() { rendererWidget->update(); });
+
+        QAction* probeAction =
+                ui->menu_filters->addAction(QStringLiteral("探测 (probe)"));
+        connect(probeAction, &QAction::triggered, this,
+                [this, probeDock, probeWidget](bool) {
+                    probeDock->show();
+                    probeDock->raise();
+                    probeWidget->ensureQueryPointSet();
+                    probeWidget->refreshFromCurrentModel();
+                });
+        connect(modelTreeWidget, &igQtModelDialogWidget::CurrendModelChanged,
+                this, [this, probeDock, probeWidget]() {
+                    if (probeDock == nullptr || !probeDock->isVisible()) return;
+                    QTimer::singleShot(0, this, [this, probeWidget]() {
+                        probeWidget->refreshFromCurrentModel();
+                    });
+                });
+    }
+    //############# PROBE (探测) ED #############
     connect(ui->action_Scalar, &QAction::triggered, this,
             [this](bool) { openLeftToolPanel(LeftToolPanelId::Scalar); });
     connect(ui->action_Vector, &QAction::triggered, this,
