@@ -2151,37 +2151,33 @@ void igQtMainWindow::initAllFilters() {
 
     connect(ui->menu_filters->addAction("多块模型表面提取"), &QAction::triggered, this, [&](bool checked) {
         if (!rendererWidget) {
-            showDarkFramelessMessage(QStringLiteral("Warning"),
-                                     QStringLiteral("渲染器组件未初始化。"));
+            showDarkFramelessMessage(QStringLiteral("Warning"), QStringLiteral("渲染器组件未初始化。"));
         }
 
         auto scene = rendererWidget->GetScene();
-        if (!scene) { 
-            showDarkFramelessMessage(QStringLiteral("Warning"), QStringLiteral("场景未初始化。"));
-        }
+        if (!scene) { showDarkFramelessMessage(QStringLiteral("Warning"), QStringLiteral("场景未初始化。")); }
 
         auto currentModel = scene->GetCurrentModel();
-        if (!currentModel) { 
-            showDarkFramelessMessage(QStringLiteral("Warning"), QStringLiteral("未能获取当前选定模型。")); 
+        if (!currentModel) {
+            showDarkFramelessMessage(QStringLiteral("Warning"), QStringLiteral("未能获取当前选定模型。"));
         }
 
         auto obj = currentModel->GetDataObject();
-        if (!obj) {
-            showDarkFramelessMessage(QStringLiteral("Warning"), QStringLiteral("未能获取DataObject。"));
-        }
+        if (!obj) { showDarkFramelessMessage(QStringLiteral("Warning"), QStringLiteral("未能获取DataObject。")); }
 
         auto multiBlockFilter = MultiBlockGeometryFilter::New();
         multiBlockFilter->SetInput(obj);
         if (!multiBlockFilter->Execute()) {
-			showDarkFramelessMessage(QStringLiteral("Warning"), QStringLiteral("多块模型表面提取失败。"));
-			return;
-		}
+            showDarkFramelessMessage(QStringLiteral("Warning"), QStringLiteral("多块模型表面提取失败。"));
+            return;
+        }
 
         auto multiBlockObj = multiBlockFilter->GetOutput();
         multiBlockObj->SetName(obj->GetName() + "_MultiBlockSurface");
         modelTreeWidget->addDataObjectToModelTree(multiBlockObj, Algorithm);
 
         rendererWidget->update();
+    });
 
     QAction* LocationAttribute = ui->menu_filters->addAction(QStringLiteral("附加点坐标到属性(AppendLocaitonAttribute)"));
     connect(LocationAttribute, &QAction::triggered, this, [this](bool checked) {
