@@ -46,6 +46,7 @@
 
 #include "iGameFileIO.h"
 #include "iGameFilterIncludes.h"
+#include "Shrink/iGameShrinkFilter.h"
 #include "GhostCell/iGameGhostCellFilter.h"
 #include <IQComponents/igQtFilterDialogDockWidget.h>
 #include <IQComponents/igQtModelDialogWidget.h>
@@ -1481,6 +1482,64 @@ void igQtMainWindow::initAllFilters() {
         }
     };
 
+    QMenu* mesh_processing = ui->menu_filters->addMenu(QStringLiteral("数据处理 (Data Processing)"));
+
+    QAction* shrinkAction = ui->menu_filters->addAction(QStringLiteral("单元收缩 (Shrink)"));
+    connect(shrinkAction, &QAction::triggered, this, [this](bool checked) {
+        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
+        auto model = rendererWidget->GetScene()->GetCurrentModel();
+        auto data = model->GetDataObject();
+
+        std::string filePath;
+        auto props = data->GetProperties();
+        if (props) {
+            auto prop = props->GetProperty("FilePath");
+            if (prop && !prop.IsNull()) { filePath = prop->Get<std::string>(); }
+        }
+
+        igQtFilterDialogDockWidget* dialog = new igQtFilterDialogDockWidget(this, true);
+        dialog->setFilterTitle(QStringLiteral("单元收缩 (Shrink)"));
+        int shrinkId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, QStringLiteral("收缩比例 (0~1)"),
+                                            "0.5");
+        dialog->setApplyFunctor([=, this]() {
+            bool ok = false;
+            double factor = dialog->getDouble(shrinkId, ok);
+            if (!ok || factor < 0.0 || factor > 1.0) {
+                showDarkFramelessMessage(QStringLiteral("Warning"), QStringLiteral("请输入 0 ~ 1 之间的数字"));
+                return;
+            }
+            if (filePath.empty()) {
+                showDarkFramelessMessage(QStringLiteral("Warning"),
+                                         QStringLiteral("找不到模型文件路径，请通过“打开文件”加载模型"));
+                return;
+            }
+            auto base = iGame::FileIO::ReadFile(filePath);
+            if (base.IsNull()) {
+                showDarkFramelessMessage(QStringLiteral("Warning"), QStringLiteral("读取原始模型失败"));
+                return;
+            }
+            base->GetProperties()->AddProperty(iGame::Variant::String, "FilePath")->SetValue(filePath);
+            auto filter = iGame::ShrinkFilter::New();
+            filter->SetShrinkFactor(factor);
+            filter->SetInput(0, base);
+            if (filter->Execute()) {
+                model->SetDataObject(base);
+                auto drawObject = iGame::DynamicCast<iGame::DrawObject>(base);
+                if (drawObject) { drawObject->ForceReConvertToDrawableData(); }
+                model->Update();
+                modelTreeWidget->updateAllAttriubute(base);
+                rendererWidget->update();
+                dialog->close();
+            } else {
+                showDarkFramelessMessage(QStringLiteral("Warning"),
+                                         QStringLiteral("Shrink 执行失败：不支持的网格类型"));
+            }
+        });
+        dialog->show();
+    });
+
+    connect(mesh_processing->addAction(QStringLiteral("表面网格简化 (Surface Simplification)")), &QAction::triggered, this, [&](bool checked) {
+        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
     QAction* overlappingCellsDetectorAction = ui->menu_filters->addAction(
             QStringLiteral("检测重叠单元 (Overlapping Cells Detector)"));
     connect(overlappingCellsDetectorAction, &QAction::triggered, this, [this](bool checked) {
