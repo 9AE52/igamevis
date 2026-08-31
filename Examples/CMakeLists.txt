@@ -261,6 +261,7 @@ igame_add_example(testConvertToSurfaceMesh Filter/Convert/TestConvertToSurfaceMe
 igame_add_example(testConvertToLagrangeUnstructuredMesh Filter/Convert/TestConvertToLagrangeUnstructuredMesh.cpp)
 
 # My Filters
+igame_add_example(testExtractCellsByType Filter/MyFilter/TestExtractCellsByType.cpp)
 igame_add_example(testCellCenterFilter Filter/MyFilter/TestCellCenterFilter.cpp)
 
 # IO (optional modules)
