@@ -2152,64 +2152,7 @@ void igQtMainWindow::initAllFilters() {
         rendererWidget->update();
     });
 
-    //connect(mesh_processing->addAction("Test"), &QAction::triggered, this, [&](bool checked) {
-    //    auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
-
-    //    auto m_StreamBase = iGame::StreamBase::New();
-    //    auto streamtracer = m_StreamBase->streamFilter;
-    //    streamtracer->initStreamTracer(obj);
-    //    //auto seeds=streamtracer->getModelSelect();//当实际已经选中了重点区域时直接调用该函数
-    //    Vector3f boundMax = streamtracer->GetMesh()->GetBoundingBox().max; //包围盒区域
-    //    Vector3f boundMin = streamtracer->GetMesh()->GetBoundingBox().min;
-    //    Vector3f centerMax = (boundMax - boundMin) / 5 + boundMin; //模拟被选中重点区域
-    //    auto seeds = streamtracer->getAllSubBlockCenters(boundMax, boundMin, centerMax, boundMin, 2,
-    //                                                     4); //4，6为划分子块的数量
-    //    float lengthOfStreamLine = 5;
-    //    float lengthOfStep = 0.3;
-    //    float maxSteps = 1000;
-    //    float terminalSpeed = 0.005;
-    //    streamtracer->SetInput(seeds, "V", lengthOfStreamLine, lengthOfStep, terminalSpeed, maxSteps);
-    //    streamtracer->Execute();
-    //    std::cout << seeds.size() << std::endl;
-    //    auto output = streamtracer->GetOutput();
-
-    //    modelTreeWidget->addDataObjectToModelTree(output, Algorithm);
-    //    rendererWidget->update();
-    //});
-
-    //connect(mesh_processing->addAction("Test2"), &QAction::triggered, this, [&](bool checked) { 
-    //    auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
-
-    //    auto filter = iGame::VolumeMeshMetricsFilter::New();
-    //    filter->SetVolumeMetric(VolumeMeshMetricsFilter::HEX_VOLUME);
-    //    filter->SetInput(obj);
-    //    filter->Execute();
-
-    //    modelTreeWidget->addDataObjectToModelTree(filter->GetOutput(), Algorithm);
-    //    rendererWidget->update();
-    //    });
-    //connect(mesh_processing->addAction("Test3"), &QAction::triggered, this, [&](bool checked) 
-    //    { 
-    //        CellArray::Pointer cellArray = CellArray::New();
-    //        clock_t start = clock();
-    //        igIndex cell[3]{};
-    //        cellArray->AddCellIds(cell, 2);
-    //        for (int i = 0; i < 10000000; i++) { 
-    //            cellArray->AddCellIds(cell, 3);
-    //        }
-    //        clock_t end = clock();
-    //        std::cout << end - start << std::endl;
-
-    //    });
-    //QMenu* convert = ui->menu_filters->addMenu(QStringLiteral("数据转换 (Convert)"));
-    connect(convert->addAction(QStringLiteral("转换为点数据 (Convert To PointData)")), &QAction::triggered, this, [&](bool checked) {
-        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
-        auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
-        ConvertToPointDataFilter::Pointer filter = ConvertToPointDataFilter::New();
-        filter->SetInput(obj);
-        if (filter->Execute()) {
-            modelTreeWidget->addDataObjectToModelTree(filter->GetOutput(), Algorithm);
-            rendererWidget->update();
+    
     // 按单元类型提取：直接作为【算法处理】一级菜单项（不嵌套子菜单）
     connect(ui->menu_filters->addAction(QStringLiteral("按单元类型提取 (Extract Cells By Type)")), &QAction::triggered,
             this, [this](bool) {
@@ -2267,7 +2210,6 @@ void igQtMainWindow::initAllFilters() {
         m_extractCellsByTypeWidget->SetDataObject(obj);
         openLeftToolPanel(LeftToolPanelId::ExtractCellsByType);
 
-   //Menu* view = ui->menu_filters->addMenu("特征提取");
         // 打开即按默认全选执行一次（生成 ExtractCellsByType_n）；
         // 用户随后改勾选再点"提取"即在该新模型上更新
         m_extractCellsByTypeWidget->onApply();
