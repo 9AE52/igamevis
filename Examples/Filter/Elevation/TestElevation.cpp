@@ -1,4 +1,4 @@
-#include <DIME/iGameElevationFilter.h>
+#include <Elevation/iGameElevationFilter.h>
 
 #include "iGameAttributeSet.h"
 #include "iGameCellArray.h"

@@ -34,4 +34,4 @@
 #include "FeatureExtraction/iGameLaplacianFilter.h"
 #include "FeatureExtraction/iGameVortexDetectionFilter.h"
 #include "FeatureExtraction/iGameVortexFilter.h"
-#include "DIME/iGameElevationFilter.h"
+#include "Elevation/iGameElevationFilter.h"

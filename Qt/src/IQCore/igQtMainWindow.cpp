@@ -31,7 +31,7 @@
 
 #include "iGameFileIO.h"
 #include "iGameFilterIncludes.h"
-#include "DIME/iGameElevationFilter.h"
+#include "Elevation/iGameElevationFilter.h"
 #include <IQComponents/igQtFilterDialogDockWidget.h>
 #include <IQComponents/igQtModelDialogWidget.h>
 #include <IQComponents/igQtProgressBarWidget.h>

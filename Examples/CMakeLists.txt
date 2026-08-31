@@ -310,10 +310,10 @@ igame_add_example(
     Filter/GlobalIds/TestGenerateGlobalIds.cpp
 )
 
-# Elevation (DIME)
+# Elevation
 igame_add_example(
     testElevation
-    Filter/DIME/TestElevation.cpp
+    Filter/Elevation/TestElevation.cpp
 )
 get_property(IGAME_EXAMPLE_TARGETS DIRECTORY PROPERTY IGAME_EXAMPLE_TARGETS)
 if (NOT IGAME_EXAMPLE_TARGETS)
