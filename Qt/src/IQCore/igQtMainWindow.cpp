@@ -2201,6 +2201,15 @@ void igQtMainWindow::initAllFilters() {
     //        std::cout << end - start << std::endl;
 
     //    });
+    //QMenu* convert = ui->menu_filters->addMenu(QStringLiteral("数据转换 (Convert)"));
+    connect(convert->addAction(QStringLiteral("转换为点数据 (Convert To PointData)")), &QAction::triggered, this, [&](bool checked) {
+        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
+        auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+        ConvertToPointDataFilter::Pointer filter = ConvertToPointDataFilter::New();
+        filter->SetInput(obj);
+        if (filter->Execute()) {
+            modelTreeWidget->addDataObjectToModelTree(filter->GetOutput(), Algorithm);
+            rendererWidget->update();
     // 按单元类型提取：直接作为【算法处理】一级菜单项（不嵌套子菜单）
     connect(ui->menu_filters->addAction(QStringLiteral("按单元类型提取 (Extract Cells By Type)")), &QAction::triggered,
             this, [this](bool) {
@@ -2258,6 +2267,7 @@ void igQtMainWindow::initAllFilters() {
         m_extractCellsByTypeWidget->SetDataObject(obj);
         openLeftToolPanel(LeftToolPanelId::ExtractCellsByType);
 
+   //Menu* view = ui->menu_filters->addMenu("特征提取");
         // 打开即按默认全选执行一次（生成 ExtractCellsByType_n）；
         // 用户随后改勾选再点"提取"即在该新模型上更新
         m_extractCellsByTypeWidget->onApply();
@@ -2660,6 +2670,60 @@ void igQtMainWindow::initAllFilters() {
             res->SetName(data->GetName());
             modelTreeWidget->addDataObjectToModelTree(res, Algorithm);
         }
+    });
+
+    QAction* featureRegion = ui->menu_filters->addAction(QStringLiteral("特征区域Id (FeatureEdgeRegion id)"));
+    connect(featureRegion, &QAction::triggered, this, [&](bool checked){
+        if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
+        igQtFilterDialogDockWidget* dialog = new igQtFilterDialogDockWidget(this, true);
+        auto data = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+        auto surfaceMesh = DynamicCast<SurfaceMesh>(data);
+
+        if (surfaceMesh == nullptr) {
+            showDarkFramelessMessage(
+                    QStringLiteral("非表面网格"),
+                    QStringLiteral("请先使用“表面提取 (Surface Extraction)”将当前模型转换为表面网格。"));
+            return;
+        }
+        dialog->setFilterTitle(QStringLiteral("特征区域id"));
+        int angleId = dialog->addParameter(
+            igQtFilterDialogDockWidget ::QT_LINE_EDIT,
+            QStringLiteral("特征角度"), 
+            "30.0"
+        );
+        dialog->show();
+        dialog->setApplyFunctor([=, this]() {
+            bool ok;
+            double angle = dialog->getDouble(angleId, ok);
+            FeatureEdgesFilter::Pointer featureEdgeFilter = FeatureEdgesFilter::New();
+            featureEdgeFilter->SetInput(surfaceMesh);
+            featureEdgeFilter->SetFeatureAngle(angle);
+            featureEdgeFilter->SetBoundaryEdges(true);
+            featureEdgeFilter->SetFeatureEdges(true);
+            featureEdgeFilter->SetNonManifoldEdges(true);
+            featureEdgeFilter->SetManifoldEdges(false);
+
+            DataObject::Pointer featureEdgeOutput;
+            UnstructuredMesh::Pointer featureEdgeMesh;
+            if (featureEdgeFilter->Execute()) {
+                featureEdgeOutput = featureEdgeFilter->GetOutput();
+                if (featureEdgeOutput != nullptr) {
+                    featureEdgeMesh = DynamicCast<UnstructuredMesh>(featureEdgeOutput);
+                }
+            }
+            if (featureEdgeMesh == nullptr) featureEdgeMesh = UnstructuredMesh::New(); 
+            auto filter = FeatureEdgeRegionFilter::New();
+            filter->SetInput(0, surfaceMesh);
+            filter->SetInput(1, featureEdgeMesh);
+
+            if (!filter->Execute()) { 
+                showDarkFramelessMessage(QStringLiteral("执行失败"), QStringLiteral("生成区域id失败"));
+                return;
+            }
+            modelTreeWidget->updateAllAttriubute(surfaceMesh);
+            rendererWidget->update();
+            dialog->close();
+        });
     });
 
     connect(ui->menu_filters->addAction(QStringLiteral("体网格简化 (Volume Mesh Simplification)")), &QAction::triggered,
