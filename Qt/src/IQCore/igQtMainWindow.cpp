@@ -2182,7 +2182,7 @@ void igQtMainWindow::initAllFilters() {
     //        std::cout << end - start << std::endl;
 
     //    });
-    QMenu* convert = ui->menu_filters->addMenu(QStringLiteral("数据转换 (Convert)"));
+    //QMenu* convert = ui->menu_filters->addMenu(QStringLiteral("数据转换 (Convert)"));
     connect(convert->addAction(QStringLiteral("转换为点数据 (Convert To PointData)")), &QAction::triggered, this, [&](bool checked) {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
         auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
@@ -2205,7 +2205,7 @@ void igQtMainWindow::initAllFilters() {
     });
 
 
-    QMenu* view = ui->menu_filters->addMenu("特征提取");
+   //Menu* view = ui->menu_filters->addMenu("特征提取");
 
     QAction* countCellFaces = view->addAction(
             QStringLiteral("统计单元面数 (Count Cell Faces)"));
