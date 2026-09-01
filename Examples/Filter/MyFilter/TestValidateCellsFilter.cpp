@@ -8,7 +8,7 @@
 int main() {
     auto scene = iGame::Scene::New();
 
-    const std::string fileName = "D:\\igamevis111\\igamevis\\Examples\\Models\\ContourExtraction_cylinder_UnstructedGrid.vtk";
+    const std::string fileName = "././Models/iGameValidateCellsFilter_test.vtk";
     auto obj = iGame::FileIO::ReadFile(fileName);
     if (obj == nullptr) {
         std::cout << "读取文件失败!\n";
