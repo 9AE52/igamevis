@@ -360,6 +360,9 @@ igame_add_example(
     Filter/GlobalIds/TestGenerateGlobalIds.cpp
 )
 
+# AppendReduce
+igame_add_example(testAppendReduce Filter/TestAppendReduce.cpp)
+
 get_property(IGAME_EXAMPLE_TARGETS DIRECTORY PROPERTY IGAME_EXAMPLE_TARGETS)
 if (NOT IGAME_EXAMPLE_TARGETS)
     set(IGAME_EXAMPLE_TARGETS "")
