@@ -1484,8 +1484,8 @@ void igQtMainWindow::initAllFilters() {
 
     QMenu* mesh_processing = ui->menu_filters->addMenu(QStringLiteral("数据处理 (Data Processing)"));
 
-    connect(mesh_processing->addAction(QStringLiteral("移除Ghost信息 (Remove Ghost Information)")), &QAction::triggered,
-            this, [&](bool checked) {
+    connect(ui->menu_filters->addAction(QStringLiteral("移除Ghost信息 (Remove Ghost Information)")),
+            &QAction::triggered, this, [&](bool checked) {
                 if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
 
                 igQtFilterDialogDockWidget* dialog = new igQtFilterDialogDockWidget(this, true);

@@ -6,7 +6,7 @@
 #include "Convert/iGameConvertToSurfaceMeshFilter.h"
 #include "Convert/iGameConvertToVolumeMeshFilter.h"
 
-#include "DataProcessing/iGameRemoveGhostInformationFilter.h"
+#include "RemoveGhostInformation/iGameRemoveGhostInformationFilter.h"
 
 #include "IsoVolume/iGameIsoVolumeFilter.h"
 #include "MeshCodec/iGameMeshDecoderFilter.h"

@@ -1,4 +1,4 @@
-#include <DataProcessing/iGameRemoveGhostInformationFilter.h>
+#include <RemoveGhostInformation/iGameRemoveGhostInformationFilter.h>
 
 #include <iGameAttributeSet.h>
 #include <iGameFlatArray.h>
