@@ -11,13 +11,14 @@ IGAME_NAMESPACE_BEGIN
 // A cell may have multiple issues; the value is a bitwise OR of these flags.
 // 0 means Valid; non-zero means invalid.
 enum ValidityState : unsigned short {
-    Validity_Valid                      = 0x00,
-    Validity_WrongNumberOfPoints        = 0x01,
-    Validity_IntersectingEdges          = 0x02,
-    Validity_IntersectingFaces          = 0x04,
-    Validity_NoncontiguousEdges         = 0x08,
-    Validity_Nonconvex                  = 0x10,
-    Validity_FacesAreOrientedIncorrectly = 0x20
+    Validity_Valid                       = 0x00,
+    Validity_WrongNumberOfPoints         = 0x01,
+    Validity_IntersectingEdges           = 0x02,
+    Validity_IntersectingFaces           = 0x04,
+    Validity_NoncontiguousEdges          = 0x08,
+    Validity_Nonconvex                   = 0x10,
+    Validity_FacesAreOrientedIncorrectly = 0x20,
+    Validity_UnsupportedCellType         = 0x40
 };
 
 class ValidateCellsFilter : public Filter {
