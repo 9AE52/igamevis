@@ -244,6 +244,7 @@ igame_add_example(testGetPointsInFrustum Filter/Selection/TestGetPointsInFrustum
 igame_add_example(testGetCellsInFrustum Filter/Selection/TestGetCellsInFrustum.cpp)
 
 # Data processing
+igame_add_example(testExtractLocation Filter/DataProcessing/ExtractLocation/TestExtractLocation.cpp)
 igame_add_example(testOverlappingCellsDetector
     Filter/DataProcessing/OverlappingCellsDetector/TestOverlappingCellsDetector.cpp)
 
@@ -328,6 +329,9 @@ igame_add_example(testChangeColorRange ColorBar/ChangeColorRange.cpp)
 igame_add_example(testChangeColorBar ColorBar/ChangeColorBar.cpp)
 igame_add_example(testMultiscaleInteraction MultiscaleInteraction/TestMultiscaleInteraction.cpp)
 
+# Sources
+igame_add_example(testRandomVectors Filter/AttributeManipulation/TestRandomVectors.cpp)
+
 # Feature extraction
 igame_add_example(testVortexExtraction Filter/FeatureExtraction/VortexExtraction.cpp)
 igame_add_example(testCurvatureExtraction Filter/FeatureExtraction/CurvatureExtraction.cpp)
@@ -336,6 +340,9 @@ igame_add_example(testLaplacianExtraction Filter/FeatureExtraction/LaplacianExtr
 igame_add_example(testFeatureEdgeRegion Filter/FeatureExtraction/FeatureEdgeRegion.cpp)
 igame_add_example(testOutlineCorners Filter/FeatureExtraction/OutlineCorners.cpp)
 igame_add_example(testCellSizeExtraction Filter/FeatureExtraction/CellSizeExtraction.cpp)
+
+igame_add_example(TestValidateCellsFilter Filter/MyFilter/TestValidateCellsFilter.cpp)
+
 
 # Feature edges console test
 igame_add_example(

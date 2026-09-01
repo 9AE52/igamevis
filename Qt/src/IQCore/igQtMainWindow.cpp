@@ -59,6 +59,7 @@
 #include <IQWidgets/igQtAiChat/igQtCommandManager.h>
 #include <IQWidgets/igQtCharts.h>
 #include <IQWidgets/igQtDeformationWidget.h>
+#include <IQWidgets/igQtExtractLocationWidget.h>
 #include <IQWidgets/igQtGlobalIdWidget.h>
 #include <IQWidgets/igQtExtractCellsByTypeWidget.h>
 #include <IQWidgets/igQtModelClipWidget.h>
@@ -88,6 +89,7 @@
 #include <QMouseEvent>
 #include <QPainter>
 #include <QScrollArea>
+#include <AttributeManipulation/iGameRandomVectorsFilter.h>
 #include <Sources/iGameLineTypePointsSourceFilter.h>
 #include <Tests/iGameVolumeMeshFilterTest.h>
 #include <VolumeMeshAlgorithm/iGameVolumeMeshClipper.h>
@@ -126,9 +128,18 @@
 #include <QLineEdit>
 #include <QFormLayout>
 #include <QDialogButtonBox>
+#include <QCheckBox>
 #include <QDoubleSpinBox>
 #include <QLabel>
 #include <QComboBox>
+#include <QDoubleSpinBox>
+#include <QGroupBox>
+#include <QHeaderView>
+#include <QTableWidget>
+
+#include <algorithm>
+#include <limits>
+#include <memory>
 
 #include "AppendLocationAttribute/iGameAppendLocationAttribute.h"
 
@@ -1594,6 +1605,67 @@ void igQtMainWindow::initAllFilters() {
         }
     };
 
+      connect(ui->menu_filters->addAction(QStringLiteral("单元几何校验 (Validate Cells)")), &QAction::triggered, this,
+            [&](bool checked) {
+                auto* scene = rendererWidget->GetScene();
+                if (scene == nullptr || scene->GetCurrentModel() == nullptr) {
+                    showDarkFramelessMessage(QStringLiteral("无可用模型"),
+                                             QStringLiteral("请先加载并选择一个网格模型。"));
+                    return;
+                }
+                auto model = scene->GetCurrentModel();
+                auto obj = model->GetDataObject();
+                if (obj == nullptr) {
+                    showDarkFramelessMessage(QStringLiteral("无可用数据"),
+                                             QStringLiteral("当前模型没有可用的网格数据。"));
+                    return;
+                }
+                ValidateCellsFilter::Pointer filter = ValidateCellsFilter::New();
+                filter->SetInput(obj);
+                filter->SetModel(model);
+                if (!filter->Execute()) {
+                    showDarkFramelessMessage(QStringLiteral("校验失败"),
+                                             QStringLiteral("该数据类型不支持单元几何校验。"));
+                    return;
+                }
+                const auto& invalidIds = filter->GetInvalidCellIds();
+                if (invalidIds.empty()) {
+                    showDarkFramelessMessage(QStringLiteral("校验通过"),
+                                             QStringLiteral("未发现无效单元，当前网格几何体有效。"), true);
+                    return;
+                }
+                modelTreeWidget->addDataObjectToModelTree(obj, Algorithm);
+                rendererWidget->update();
+                showDarkFramelessMessage(QStringLiteral("单元几何校验"),
+                                         QString(QStringLiteral("发现 %1 个无效单元，已高亮显示。"))
+                                                 .arg(static_cast<int>(invalidIds.size())),
+                                         false);
+            });
+
+            
+
+    // 直接置于“算法处理”一级菜单；具体界面和交互由独立面板负责。
+    QAction* extractLocationAction = ui->menu_filters->addAction(
+            QStringLiteral("提取指定位置数据 (Extract Location)"));
+    connect(extractLocationAction, &QAction::triggered, this, [this]() {
+        auto model = rendererWidget->GetScene()->GetCurrentModel();
+        if (!model) {
+            showDarkFramelessMessage(QStringLiteral("提取指定位置数据"),
+                                     QStringLiteral("请先在模型树中选择一个网格模型。"));
+            return;
+        }
+        auto* panel = new igQtExtractLocationWidget(rendererWidget, modelTreeWidget, model, this);
+        if (!panel->isReady()) {
+            showDarkFramelessMessage(QStringLiteral("提取指定位置数据"),
+                                     QStringLiteral("当前仅支持非结构网格（UnstructuredMesh）；操作已取消。"));
+            panel->deleteLater();
+            return;
+        }
+        panel->show();
+        panel->raise();
+        panel->activateWindow();
+
+    });
     QMenu* mesh_processing = ui->menu_filters->addMenu(QStringLiteral("数据处理 (Data Processing)"));
 
     QAction* shrinkAction = ui->menu_filters->addAction(QStringLiteral("单元收缩 (Shrink)"));
@@ -2321,6 +2393,82 @@ void igQtMainWindow::initAllFilters() {
         rendererWidget->update();
     });
 
+    QMenu* attr_manipulation = ui->menu_filters->addMenu(QStringLiteral("数据属性操作 (Attribute Manipulation)"));
+    connect(attr_manipulation->addAction(QStringLiteral("随机向量 (Random Vectors)")), &QAction::triggered, this, [this](bool) {
+        if (rendererWidget->GetScene() == nullptr
+            || rendererWidget->GetScene()->GetCurrentModel() == nullptr) {
+            showDarkFramelessMessage(QStringLiteral("无可用模型"), QStringLiteral("请先加载并选择模型。"));
+            return;
+        }
+        auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+        if (obj == nullptr) {
+            showDarkFramelessMessage(QStringLiteral("无可用模型"), QStringLiteral("当前模型没有可用数据。"));
+            return;
+        }
+        if (iGame::DynamicCast<iGame::PointSet>(obj) == nullptr) {
+            showDarkFramelessMessage(QStringLiteral("错误"), QStringLiteral("当前模型不支持随机向量（需要网格/点集）。"));
+            return;
+        }
+
+        igQtFilterDialogDockWidget* dialog = new igQtFilterDialogDockWidget(this, true);
+        dialog->setFilterTitle(QStringLiteral("随机向量"));
+        int minId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, QStringLiteral("最小速度"), "0");
+        int maxId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT, QStringLiteral("最大速度"), "1");
+        dialog->show();
+        dialog->setApplyFunctor([=, this]() {
+            bool ok = false;
+            double minSpeed = dialog->getDouble(minId, ok);
+            if (!ok || minSpeed < 0) {
+                showDarkFramelessMessage(QStringLiteral("错误"), QStringLiteral("请输入有效的最小速度（>=0）。"));
+                return;
+            }
+            double maxSpeed = dialog->getDouble(maxId, ok);
+            if (!ok || maxSpeed < minSpeed) {
+                showDarkFramelessMessage(QStringLiteral("错误"), QStringLiteral("请输入有效的最大速度（>= 最小速度）。"));
+                return;
+            }
+
+            auto filter = RandomVectorsFilter::New();
+            filter->SetMinimumSpeed(minSpeed);
+            filter->SetMaximumSpeed(maxSpeed);
+            filter->SetInput(obj);
+            if (filter->Execute()) {
+                modelTreeWidget->addDataObjectToModelTree(filter->GetOutput(), ItemSource::Algorithm);
+                rendererWidget->update();
+                dialog->close();
+            } else {
+                showDarkFramelessMessage(QStringLiteral("错误"), QStringLiteral("随机向量生成失败。"));
+            }
+        });
+    });
+
+    //connect(mesh_processing->addAction("Test"), &QAction::triggered, this, [&](bool checked) {
+    //    auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+
+    //    auto m_StreamBase = iGame::StreamBase::New();
+    //    auto streamtracer = m_StreamBase->streamFilter;
+    //    streamtracer->initStreamTracer(obj);
+    //    //auto seeds=streamtracer->getModelSelect();//当实际已经选中了重点区域时直接调用该函数
+    //    Vector3f boundMax = streamtracer->GetMesh()->GetBoundingBox().max; //包围盒区域
+    //    Vector3f boundMin = streamtracer->GetMesh()->GetBoundingBox().min;
+    //    Vector3f centerMax = (boundMax - boundMin) / 5 + boundMin; //模拟被选中重点区域
+    //    auto seeds = streamtracer->getAllSubBlockCenters(boundMax, boundMin, centerMax, boundMin, 2,
+    //                                                     4); //4，6为划分子块的数量
+    //    float lengthOfStreamLine = 5;
+    //    float lengthOfStep = 0.3;
+    //    float maxSteps = 1000;
+    //    float terminalSpeed = 0.005;
+    //    streamtracer->SetInput(seeds, "V", lengthOfStreamLine, lengthOfStep, terminalSpeed, maxSteps);
+    //    streamtracer->Execute();
+    //    std::cout << seeds.size() << std::endl;
+    //    auto output = streamtracer->GetOutput();
+
+    //    modelTreeWidget->addDataObjectToModelTree(output, Algorithm);
+    //    rendererWidget->update();
+    //});
+
+    //connect(mesh_processing->addAction("Test2"), &QAction::triggered, this, [&](bool checked) { 
+    //    auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
     
     // 按单元类型提取：直接作为【算法处理】一级菜单项（不嵌套子菜单）
     connect(ui->menu_filters->addAction(QStringLiteral("按单元类型提取 (Extract Cells By Type)")), &QAction::triggered,
@@ -2383,8 +2531,6 @@ void igQtMainWindow::initAllFilters() {
         // 用户随后改勾选再点"提取"即在该新模型上更新
         m_extractCellsByTypeWidget->onApply();
     });
-    
-
     QAction* countCellFaces = view->addAction(
             QStringLiteral("统计单元面数 (Count Cell Faces)"));
     connect(countCellFaces, &QAction::triggered, this, [this](bool) {

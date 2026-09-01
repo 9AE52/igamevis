@@ -1,3 +1,4 @@
+#include "AttributeManipulation/iGameRandomVectorsFilter.h"
 #include "PointCoordinates/iGamePointCoordinatesFilter.h"
 #include "Clip/iGameClipFilter.h"
 #include "CellSize/iGameCellSizeFilter.h"
@@ -31,6 +32,7 @@
 #include "Tests/iGameFilterPoints.h"
 #include "Tests/iGameSurfaceMeshFilterTest.h"
 #include "Tests/iGameVolumeMeshFilterTest.h"
+#include "MyFilter/iGameValidateCellsFilter.h"
 #include "VariableCorrelation/iGameGenerateVariableCorrelationDataFilter.h"
 #include "VariableDensity/iGameGenerateVariableDensityDataFilter.h"
 #include "VolumeMeshAlgorithm/iGameTetraDecimation.h"
