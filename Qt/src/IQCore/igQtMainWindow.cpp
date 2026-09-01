@@ -1664,6 +1664,8 @@ void igQtMainWindow::initAllFilters() {
         panel->show();
         panel->raise();
         panel->activateWindow();
+
+    });
     QMenu* mesh_processing = ui->menu_filters->addMenu(QStringLiteral("数据处理 (Data Processing)"));
 
     QAction* shrinkAction = ui->menu_filters->addAction(QStringLiteral("单元收缩 (Shrink)"));
