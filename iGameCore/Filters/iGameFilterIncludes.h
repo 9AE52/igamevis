@@ -40,6 +40,7 @@
 #include "FeatureExtraction/iGameOutlineCornerFilter.h"
 #include "FeatureExtraction/iGameVortexDetectionFilter.h"
 #include "FeatureExtraction/iGameVortexFilter.h"
+#include "Elevation/iGameElevationFilter.h"
 #include "FeatureExtraction/iGameFeatureEdgeRegionFilter.h"
 #include "Probe/iGameProbeFilter.h"
 #include "BoundaryMeshQuality/iGameBoundaryMeshQualityFilter.h"

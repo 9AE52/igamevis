@@ -359,6 +359,11 @@ igame_add_example(
     Filter/GlobalIds/TestGenerateGlobalIds.cpp
 )
 
+# Elevation
+igame_add_example(
+    testElevation
+    Filter/Elevation/TestElevation.cpp
+)
 # AppendReduce
 igame_add_example(testAppendReduce Filter/TestAppendReduce.cpp)
 
