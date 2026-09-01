@@ -3029,6 +3029,105 @@ QAction* passArrays = ui->menu_filters->addAction(QStringLiteral("传递过滤�
         dlg->show();
     });
 
+    // ===== AppendReduce: 网格合并去重 =====
+    QAction* appendReduceAction = ui->menu_filters->addAction(
+            QStringLiteral("网格合并去重 (Append/Reduce)"));
+    connect(appendReduceAction, &QAction::triggered, this, [&](bool checked) {
+        auto scene = rendererWidget->GetScene();
+        if (!scene) return;
+
+        auto modelList = scene->GetModelList();
+        if (!modelList) return;
+
+        int meshCount = 0;
+        for (auto it = modelList->Begin(); it != modelList->End(); ++it) {
+            auto model = it->second;
+            if (model && model->GetDataObject()) meshCount++;
+        }
+        if (meshCount == 0) return;
+
+        igQtFilterDialogDockWidget* dialog = new igQtFilterDialogDockWidget(this, true);
+        dialog->setFilterTitle(QStringLiteral("网格合并去重 (Append/Reduce)"));
+        dialog->setFilterDescription(QStringLiteral(
+            "将场景中所有网格合并为一个。\n"
+            "开启「合并重复顶点」可消除接缝处的冗余顶点。\n"
+            "同时合并所有输入网格共有的点属性和单元属性。"));
+        int mergeId = dialog->addParameter(igQtFilterDialogDockWidget::QT_CHECK_BOX,
+            QStringLiteral("合并重复顶点"), "true");
+        int tolId = dialog->addParameter(igQtFilterDialogDockWidget::QT_LINE_EDIT,
+            QStringLiteral("合并容差"), "1e-6");
+
+        auto tuneDialog = [](igQtFilterDialogDockWidget* d) {
+            constexpr int kDialogWidth = 360;
+            d->setFixedWidth(kDialogWidth);
+            if (auto* sa = d->findChild<QScrollArea*>(QStringLiteral("scrollArea"))) {
+                sa->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+                sa->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+            }
+        };
+        tuneDialog(dialog);
+        dialog->show();
+
+        dialog->setApplyFunctor([=, this]() {
+            bool ok;
+            bool mergePoints = dialog->getChecked(mergeId, ok);
+            float tolerance = (float)dialog->getDouble(tolId, ok);
+            if (tolerance <= 0) tolerance = 1e-6f;
+
+            auto filter = AppendReduceFilter::New();
+            filter->SetMergePoints(mergePoints);
+            filter->SetTolerance(tolerance);
+
+            auto mList = rendererWidget->GetScene()->GetModelList();
+            int count = 0;
+            for (auto it = mList->Begin(); it != mList->End(); ++it) {
+                auto model = it->second;
+                if (model) {
+                    auto obj = model->GetDataObject();
+                    if (obj) {
+                        filter->AddInput(obj);
+                        count++;
+                    }
+                }
+            }
+
+            if (count <= 0) return;
+
+            if (filter->Execute()) {
+                auto outMesh = DynamicCast<SurfaceMesh>(filter->GetOutput());
+                if (outMesh) {
+                    outMesh->SetName("append_reduce_result");
+                    modelTreeWidget->addDataObjectToModelTree(outMesh, Algorithm);
+
+                    auto attrSet = outMesh->GetAttributeSet();
+                    if (attrSet) {
+                        int pointAttrIdx = -1;
+                        int cellAttrIdx = -1;
+                        for (int i = 0; i < (int)attrSet->GetNumberOfAttributes(); i++) {
+                            auto& attr = attrSet->GetAttribute(i);
+                            if (attr.IsNone() || attr.isDeleted || attr.type != IG_SCALAR) continue;
+                            if (attr.attachmentType == IG_POINT && pointAttrIdx < 0) {
+                                pointAttrIdx = i;
+                            } else if (attr.attachmentType == IG_CELL && cellAttrIdx < 0) {
+                                cellAttrIdx = i;
+                            }
+                        }
+                        int activeIdx = (pointAttrIdx >= 0) ? pointAttrIdx : cellAttrIdx;
+                        if (activeIdx >= 0) {
+                            auto scene = rendererWidget->GetScene();
+                            if (scene) {
+                                outMesh->ViewCloudPicture(scene, activeIdx, 0);
+                            }
+                        }
+                    }
+
+                    rendererWidget->update();
+                }
+                dialog->close();
+            }
+        });
+    });
+
 }
     
 
