@@ -8,6 +8,7 @@ IGAME_NAMESPACE_BEGIN
 
 struct Edge {
     IGsize v0, v1;
+    IGsize cellId;
 };
 struct PointProjection {
     double r, h;

@@ -21,7 +21,76 @@ static void BuildAdjacency(const std::vector<Edge>& edges, std::map<IGsize, std:
         adj[e.v1].insert(e.v0);
     }
 }
+// 根据源数组类型创建一个同类型的空数组，指定元组数量
+static ArrayObject::Pointer CreateEmptyArrayOfSameType(ArrayObject::Pointer src, IGsize numTuples) {
+    if (!src) return nullptr;
+    int dim = src->GetDimension();
+    IGsize numValues = numTuples * dim;
 
+    if (auto farr = DynamicCast<FloatArray>(src)) {
+        auto copy = FloatArray::New();
+        copy->SetDimension(dim);
+        copy->Resize(numValues);
+        return copy;
+    }
+    if (auto darr = DynamicCast<DoubleArray>(src)) {
+        auto copy = DoubleArray::New();
+        copy->SetDimension(dim);
+        copy->Resize(numValues);
+        return copy;
+    }
+    if (auto uarr = DynamicCast<UnsignedIntArray>(src)) {
+        auto copy = UnsignedIntArray::New();
+        copy->SetDimension(dim);
+        copy->Resize(numValues);
+        return copy;
+    }
+    if (auto iarr = DynamicCast<IntArray>(src)) {
+        auto copy = IntArray::New();
+        copy->SetDimension(dim);
+        copy->Resize(numValues);
+        return copy;
+    }
+    if (auto sarr = DynamicCast<ShortArray>(src)) {
+        auto copy = ShortArray::New();
+        copy->SetDimension(dim);
+        copy->Resize(numValues);
+        return copy;
+    }
+    if (auto usarr = DynamicCast<UnsignedShortArray>(src)) {
+        auto copy = UnsignedShortArray::New();
+        copy->SetDimension(dim);
+        copy->Resize(numValues);
+        return copy;
+    }
+    if (auto carr = DynamicCast<CharArray>(src)) {
+        auto copy = CharArray::New();
+        copy->SetDimension(dim);
+        copy->Resize(numValues);
+        return copy;
+    }
+    if (auto ucarr = DynamicCast<UnsignedCharArray>(src)) {
+        auto copy = UnsignedCharArray::New();
+        copy->SetDimension(dim);
+        copy->Resize(numValues);
+        return copy;
+    }
+    if (auto llarr = DynamicCast<LongLongArray>(src)) {
+        auto copy = LongLongArray::New();
+        copy->SetDimension(dim);
+        copy->Resize(numValues);
+        return copy;
+    }
+    if (auto ullarr = DynamicCast<UnsignedLongLongArray>(src)) {
+        auto copy = UnsignedLongLongArray::New();
+        copy->SetDimension(dim);
+        copy->Resize(numValues);
+        return copy;
+    }
+
+    igError("CreateEmptyArrayOfSameType: unsupported array type.");
+    return nullptr;
+}
 // ---------- 主执行函数 ----------
 bool VolumeOfRevolutionFilter::Execute() {
     DataObject::Pointer input = GetInput(0);
@@ -54,7 +123,7 @@ bool VolumeOfRevolutionFilter::Execute() {
                 if (types->GetValue(i) == IG_LINE) {
                     igIndex ids[2];
                     if (cells->GetCellIds(i, ids) == 2) {
-                        edges.push_back({static_cast<IGsize>(ids[0]), static_cast<IGsize>(ids[1])});
+                        edges.push_back({static_cast<IGsize>(ids[0]), static_cast<IGsize>(ids[1]),i});
                     }
                 }
             }
@@ -82,7 +151,10 @@ bool VolumeOfRevolutionFilter::Execute() {
             if (surf->IsBoundaryEdge(eid)) {
                 igIndex ids[2];
                 if (surf->GetEdgePointIds(eid, ids) == 2) {
-                    edges.push_back({static_cast<IGsize>(ids[0]), static_cast<IGsize>(ids[1])});
+                    igIndex faceIds[1];
+                    int numFaces = surf->GetEdgeToNeighborFaces(eid, faceIds);
+                    IGsize cellId = (numFaces == 1) ? static_cast<IGsize>(faceIds[0]) : static_cast<IGsize>(-1);
+                    edges.push_back({static_cast<IGsize>(ids[0]), static_cast<IGsize>(ids[1]),cellId});
                 }
             }
         }
@@ -129,7 +201,44 @@ bool VolumeOfRevolutionFilter::Execute() {
             igError("StructuredMesh must be 1D curve or 2D surface (nk==1).");
             return false;
         }
-        for (const auto& e: edgeSet) { edges.push_back({e.first, e.second}); }
+        if (nj == 1 && nk == 1) {
+            // 1D 曲线，无单元概念，cellId 设为 -1
+            for (IGsize i = 0; i < ni - 1; ++i) {
+                edges.push_back({idxOf(i,0,0), idxOf(i+1,0,0), static_cast<IGsize>(-1)});
+            }
+        } else if (nk == 1) {
+            // 2D 曲面，获取所有面片
+            auto faces = sMesh->GetFaces();
+            if (!faces || faces->GetNumberOfCells() == 0) {
+                igError("StructuredMesh has no faces.");
+                return false;
+            }
+            // 构建边 -> 面片ID列表的映射
+            std::map<std::pair<IGsize, IGsize>, std::vector<IGsize>> edgeFaceMap;
+            IGsize numFaces = faces->GetNumberOfCells();
+            for (IGsize f = 0; f < numFaces; ++f) {
+                igIndex pts[4];
+                int npts = faces->GetCellIds(f, pts);  // 应为四边形
+                if (npts != 4) continue;
+                for (int e = 0; e < 4; ++e) {
+                    IGsize a = pts[e], b = pts[(e+1)%4];
+                    if (a > b) std::swap(a, b);
+                    edgeFaceMap[{a, b}].push_back(f);
+                }
+            }
+            // 筛选边界边
+            for (auto& kv : edgeFaceMap) {
+                if (kv.second.size() == 1) {
+                    auto& edge = kv.first;
+                    IGsize cellId = kv.second[0];
+                    edges.push_back({edge.first, edge.second, cellId});
+                }
+            }
+            if (edges.empty()) {
+                igError("StructuredMesh boundary extraction failed.");
+                return false;
+            }
+        }
         if (edges.empty()) {
             igError("StructuredMesh boundary extraction failed.");
             return false;
@@ -208,9 +317,10 @@ bool VolumeOfRevolutionFilter::Execute() {
     // -------- 生成侧面三角形 --------
     auto newCells = CellArray::New();
     auto newTypes = UnsignedIntArray::New();
-
+    std::vector<IGsize> triCellIds;
     for (const auto& edge: edges) {
         IGsize i0 = edge.v0, i1 = edge.v1;
+        IGsize cellId = edge.cellId;
         for (int j = 0; j < m_Resolution; ++j) {
             int j_next = j + 1;
             IGsize ids[4] = {pointIndices[i0][j], pointIndices[i1][j], pointIndices[i1][j_next],
@@ -222,20 +332,24 @@ bool VolumeOfRevolutionFilter::Execute() {
                 igIndex tri[3] = {static_cast<igIndex>(ids[1]), static_cast<igIndex>(ids[2]),
                                   static_cast<igIndex>(ids[3])};
                 newCells->AddCellIds(tri, 3);
+                triCellIds.push_back(cellId);
                 newTypes->AddValue(IG_TRIANGLE);
             } else if (deg1) {
                 igIndex tri[3] = {static_cast<igIndex>(ids[0]), static_cast<igIndex>(ids[1]),
                                   static_cast<igIndex>(ids[3])};
                 newCells->AddCellIds(tri, 3);
+                triCellIds.push_back(cellId);
                 newTypes->AddValue(IG_TRIANGLE);
             } else {
                 igIndex tri1[3] = {static_cast<igIndex>(ids[0]), static_cast<igIndex>(ids[1]),
                                    static_cast<igIndex>(ids[2])};
                 newCells->AddCellIds(tri1, 3);
+                triCellIds.push_back(cellId);
                 newTypes->AddValue(IG_TRIANGLE);
                 igIndex tri2[3] = {static_cast<igIndex>(ids[0]), static_cast<igIndex>(ids[2]),
                                    static_cast<igIndex>(ids[3])};
                 newCells->AddCellIds(tri2, 3);
+                triCellIds.push_back(cellId);
                 newTypes->AddValue(IG_TRIANGLE);
             }
         }
@@ -245,6 +359,113 @@ bool VolumeOfRevolutionFilter::Execute() {
     auto outputMesh = UnstructuredMesh::New();
     outputMesh->SetPoints(newPoints);
     outputMesh->SetCells(newCells, newTypes);
+    auto inputAttrs = input->GetAttributeSet();
+if (inputAttrs) {
+    auto pointAttrs = inputAttrs->GetAllPointAttributes();
+    if (pointAttrs && pointAttrs->GetNumberOfElements() > 0) {
+        IGsize numOutPts = newPoints->GetNumberOfPoints();  // = numPts * m_Resolution
+        auto outputAttrs = outputMesh->GetAttributeSet();
+        if (!outputAttrs) {
+            outputAttrs = AttributeSet::New();
+            outputMesh->SetAttributeSet(outputAttrs);
+        }
+
+        for (int a = 0; a < pointAttrs->GetNumberOfElements(); ++a) {
+            auto& attr = pointAttrs->GetElement(a);
+            if (attr.IsDeleted() || !attr.pointer) continue;
+
+            auto inArray = attr.pointer;
+            int dim = inArray->GetDimension();
+            auto outArray = CreateEmptyArrayOfSameType(inArray, numOutPts);
+            if (!outArray) continue;
+
+            outArray->SetName(inArray->GetName());
+
+            // 填充数据：每个原始点 i 复制到所有层 j (j=0..m_Resolution-1)
+            for (IGsize i = 0; i < numPts; ++i) {
+                for (int j = 0; j < m_Resolution; ++j) {
+                    IGsize outIdx = pointIndices[i][j];
+                    for (int d = 0; d < dim; ++d) {
+                        double val = inArray->GetValue(i * dim + d);
+                        outArray->SetValue(outIdx * dim + d, val);
+                    }
+                }
+            }
+
+            // 按类型添加，保留数据范围
+            DoubleArray::Pointer range = attr.GetDataRange();
+            if (attr.type == IG_SCALAR) {
+                if (range) outputAttrs->AddScalar(IG_POINT, outArray, range);
+                else outputAttrs->AddScalar(IG_POINT, outArray);
+            } else if (attr.type == IG_VECTOR) {
+                if (range) outputAttrs->AddVector(IG_POINT, outArray, range);
+                else outputAttrs->AddVector(IG_POINT, outArray);
+            } else {
+                if (range) outputAttrs->AddAttribute(attr.type, IG_POINT, outArray, range);
+                else outputAttrs->AddAttribute(attr.type, IG_POINT, outArray);
+            }
+        }
+    }
+}
+// -------- 复制单元属性 --------
+bool hasValidCellIds = true;
+for (auto& e : edges) {
+    if (e.cellId == static_cast<IGsize>(-1)) {
+        hasValidCellIds = false;
+        break;
+    }
+}
+
+if (hasValidCellIds && !triCellIds.empty()) {
+    auto cellAttrs = inputAttrs->GetAllCellAttributes();
+    if (cellAttrs && cellAttrs->GetNumberOfElements() > 0) {
+        IGsize numOutCells = triCellIds.size();
+        auto outputAttrs = outputMesh->GetAttributeSet();
+        if (!outputAttrs) {
+            outputAttrs = AttributeSet::New();
+            outputMesh->SetAttributeSet(outputAttrs);
+        }
+
+        for (int a = 0; a < cellAttrs->GetNumberOfElements(); ++a) {
+            auto& attr = cellAttrs->GetElement(a);
+            if (attr.IsDeleted() || !attr.pointer) continue;
+
+            auto inArray = attr.pointer;
+            int dim = inArray->GetDimension();
+            auto outArray = CreateEmptyArrayOfSameType(inArray, numOutCells);
+            if (!outArray) continue;
+
+            outArray->SetName(inArray->GetName());
+
+            // 按 triCellIds 顺序从输入单元属性中取值
+            for (IGsize t = 0; t < numOutCells; ++t) {
+                IGsize cellId = triCellIds[t];
+                if (cellId < inArray->GetNumberOfValues() / dim) {
+                    for (int d = 0; d < dim; ++d) {
+                        double val = inArray->GetValue(cellId * dim + d);
+                        outArray->SetValue(t * dim + d, val);
+                    }
+                } else {
+                    // 若 cellId 无效，置 0 
+                    for (int d = 0; d < dim; ++d) outArray->SetValue(t * dim + d, 0.0);
+                }
+            }
+
+            // 添加到输出
+            DoubleArray::Pointer range = attr.GetDataRange();
+            if (attr.type == IG_SCALAR) {
+                if (range) outputAttrs->AddScalar(IG_CELL, outArray, range);
+                else outputAttrs->AddScalar(IG_CELL, outArray);
+            } else if (attr.type == IG_VECTOR) {
+                if (range) outputAttrs->AddVector(IG_CELL, outArray, range);
+                else outputAttrs->AddVector(IG_CELL, outArray);
+            } else {
+                if (range) outputAttrs->AddAttribute(attr.type, IG_CELL, outArray, range);
+                else outputAttrs->AddAttribute(attr.type, IG_CELL, outArray);
+            }
+        }
+    }
+}
     SetOutput(0, outputMesh);
     return true;
 }
