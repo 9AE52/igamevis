@@ -52,6 +52,8 @@ public:
         Tensor,
         Flow,
         ContourExtract,
+        ExtractEdges,
+        CountCellVertices,
         Slice,
         Deformation,
         Selection,
