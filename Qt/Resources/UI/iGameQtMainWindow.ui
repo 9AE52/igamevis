@@ -1009,6 +1009,7 @@ QLabel#CustomTitleLabel {
      <string>算法处理</string>
     </property>
     <addaction name="action_GlobalIds"/>
+    <addaction name="action_Elevation"/>
    </widget>
    <widget class="QMenu" name="menu_help">
     <property name="title">
@@ -1629,6 +1630,14 @@ QLabel#CustomTitleLabel {
   <action name="action_GlobalIds">
    <property name="text">
     <string>全局ID</string>
+   </property>
+  </action>
+  <action name="action_Elevation">
+   <property name="text">
+    <string>高程场</string>
+   </property>
+   <property name="toolTip">
+    <string>沿任意方向向量生成高程标量场</string>
    </property>
   </action>
   <action name="action_AiChat">
