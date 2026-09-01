@@ -820,6 +820,8 @@ void igQtMainWindow::initAllUnDefinedComponents() {
     this->addDockWidget(Qt::LeftDockWidgetArea, ui->dockWidget_ModelList);
     this->addDockWidget(Qt::LeftDockWidgetArea, ui->dockWidget_ContourExtract);
     this->addDockWidget(Qt::LeftDockWidgetArea, ui->dockWidget_GenerateProcessIds);
+    this->addDockWidget(Qt::LeftDockWidgetArea, ui->dockWidget_ExtractEdges);
+    this->addDockWidget(Qt::LeftDockWidgetArea, ui->dockWidget_CountCellVertices);
 
     // 禁止所有 dock 悬浮：去掉 DockWidgetFloatable
     // 同时为了防止“拖拽标题栏就被扯成系统浮动窗”，这里也把 Movable 去掉（只保留可关闭）。
@@ -840,6 +842,8 @@ void igQtMainWindow::initAllUnDefinedComponents() {
     ui->dockWidget_Animation->setFeatures(QDockWidget::DockWidgetClosable);
     ui->dockWidget_ModelList->setFeatures(QDockWidget::DockWidgetClosable);
     ui->dockWidget_ContourExtract->setFeatures(QDockWidget::DockWidgetClosable);
+    ui->dockWidget_ExtractEdges->setFeatures(QDockWidget::DockWidgetClosable);
+    ui->dockWidget_CountCellVertices->setFeatures(QDockWidget::DockWidgetClosable);
 
     QDockWidget* dockWidget_null = new QDockWidget("", this);
     this->addDockWidget(Qt::RightDockWidgetArea, dockWidget_null);
@@ -861,6 +865,8 @@ void igQtMainWindow::initAllUnDefinedComponents() {
     ui->dockWidget_ModelList->hide();
     ui->dockWidget_ContourExtract->hide();
     ui->dockWidget_GenerateProcessIds->hide();
+    ui->dockWidget_ExtractEdges->hide();
+    ui->dockWidget_CountCellVertices->hide();
     
     // Setup default GUI layout.
     // 启用左侧区域的 tab 功能，使左侧 dockwidget 可以通过 tab 切换
@@ -910,6 +916,8 @@ void igQtMainWindow::initAllUnDefinedComponents() {
     m_leftFieldDock->setWindowTitle(QStringLiteral("工具面板"));
     m_leftFieldDock->setAllowedAreas(Qt::LeftDockWidgetArea);
     m_leftFieldDock->setFeatures(QDockWidget::DockWidgetClosable);
+    // 每个面板的 tab 索引初始化为 -1（未打开）；必须动态 fill，避免枚举增加后错位
+    m_leftToolTabByPanel.fill(-1);
     m_leftFieldTabs = new QTabWidget(m_leftFieldDock);
     m_leftFieldTabs->setObjectName("LeftFieldTabs");
     m_leftFieldTabs->setTabPosition(QTabWidget::North);
@@ -951,6 +959,8 @@ void igQtMainWindow::initAllUnDefinedComponents() {
     makeDockWidgetScrollable(ui->dockWidget_ModelList);
     makeDockWidgetScrollable(ui->dockWidget_ContourExtract);
     makeDockWidgetScrollable(ui->dockWidget_GenerateProcessIds);
+    makeDockWidgetScrollable(ui->dockWidget_ExtractEdges);
+    makeDockWidgetScrollable(ui->dockWidget_CountCellVertices);
     makeDockWidgetScrollable(modelTreeWidget->getPropertiesDock());
 
     // 设置左侧 dock 区域的初始宽度（不锁死，用户仍可拖拽调整）
@@ -3248,6 +3258,11 @@ QAction* volRevAction = ui->menu_filters->addAction(QStringLiteral("旋转体生
         });
     });
 
+    // ===== 任务入口：加入「算法处理」一级菜单 =====
+    // 简单任务 #5（统计单元顶点数）+ 中等任务 #28（边提取）
+    // 与"数据处理/数据转换/特征提取"子菜单并列，作为一级菜单项追加在末尾
+    ui->menu_filters->addAction(ui->action_ExtractEdges);
+    ui->menu_filters->addAction(ui->action_CountCellVertices);
     // ===== AppendReduce: 网格合并去重 =====
     QAction* appendReduceAction = ui->menu_filters->addAction(
             QStringLiteral("网格合并去重 (Append/Reduce)"));
@@ -3739,6 +3754,26 @@ void igQtMainWindow::initAllDockWidgetConnectWithAction() {
         if (!dataObject) return;
         ui->widget_ContourExtract->SetOriginDataObject(dataObject);
     });
+    connect(ui->action_ExtractEdges, &QAction::triggered, this, [this](bool) {
+        openLeftToolPanel(LeftToolPanelId::ExtractEdges);
+        auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
+        if (!scene) return;
+        auto CurrentModel = scene->GetCurrentModel();
+        if (!CurrentModel) return;
+        auto dataObject = CurrentModel->GetDataObject();
+        if (!dataObject) return;
+        ui->widget_ExtractEdges->SetOriginDataObject(dataObject);
+    });
+    connect(ui->action_CountCellVertices, &QAction::triggered, this, [this](bool) {
+        openLeftToolPanel(LeftToolPanelId::CountCellVertices);
+        auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
+        if (!scene) return;
+        auto CurrentModel = scene->GetCurrentModel();
+        if (!CurrentModel) return;
+        auto dataObject = CurrentModel->GetDataObject();
+        if (!dataObject) return;
+        ui->widget_CountCellVertices->SetOriginDataObject(dataObject);
+    });
     connect(ui->action_GenerateChart, &QAction::triggered, this, [&](bool checked) {
         auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
         if (!scene) return;
@@ -4026,6 +4061,8 @@ QDockWidget* igQtMainWindow::shellDockForLeftPanel(LeftToolPanelId id) const {
     case LeftToolPanelId::Flow: return ui->dockWidget_FlowField;
     case LeftToolPanelId::ContourExtract: return ui->dockWidget_ContourExtract;
     case LeftToolPanelId::GenerateProcessIds: return ui->dockWidget_GenerateProcessIds;
+    case LeftToolPanelId::ExtractEdges: return ui->dockWidget_ExtractEdges;
+    case LeftToolPanelId::CountCellVertices: return ui->dockWidget_CountCellVertices;
     case LeftToolPanelId::Slice: return SliceDockWidget;
     case LeftToolPanelId::Deformation: return DeformationDockWidget;
     case LeftToolPanelId::Selection: return ui->dockWidget_SelectionField;
@@ -4121,6 +4158,12 @@ void igQtMainWindow::openLeftToolPanel(LeftToolPanelId id) {
         break;
     case LeftToolPanelId::GenerateProcessIds:
         relocateContentToLeftTab(ui->dockWidget_GenerateProcessIds, ui->widget_GenerateProcessIds, QStringLiteral("生成进程ID"), id, false);
+        break;
+    case LeftToolPanelId::ExtractEdges:
+        relocateContentToLeftTab(ui->dockWidget_ExtractEdges, ui->widget_ExtractEdges, QStringLiteral("边提取"), id, false);
+        break;
+    case LeftToolPanelId::CountCellVertices:
+        relocateContentToLeftTab(ui->dockWidget_CountCellVertices, ui->widget_CountCellVertices, QStringLiteral("统计单元顶点数"), id, false);
         break;
     case LeftToolPanelId::Slice:
         relocateContentToLeftTab(SliceDockWidget, SliceWidget, QStringLiteral("网格切面"), id, false);
@@ -4219,6 +4262,16 @@ void igQtMainWindow::initAllMySignalConnections() {
         ui->widget_Animation->initAnimationComponents();
     });
     connect(fileLoader, &igQtFileLoader::FinishReading, DeformationWidget, &igQtDeformationWidget::updateInfo);
+
+    connect(ui->widget_ExtractEdges, &igQtExtractEdgesWidget::DrawEdgesModel, this,
+            [&](iGame::DataObject::Pointer res) {
+                modelTreeWidget->addDataObjectToModelTree(res, ItemSource::Algorithm);
+            });
+    connect(ui->widget_ExtractEdges, &igQtExtractEdgesWidget::UpdateEdgesModel, this,
+            [&](DataObject::Pointer mesh) {
+                modelTreeWidget->updateCurrentModelInfo();
+                rendererWidget->update();
+            });
 
     connect(fileLoader, &igQtFileLoader::FinishReading, this, [&]() {
         auto scene = iGame::SceneManager::Instance()->GetCurrentScene();
