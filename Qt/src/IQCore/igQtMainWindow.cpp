@@ -59,6 +59,7 @@
 #include <IQWidgets/igQtAiChat/igQtCommandManager.h>
 #include <IQWidgets/igQtCharts.h>
 #include <IQWidgets/igQtDeformationWidget.h>
+#include <IQWidgets/igQtExtractLocationWidget.h>
 #include <IQWidgets/igQtGlobalIdWidget.h>
 #include <IQWidgets/igQtExtractCellsByTypeWidget.h>
 #include <IQWidgets/igQtModelClipWidget.h>
@@ -127,9 +128,18 @@
 #include <QLineEdit>
 #include <QFormLayout>
 #include <QDialogButtonBox>
+#include <QCheckBox>
 #include <QDoubleSpinBox>
 #include <QLabel>
 #include <QComboBox>
+#include <QDoubleSpinBox>
+#include <QGroupBox>
+#include <QHeaderView>
+#include <QTableWidget>
+
+#include <algorithm>
+#include <limits>
+#include <memory>
 
 #include "AppendLocationAttribute/iGameAppendLocationAttribute.h"
 
@@ -1595,6 +1605,26 @@ void igQtMainWindow::initAllFilters() {
         }
     };
 
+    // 直接置于“算法处理”一级菜单；具体界面和交互由独立面板负责。
+    QAction* extractLocationAction = ui->menu_filters->addAction(
+            QStringLiteral("提取指定位置数据 (Extract Location)"));
+    connect(extractLocationAction, &QAction::triggered, this, [this]() {
+        auto model = rendererWidget->GetScene()->GetCurrentModel();
+        if (!model) {
+            showDarkFramelessMessage(QStringLiteral("提取指定位置数据"),
+                                     QStringLiteral("请先在模型树中选择一个网格模型。"));
+            return;
+        }
+        auto* panel = new igQtExtractLocationWidget(rendererWidget, modelTreeWidget, model, this);
+        if (!panel->isReady()) {
+            showDarkFramelessMessage(QStringLiteral("提取指定位置数据"),
+                                     QStringLiteral("当前仅支持非结构网格（UnstructuredMesh）；操作已取消。"));
+            panel->deleteLater();
+            return;
+        }
+        panel->show();
+        panel->raise();
+        panel->activateWindow();
     QMenu* mesh_processing = ui->menu_filters->addMenu(QStringLiteral("数据处理 (Data Processing)"));
 
     QAction* shrinkAction = ui->menu_filters->addAction(QStringLiteral("单元收缩 (Shrink)"));
@@ -2460,8 +2490,6 @@ void igQtMainWindow::initAllFilters() {
         // 用户随后改勾选再点"提取"即在该新模型上更新
         m_extractCellsByTypeWidget->onApply();
     });
-    
-
     QAction* countCellFaces = view->addAction(
             QStringLiteral("统计单元面数 (Count Cell Faces)"));
     connect(countCellFaces, &QAction::triggered, this, [this](bool) {

@@ -244,6 +244,7 @@ igame_add_example(testGetPointsInFrustum Filter/Selection/TestGetPointsInFrustum
 igame_add_example(testGetCellsInFrustum Filter/Selection/TestGetCellsInFrustum.cpp)
 
 # Data processing
+igame_add_example(testExtractLocation Filter/DataProcessing/ExtractLocation/TestExtractLocation.cpp)
 igame_add_example(testOverlappingCellsDetector
     Filter/DataProcessing/OverlappingCellsDetector/TestOverlappingCellsDetector.cpp)
 
