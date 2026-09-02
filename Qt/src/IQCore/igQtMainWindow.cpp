@@ -2702,7 +2702,7 @@ void igQtMainWindow::initAllFilters() {
        });
   
     QAction* featureRegion = ui->menu_filters->addAction(QStringLiteral("特征区域Id (FeatureEdgeRegion id)"));
-    connect(featureRegion, &QAction::triggered, this, [&](bool checked){
+    connect(featureRegion, &QAction::triggered, this, [&](bool checked) {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
         igQtFilterDialogDockWidget* dialog = new igQtFilterDialogDockWidget(this, true);
         auto data = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
@@ -2715,11 +2715,8 @@ void igQtMainWindow::initAllFilters() {
             return;
         }
         dialog->setFilterTitle(QStringLiteral("特征区域id"));
-        int angleId = dialog->addParameter(
-            igQtFilterDialogDockWidget ::QT_LINE_EDIT,
-            QStringLiteral("特征角度"), 
-            "30.0"
-        );
+        int angleId =
+                dialog->addParameter(igQtFilterDialogDockWidget ::QT_LINE_EDIT, QStringLiteral("特征角度"), "30.0");
         dialog->show();
         dialog->setApplyFunctor([=, this]() {
             bool ok;
@@ -2740,12 +2737,12 @@ void igQtMainWindow::initAllFilters() {
                     featureEdgeMesh = DynamicCast<UnstructuredMesh>(featureEdgeOutput);
                 }
             }
-            if (featureEdgeMesh == nullptr) featureEdgeMesh = UnstructuredMesh::New(); 
+            if (featureEdgeMesh == nullptr) featureEdgeMesh = UnstructuredMesh::New();
             auto filter = FeatureEdgeRegionFilter::New();
             filter->SetInput(0, surfaceMesh);
             filter->SetInput(1, featureEdgeMesh);
 
-            if (!filter->Execute()) { 
+            if (!filter->Execute()) {
                 showDarkFramelessMessage(QStringLiteral("执行失败"), QStringLiteral("生成区域id失败"));
                 return;
             }
@@ -2753,7 +2750,7 @@ void igQtMainWindow::initAllFilters() {
             rendererWidget->update();
             dialog->close();
         });
-   
+    });
 
     connect(ui->menu_filters->addAction(QStringLiteral("体网格简化 (Volume Mesh Simplification)")), &QAction::triggered,
             this, [&](bool checked) {
