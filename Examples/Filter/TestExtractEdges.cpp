@@ -45,9 +45,11 @@ int main() {
             std::cerr << "[testExtractEdges] FAIL: cell " << i << " is not LINE\n" << std::flush;
             return 1;
         }
-        if (out->GetCellSize(i) != 2) {
-            std::cerr << "[testExtractEdges] FAIL: cell " << i << " size " << out->GetCellSize(i)
-                      << " != 2\n" << std::flush;
+        const igIndex* pointIds = nullptr;
+        const int cellSize = out->GetCellPointIds(i, pointIds);
+
+        if (cellSize != 2) {
+            std::cerr << "[testExtractEdges] FAIL: cell " << i << " size " << cellSize << " != 2\n" << std::flush;
             return 1;
         }
     }
