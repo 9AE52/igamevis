@@ -39,8 +39,8 @@ int main() {
         return 1;
     }
 
-    const iGame::IGsize edgeNum = out->GetNumberOfCells();
-    for (iGame::IGsize i = 0; i < edgeNum; ++i) {
+    const IGsize edgeNum = out->GetNumberOfCells();
+    for (IGsize i = 0; i < edgeNum; ++i) {
         if (out->GetCellType(i) != iGame::IG_LINE) {
             std::cerr << "[testExtractEdges] FAIL: cell " << i << " is not LINE\n" << std::flush;
             return 1;
