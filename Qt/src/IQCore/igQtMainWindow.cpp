@@ -2935,15 +2935,22 @@ void igQtMainWindow::initAllFilters() {
         }
 
         auto scene = rendererWidget->GetScene();
-        if (!scene) { showDarkFramelessMessage(QStringLiteral("Warning"), QStringLiteral("场景未初始化。")); }
+        if (!scene) {
+            showDarkFramelessMessage(QStringLiteral("Warning"), QStringLiteral("场景未初始化。"));
+            return;
+        }
 
         auto currentModel = scene->GetCurrentModel();
         if (!currentModel) {
             showDarkFramelessMessage(QStringLiteral("Warning"), QStringLiteral("未能获取当前选定模型。"));
+            return;
         }
 
         auto obj = currentModel->GetDataObject();
-        if (!obj) { showDarkFramelessMessage(QStringLiteral("Warning"), QStringLiteral("未能获取DataObject。")); }
+        if (!obj) {
+            showDarkFramelessMessage(QStringLiteral("Warning"), QStringLiteral("未能获取DataObject。"));
+            return;
+        }
 
         auto multiBlockFilter = MultiBlockGeometryFilter::New();
         multiBlockFilter->SetInput(obj);
