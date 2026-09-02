@@ -173,12 +173,6 @@ private:
     std::array<int, static_cast<size_t>(LeftToolPanelId::Count)> m_leftToolTabByPanel{
             {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1}};
 
-    // 按单元类型提取面板及运行状态
-    QDockWidget* m_extractCellsByTypeShell = nullptr;
-    igQtExtractCellsByTypeWidget* m_extractCellsByTypeWidget = nullptr;
-    iGame::ExtractCellsByTypeFilter::Pointer m_extractCellsByTypeFilter;
-    iGame::Model::Pointer m_extractCellsByTypeModel;
-
     void relocateContentToLeftTab(QDockWidget* shell, QWidget* inner, const QString& title, LeftToolPanelId id,
                                   bool centerFlowField);
     QWidget* wrapContentInScrollArea(QWidget* content, QWidget* parent, bool centerFlowField);
