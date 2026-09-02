@@ -3,8 +3,8 @@
 // Created by m_ky on 2024/4/10.
 //
 
+#include "ModelSurface/iGameMultiBlockGeometryFilter.h"
 #include "BoundaryMeshQuality/iGameBoundaryMeshQualityFilter.h"
-#include "MeshMetrics/iGameVolumeMeshMetricsFilter.h"
 #include "Deformation/iGameStressDeformationFilterCode.h"
 
 #include "DataProcessing/Tests/iGameGradient.h"
@@ -2929,8 +2929,38 @@ void igQtMainWindow::initAllFilters() {
         }
     });
 
+    connect(ui->menu_filters->addAction("多块模型表面提取"), &QAction::triggered, this, [&](bool checked) {
+        if (!rendererWidget) {
+            showDarkFramelessMessage(QStringLiteral("Warning"), QStringLiteral("渲染器组件未初始化。"));
+        }
+
+        auto scene = rendererWidget->GetScene();
+        if (!scene) { showDarkFramelessMessage(QStringLiteral("Warning"), QStringLiteral("场景未初始化。")); }
+
+        auto currentModel = scene->GetCurrentModel();
+        if (!currentModel) {
+            showDarkFramelessMessage(QStringLiteral("Warning"), QStringLiteral("未能获取当前选定模型。"));
+        }
+
+        auto obj = currentModel->GetDataObject();
+        if (!obj) { showDarkFramelessMessage(QStringLiteral("Warning"), QStringLiteral("未能获取DataObject。")); }
+
+        auto multiBlockFilter = MultiBlockGeometryFilter::New();
+        multiBlockFilter->SetInput(obj);
+        if (!multiBlockFilter->Execute()) {
+            showDarkFramelessMessage(QStringLiteral("Warning"), QStringLiteral("多块模型表面提取失败。"));
+            return;
+        }
+
+        auto multiBlockObj = multiBlockFilter->GetOutput();
+        multiBlockObj->SetName(obj->GetName() + "_MultiBlockSurface");
+        modelTreeWidget->addDataObjectToModelTree(multiBlockObj, Algorithm);
+
+        rendererWidget->update();
+       });
+  
     QAction* featureRegion = ui->menu_filters->addAction(QStringLiteral("特征区域Id (FeatureEdgeRegion id)"));
-    connect(featureRegion, &QAction::triggered, this, [&](bool checked){
+    connect(featureRegion, &QAction::triggered, this, [&](bool checked) {
         if (rendererWidget->GetScene()->GetCurrentModel() == nullptr) return;
         igQtFilterDialogDockWidget* dialog = new igQtFilterDialogDockWidget(this, true);
         auto data = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
@@ -2943,11 +2973,8 @@ void igQtMainWindow::initAllFilters() {
             return;
         }
         dialog->setFilterTitle(QStringLiteral("特征区域id"));
-        int angleId = dialog->addParameter(
-            igQtFilterDialogDockWidget ::QT_LINE_EDIT,
-            QStringLiteral("特征角度"), 
-            "30.0"
-        );
+        int angleId =
+                dialog->addParameter(igQtFilterDialogDockWidget ::QT_LINE_EDIT, QStringLiteral("特征角度"), "30.0");
         dialog->show();
         dialog->setApplyFunctor([=, this]() {
             bool ok;
@@ -2968,12 +2995,12 @@ void igQtMainWindow::initAllFilters() {
                     featureEdgeMesh = DynamicCast<UnstructuredMesh>(featureEdgeOutput);
                 }
             }
-            if (featureEdgeMesh == nullptr) featureEdgeMesh = UnstructuredMesh::New(); 
+            if (featureEdgeMesh == nullptr) featureEdgeMesh = UnstructuredMesh::New();
             auto filter = FeatureEdgeRegionFilter::New();
             filter->SetInput(0, surfaceMesh);
             filter->SetInput(1, featureEdgeMesh);
 
-            if (!filter->Execute()) { 
+            if (!filter->Execute()) {
                 showDarkFramelessMessage(QStringLiteral("执行失败"), QStringLiteral("生成区域id失败"));
                 return;
             }
