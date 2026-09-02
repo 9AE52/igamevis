@@ -64,6 +64,7 @@
 #include <IQWidgets/igQtExtractLocationWidget.h>
 #include <IQWidgets/igQtGlobalIdWidget.h>
 #include <IQWidgets/igQtExtractCellsByTypeWidget.h>
+#include <IQWidgets/igQtPointAndCellIdsWidget.h>
 #include <IQWidgets/igQtModelClipWidget.h>
 #include <IQWidgets/igQtModelDrawWidget.h>
 #include <IQWidgets/igQtModelInformationWidget.h>
@@ -901,6 +902,37 @@ void igQtMainWindow::initAllUnDefinedComponents() {
     connect(GlobalIdDockWidget, &QDockWidget::visibilityChanged, this, [this](bool visible) {
         if (!visible && GlobalIdWidget) GlobalIdWidget->resetOffsets();
     });
+
+    // 初始化点与单元 ID 参数面板
+    PointAndCellIdsDockWidget = igQtPointAndCellIdsWidget::createDockWidget(this);
+    PointAndCellIdsWidget = qobject_cast<igQtPointAndCellIdsWidget*>(PointAndCellIdsDockWidget->widget());
+
+    this->addDockWidget(Qt::RightDockWidgetArea, PointAndCellIdsDockWidget);
+    PointAndCellIdsDockWidget->resize(400, 300);
+    PointAndCellIdsDockWidget->hide();
+
+    connect(PointAndCellIdsWidget,
+        &igQtPointAndCellIdsWidget::cancelRequested,
+        PointAndCellIdsDockWidget,
+        &QDockWidget::hide);
+
+    // Filter 完成后刷新模型属性和渲染
+    connect(PointAndCellIdsWidget,
+        &igQtPointAndCellIdsWidget::idsGenerated,
+        this,
+        [this]() {
+            auto scene = rendererWidget->GetScene();
+            auto model = scene ? scene->GetCurrentModel() : nullptr;
+            if (!model) return;
+
+            auto data = model->GetDataObject();
+            if (!data) return;
+
+            modelTreeWidget->updateAllAttriubute(data);
+            modelTreeWidget->updateCurrentModelInfo();
+            rendererWidget->update();
+        });
+
     auto makeWidgetScrollable = [&](QWidget* content, QWidget* parent) -> QWidget* {
         if (!content) return nullptr;
         if (qobject_cast<QScrollArea*>(content)) return content;
@@ -1596,6 +1628,47 @@ void igQtMainWindow::initAllFilters() {
         QTimer::singleShot(
                 0, this, [this]() { GlobalIdWidget->setCurrentModel(rendererWidget->GetScene()->GetCurrentModel()); });
     });
+
+    // 添加 Point And Cell IDs 一级菜单项
+    QAction* pointAndCellIdsAction =ui->menu_filters->addAction(
+        QStringLiteral("生成点与单元ID (Point And Cell IDs)"));
+
+    connect(pointAndCellIdsAction,
+        &QAction::triggered,
+        this,
+        [this](bool) {
+            auto scene = rendererWidget->GetScene();
+            auto model = scene ? scene->GetCurrentModel() : nullptr;
+
+            if (!model) {
+                showDarkFramelessMessage(
+                        QStringLiteral("点与单元ID"),
+                        QStringLiteral("请先选择一个模型。"));
+                return;
+            }
+
+            PointAndCellIdsWidget->setCurrentModel(model);
+            PointAndCellIdsDockWidget->show();
+            PointAndCellIdsDockWidget->raise();
+            PointAndCellIdsWidget->setFocus(Qt::OtherFocusReason);
+        });
+
+        // 面板开启时同步当前选中模型
+    connect(modelTreeWidget,
+        &igQtModelDialogWidget::CurrendModelChanged,
+        this,
+        [this]() {
+            if (!PointAndCellIdsDockWidget ||
+                !PointAndCellIdsDockWidget->isVisible()) {
+                return;
+            }
+
+            QTimer::singleShot(0, this, [this]() {
+                auto scene = rendererWidget->GetScene();
+                PointAndCellIdsWidget->setCurrentModel(
+                        scene ? scene->GetCurrentModel() : nullptr);
+            });
+        });
 
     /* Data Processing 前两档：加宽以容纳较长参数标签，并关闭参数区滚动条（内容较少无需滚动） */
     auto tuneMeshSimplifyFilterDialog = [](igQtFilterDialogDockWidget* d) {
@@ -2471,6 +2544,29 @@ void igQtMainWindow::initAllFilters() {
 
     //connect(mesh_processing->addAction("Test2"), &QAction::triggered, this, [&](bool checked) { 
     //    auto obj = rendererWidget->GetScene()->GetCurrentModel()->GetDataObject();
+
+    //    auto filter = iGame::VolumeMeshMetricsFilter::New();
+    //    filter->SetVolumeMetric(VolumeMeshMetricsFilter::HEX_VOLUME);
+    //    filter->SetInput(obj);
+    //    filter->Execute();
+
+    //    modelTreeWidget->addDataObjectToModelTree(filter->GetOutput(), Algorithm);
+    //    rendererWidget->update();
+    //    });
+    //connect(mesh_processing->addAction("Test3"), &QAction::triggered, this, [&](bool checked) 
+    //    { 
+    //        CellArray::Pointer cellArray = CellArray::New();
+    //        clock_t start = clock();
+    //        igIndex cell[3]{};
+    //        cellArray->AddCellIds(cell, 2);
+    //        for (int i = 0; i < 10000000; i++) { 
+    //            cellArray->AddCellIds(cell, 3);
+    //        }
+    //        clock_t end = clock();
+    //        std::cout << end - start << std::endl;
+
+    //    });
+
     
     // 按单元类型提取：直接作为【算法处理】一级菜单项（不嵌套子菜单）
     connect(ui->menu_filters->addAction(QStringLiteral("按单元类型提取 (Extract Cells By Type)")), &QAction::triggered,
@@ -2533,6 +2629,8 @@ void igQtMainWindow::initAllFilters() {
         // 用户随后改勾选再点"提取"即在该新模型上更新
         m_extractCellsByTypeWidget->onApply();
     });
+
+
     QAction* countCellFaces = view->addAction(
             QStringLiteral("统计单元面数 (Count Cell Faces)"));
     connect(countCellFaces, &QAction::triggered, this, [this](bool) {
