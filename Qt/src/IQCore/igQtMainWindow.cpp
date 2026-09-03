@@ -15,7 +15,7 @@
 #include "DataProcessing/iGameMeshSimplificationFilter.h"
 #include "DataProcessing/iGameMeshSimplificationFilterPro.h"
 #include "DataProcessing/iGameMeshTriangulationFilter.h"
-#include "DataProcessing/iGameMaskPointsFilter.h"
+#include "MaskPoints/iGameMaskPointsFilter.h"
 #include "DataProcessing/OverlappingCellsDetector/iGameOverlappingCellsDetectorFilter.h"
 #include "DataProcessing/Simplification/iGameMeshSaliency.h"
 #include "DataProcessing/Simplification/iGameMeshSimplificationWithAttributes.h"
@@ -1669,7 +1669,7 @@ void igQtMainWindow::initAllFilters() {
     });
     QMenu* mesh_processing = ui->menu_filters->addMenu(QStringLiteral("数据处理 (Data Processing)"));
 
-    connect(mesh_processing->addAction(QStringLiteral("点抽样（Mask Points）")), &QAction::triggered, this,
+    connect(ui->menu_filters->addAction(QStringLiteral("点抽样（Mask Points）")), &QAction::triggered, this,
             [&](bool checked) {
                 if (rendererWidget->GetScene() == nullptr || rendererWidget->GetScene()->GetCurrentModel() == nullptr) {
                     return;

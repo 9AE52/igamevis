@@ -233,8 +233,8 @@ igame_add_example(testVariableCorrelationData Filter/VisualizationData/TestVaria
 igame_add_example(testVariableDensityData Filter/VisualizationData/TestVariableDensityData.cpp)
 igame_add_example(testPlotLineData Filter/VisualizationData/TestPlotLineData.cpp)
 
-# DataProcessing
-igame_add_example(testMaskPoints Filter/DataProcessing/TestMaskPoints.cpp)
+# MaskPoints
+igame_add_example(testMaskPoints Filter/MaskPoints/TestMaskPoints.cpp)
 
 # Selection
 igame_add_example(testSetSelectionCallBack Filter/Selection/TestSetSelectionCallBack.cpp)

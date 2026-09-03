@@ -1,4 +1,4 @@
-#include <DataProcessing/iGameMaskPointsFilter.h>
+#include <MaskPoints/iGameMaskPointsFilter.h>
 #include <iGameAttributeSet.h>
 #include <iGameFlatArray.h>
 #include <iGameUnstructuredMesh.h>
